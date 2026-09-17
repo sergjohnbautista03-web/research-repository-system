@@ -25,74 +25,7 @@
                 <span class="home-kicker">PhilCST Research Portal</span>
                 <h1 id="home-title">Ube Research Repository</h1>
                 <p>Discover approved academic research, browse by college, and open protected repository records in one focused workspace.</p>
-
             </div>
-
-            <form action="{{ route('home') }}" method="GET" class="home-search-panel" aria-label="Search research">
-                <div class="home-search-head">
-                    <span class="home-search-icon" aria-hidden="true">
-                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                    </span>
-                    <div>
-                        <h2>Search the collection</h2>
-                        <p>Find papers by title, author, abstract, department, or year.</p>
-                    </div>
-                </div>
-
-                <div class="home-search-row">
-                    <label for="hero-search">Keyword</label>
-                    <input id="hero-search" type="text" name="search" value="{{ request('search') }}" placeholder="Title, author, keyword..." autocomplete="off">
-                </div>
-
-                <div class="home-filter-grid">
-                    <div class="home-search-row">
-                        <label for="hero-field">Search By</label>
-                        <select id="hero-field" name="field">
-                            <option value="all" {{ request('field', 'all') == 'all' ? 'selected' : '' }}>All Fields</option>
-                            <option value="title" {{ request('field') == 'title' ? 'selected' : '' }}>Title</option>
-                            <option value="author" {{ request('field') == 'author' ? 'selected' : '' }}>Author</option>
-                            <option value="abstract" {{ request('field') == 'abstract' ? 'selected' : '' }}>Abstract</option>
-                        </select>
-                    </div>
-
-                    <div class="home-search-row">
-                        <label for="hero-department">Department</label>
-                        <select id="hero-department" name="department">
-                            <option value="">All Departments</option>
-                            @foreach($departmentOptions as $dept)
-                                <option value="{{ $dept }}" {{ $activeDepartment == $dept ? 'selected' : '' }}>{{ $dept }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-
-                <div class="home-year-grid">
-                    <div class="home-search-row">
-                        <label for="hero-year-from">From</label>
-                        <input id="hero-year-from" type="number" name="year_from" value="{{ request('year_from') }}" placeholder="{{ $minResearchYear }}" min="{{ $minResearchYear }}" max="{{ $maxResearchYear }}">
-                    </div>
-                    <div class="home-search-row">
-                        <label for="hero-year-to">To</label>
-                        <input id="hero-year-to" type="number" name="year_to" value="{{ request('year_to') }}" placeholder="{{ $maxResearchYear }}" min="{{ $minResearchYear }}" max="{{ $maxResearchYear }}">
-                    </div>
-                </div>
-
-                <div class="home-search-actions">
-                    <button type="submit" class="btn btn-primary btn-full">
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
-                            <circle cx="11" cy="11" r="8"/>
-                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                        </svg>
-                        Search Research
-                    </button>
-                    @if($hasFilters)
-                        <a href="{{ route('home') }}" class="btn btn-ghost btn-full">Clear Filters</a>
-                    @endif
-                </div>
-            </form>
         </div>
     </section>
 

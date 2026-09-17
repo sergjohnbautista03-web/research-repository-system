@@ -15,11 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin'       => \App\Http\Middleware\AdminMiddleware::class,
             'policy.accepted' => \App\Http\Middleware\EnsureRepositoryPolicyAccepted::class,
             'track-last-seen' => \App\Http\Middleware\TrackLastSeen::class,
-            'researcher.expiry' => \App\Http\Middleware\CheckResearcherExpiry::class,
         ]);
 
         $middleware->web(append: [
-            \App\Http\Middleware\CheckResearcherExpiry::class,
             \App\Http\Middleware\TrackLastSeen::class,
         ]);
     })

@@ -5,6 +5,11 @@
 @section('content')
 @php
     $adminUser = auth()->user();
+    $authorMetaLabel = match ($research->submission_category) {
+        \App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL => 'Researchers',
+        \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL => 'Co-author(s)',
+        default => 'Author',
+    };
 @endphp
 
 <div class="rd-shell">
@@ -36,7 +41,7 @@
         <div class="rd-meta-grid">
             <div class="rd-meta-item">
                 <div class="rd-meta-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                <div><span class="rd-meta-label">Author</span><span class="rd-meta-value">{{ $research->author_name }}</span></div>
+                <div><span class="rd-meta-label">{{ $authorMetaLabel }}</span><span class="rd-meta-value">{{ $research->authorListLabel() }}</span></div>
             </div>
             <div class="rd-meta-item">
                 <div class="rd-meta-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
@@ -62,6 +67,12 @@
                 <div class="rd-meta-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
                 <div><span class="rd-meta-label">Views</span><span class="rd-meta-value">{{ number_format($research->view_count) }}</span></div>
             </div>
+            @if($research->issn)
+                <div class="rd-meta-item">
+                    <div class="rd-meta-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg></div>
+                    <div><span class="rd-meta-label">ISSN</span><span class="rd-meta-value">{{ $research->issn }}</span></div>
+                </div>
+            @endif
         </div>
 
         {{-- ABSTRACT --}}
@@ -226,32 +237,7 @@
 .rd-file-name{flex:1;font-size:14px;font-weight:600;color:#1a0638;word-break:break-all;}
 .rd-file-actions{display:flex;gap:8px;flex-shrink:0;}
 .rd-no-file{font-size:14px;color:#a090bc;font-style:italic;}
-.rd-download-filter{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:12px;border:1px solid #f0eaf9;border-radius:12px;background:#faf8ff;}
-.rd-download-filter-field{display:flex;flex-direction:column;gap:5px;min-width:190px;}
-.rd-download-department-field{min-width:320px;}
-.rd-download-filter-field label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8b6db5;}
-.rd-download-filter-field select{height:38px;border:1.5px solid #e2d5f4;border-radius:10px;background:#fff;color:#1a0638;padding:0 12px;font:inherit;font-size:13px;}
-.rd-download-filter-btn,
-.rd-download-filter-reset{height:38px;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius:10px;font-size:12px;font-weight:800;text-decoration:none;}
-.rd-download-filter-btn{border:none;background:#5b21b6;color:#fff;cursor:pointer;font-family:inherit;}
-.rd-download-filter-reset{border:1.5px solid #e2d5f4;background:#fff;color:#6b2fa0;}
-.rd-download-table-wrap{overflow-x:auto;border:1px solid #f0eaf9;border-radius:12px;}
-.rd-download-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff;table-layout:fixed;}
-.rd-download-table thead{background:#faf8ff;border-bottom:1px solid #f0eaf9;}
-.rd-download-table th{padding:11px 14px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8b6db5;white-space:nowrap;}
-.rd-download-table td{padding:13px 14px;border-bottom:1px solid #f7f1ff;color:#1a0638;vertical-align:top;}
-.rd-download-table th:nth-child(1),.rd-download-table td:nth-child(1){width:32%;}
-.rd-download-table th:nth-child(2),.rd-download-table td:nth-child(2){width:14%;}
-.rd-download-table th:nth-child(3),.rd-download-table td:nth-child(3){width:24%;}
-.rd-download-table th:nth-child(4),.rd-download-table td:nth-child(4){width:30%;}
-.rd-download-table tbody tr:last-child td{border-bottom:none;}
-.rd-dl-name{font-weight:700;color:#1a0638;overflow-wrap:anywhere;}
-.rd-dl-sub{font-size:12px;color:#a090bc;margin-top:2px;word-break:break-word;}
-.rd-dl-role{display:inline-flex;padding:4px 9px;border-radius:999px;background:#f0eaf9;color:#6b2fa0;font-size:11px;font-weight:700;}
-.rd-dl-date{font-weight:700;color:#1a0638;}
-.rd-download-pagination{padding-top:12px;}
-.rd-download-empty{padding:18px;border:1px dashed #e2d5f4;border-radius:12px;background:#faf8ff;color:#a090bc;font-size:14px;text-align:center;}
-.rd-rejection{background:#fef2f2;border-top:1px solid #fecaca;border-bottom:1px solid #fecaca;}
+.rd-rejection{background:#fef2f2;border-top:1px solid #fecaca;border-bottom:1px solid #fecaca;
 .rd-rejection .rd-section-title{color:#b91c1c;}
 .rd-rejection-text{font-size:14px;line-height:1.75;color:#7f1d1d;margin:0;}
 .rd-actions{display:flex;align-items:center;gap:10px;padding:20px 36px;background:linear-gradient(160deg,#fdfbff 0%,#f8f4fe 100%);border-top:1px solid #f0eaf9;}
@@ -304,25 +290,6 @@ function togglePdfViewer() {
         btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View';
     }
 }
-
-function toggleDownloadDepartmentFilter() {
-    const roleSelect = document.getElementById('download_role');
-    const departmentWrap = document.getElementById('downloadDepartmentFilter');
-    const departmentSelect = document.getElementById('download_department');
-
-    if (!roleSelect || !departmentWrap || !departmentSelect) {
-        return;
-    }
-
-    const shouldShow = roleSelect.value === 'department_dean';
-    departmentWrap.style.display = shouldShow ? 'flex' : 'none';
-
-    if (!shouldShow) {
-        departmentSelect.value = '';
-    }
-}
-
-toggleDownloadDepartmentFilter();
 
 function openRejectModal(id) {
     document.getElementById('rejectForm').action = '/admin/researches/' + id + '/reject';

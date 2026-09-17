@@ -131,10 +131,25 @@
                     <td data-label="Views"><span class="mr-views">{{ number_format($r->view_count) }}</span></td>
                     <td data-label="Actions" class="action-cell">
                         <div class="research-action-row">
-                            <a href="{{ route('admin.research.show', $r) }}" class="btn-action-view">
+                            <button type="button" class="btn-action-view js-open-research-modal" data-research="{{ json_encode([
+                                'id' => $r->id,
+                                'title' => $r->title,
+                                'author' => $r->author_name,
+                                'department' => $r->department,
+                                'type' => $r->getSubmissionCategoryLabel() . ': ' . $r->getTypeLabel(),
+                                'year' => $r->year_published,
+                                'status' => ucfirst($r->status),
+                                'views' => number_format($r->view_count),
+                                'submitted' => optional($r->created_at)->format('F d, Y'),
+                                'abstract' => $r->abstract,
+                                'keywords' => $r->keywords,
+                                'adviser' => $r->adviser ?? '',
+                                'fileName' => $r->file_name,
+                                'fileUrl' => $r->file_path ? route('admin.research.view-file', $r) : null,
+                            ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                 View
-                            </a>
+                            </button>
 
                             @if($r->status == 'pending' && ! $adminUser->isDepartmentDean())
                                 <form method="POST" action="{{ route('admin.research.approve', $r) }}">
@@ -401,7 +416,7 @@
 }
 .mr-table {
     width: 100%;
-    min-width: 1120px;
+    min-width: 1240px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13.5px;
@@ -434,7 +449,7 @@
     border-bottom: none;
 }
 .mr-title-cell {
-    min-width: 260px;
+    min-width: 420px;
 }
 .mr-title-link {
     display: inline;
@@ -473,12 +488,29 @@
 }
 .mr-department {
     display: inline-flex;
-    max-width: 220px;
+    max-width: 340px;
 }
 .mr-year,
 .mr-views {
     color: #210945;
     font-weight: 800;
+}
+.mr-table th:nth-child(1){min-width:420px}
+.mr-table th:nth-child(2){min-width:220px}
+.mr-table th:nth-child(3){min-width:300px}
+.mr-table th:nth-child(4){min-width:140px}
+.mr-table th:nth-child(5){min-width:80px}
+.mr-table th:nth-child(6){min-width:120px}
+.mr-table th:nth-child(7){min-width:80px}
+.mr-table th:nth-child(8){min-width:150px}
+
+/* Reduce horizontal padding on small columns to save space */
+.mr-table td:nth-child(4),
+.mr-table td:nth-child(5),
+.mr-table td:nth-child(6),
+.mr-table td:nth-child(7),
+.mr-table td:nth-child(8) {
+    padding: 14px 10px;
 }
 .mr-table .type-badge,
 .mr-table .status-badge {
@@ -504,12 +536,12 @@
     color: #991b1b;
 }
 .action-cell {
-    min-width: 250px;
+    min-width: 150px;
 }
 .research-action-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 .research-action-row form {
     margin: 0;
@@ -689,6 +721,232 @@
     font-size: 22px;
 }
 
+/* ── Research Detail Modal (base styles - works on all screen sizes) ── */
+.ra-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(19,8,38,.58);
+    backdrop-filter: blur(4px);
+}
+.ra-modal.is-open {
+    display: flex;
+}
+.ra-modal-dialog {
+    width: min(1100px, 95%);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e7daf7;
+    border-radius: 20px;
+    box-shadow: 0 30px 90px rgba(26,6,56,.32);
+    overflow: hidden;
+}
+.ra-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 28px 0;
+    background: linear-gradient(160deg, #fdfbff 0%, #f8f4fe 100%);
+    border-bottom: 1px solid #f0eaf9;
+}
+.ra-modal-title {
+    margin: 0 0 8px;
+    color: #230a42;
+    font-size: 22px;
+    line-height: 1.2;
+    font-family: var(--font-head);
+}
+.ra-modal-subtitle {
+    margin: 0;
+    color: #6d5d85;
+    font-size: 13px;
+    line-height: 1.6;
+    letter-spacing: .02em;
+}
+.ra-modal-body {
+    overflow: auto;
+    padding: 28px 32px 32px;
+}
+.ra-modal-body-inner {
+    display: grid;
+    gap: 28px;
+}
+.ra-close-btn {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(142,109,190,.18);
+    border-radius: 16px;
+    background: #fff;
+    color: #4f1d7a;
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s ease, transform .15s ease;
+}
+.ra-close-btn:hover {
+    background: #f7f2fb;
+    transform: translateY(-1px);
+}
+.ra-detail-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 0;
+    margin-bottom: 26px;
+}
+.ra-detail-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 18px 20px;
+    border-radius: 20px;
+    background: #faf6ff;
+    border: 1px solid #ede4f8;
+}
+.ra-detail-meta-label {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #8f75b9;
+}
+.ra-detail-meta-value {
+    font-size: 15px;
+    font-weight: 800;
+    color: #221945;
+    line-height: 1.4;
+}
+.ra-detail-section {
+    margin-top: 0;
+}
+.ra-detail-section-title {
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .14em;
+    color: #6b2fa0;
+    margin-bottom: 16px;
+    display: block;
+}
+.ra-detail-section-body {
+    max-width: 74ch;
+    display: grid;
+    gap: 16px;
+}
+.ra-detail-text {
+    font-size: 15px;
+    line-height: 1.85;
+    color: #3d2060;
+    margin: 0;
+    white-space: pre-wrap;
+    letter-spacing: .01em;
+}
+.ra-detail-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.ra-detail-chip {
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: #f5f0fd;
+    border: 1px solid #e5d8f6;
+    color: #6b2fa0;
+    font-size: 13px;
+    font-weight: 700;
+}
+.ra-detail-file-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 22px;
+    border-radius: 20px;
+    background: #f8f4fe;
+    border: 1px solid #ede5f7;
+}
+.ra-detail-file-meta {
+    display: grid;
+    gap: 8px;
+}
+.ra-detail-file-name {
+    font-size: 15px;
+    font-weight: 800;
+    color: #1a0638;
+    word-break: break-word;
+}
+.ra-detail-file-note {
+    font-size: 14px;
+    color: #635173;
+    line-height: 1.6;
+}
+.ra-detail-file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-end;
+}
+.ra-detail-file-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 20px;
+    border-radius: 14px;
+    background: #6b2fa0;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    border: 1px solid transparent;
+    transition: transform .15s ease, background .18s ease;
+}
+.ra-detail-file-button:hover {
+    background: #4b1f8d;
+    transform: translateY(-1px);
+}
+.ra-detail-file-button-secondary {
+    background: #fff;
+    color: #580f99;
+    border-color: #d1c4f1;
+}
+.ra-detail-file-button-secondary:hover {
+    background: #f5f0ff;
+}
+@media(max-width:860px) {
+    .ra-modal-dialog {
+        max-width: 96vw;
+    }
+    .ra-modal-body {
+        padding: 20px 20px 22px;
+    }
+    .ra-modal-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .ra-detail-meta {
+        grid-template-columns: 1fr;
+    }
+    .ra-detail-file-card {
+        grid-template-columns: 1fr;
+        padding: 18px;
+    }
+    .ra-detail-file-actions {
+        justify-content: flex-start;
+    }
+}
+
+
 @media (max-width: 1200px) {
     .mr-filter-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -790,6 +1048,58 @@
         </form>
     </div>
 </div>
+
+<!-- Research Detail Modal -->
+<div id="researchDetailModal" class="ra-modal" aria-hidden="true">
+    <div class="ra-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="researchDetailTitle">
+        <div class="ra-modal-header">
+            <div>
+                <span class="ra-modal-title" id="researchDetailTitle">Research title</span>
+                <p class="ra-modal-subtitle" id="researchDetailSubtitle">Research details</p>
+            </div>
+            <button type="button" class="ra-close-btn" aria-label="Close research details" data-close-research-modal>&times;</button>
+        </div>
+        <div class="ra-modal-body">
+            <div class="ra-modal-body-inner">
+                <div class="ra-detail-meta" id="researchDetailMeta"></div>
+
+                <div class="ra-detail-section">
+                    <span class="ra-detail-section-title">Abstract</span>
+                    <div class="ra-detail-section-body">
+                        <p class="ra-detail-text" id="researchDetailAbstract">No abstract available.</p>
+                    </div>
+                </div>
+
+                <div class="ra-detail-section">
+                    <span class="ra-detail-section-title">Keywords</span>
+                    <div class="ra-detail-section-body">
+                        <div class="ra-detail-chip-list" id="researchDetailKeywords"></div>
+                    </div>
+                </div>
+
+                <div class="ra-detail-section">
+                    <span class="ra-detail-section-title">Adviser</span>
+                    <div class="ra-detail-section-body">
+                        <p class="ra-detail-text" id="researchDetailAdviser">Not available</p>
+                    </div>
+                </div>
+
+                <div class="ra-detail-section">
+                    <span class="ra-detail-section-title">Research File</span>
+                    <div class="ra-detail-section-body">
+                        <div class="ra-detail-file-card">
+                            <div class="ra-detail-file-meta">
+                                <span class="ra-detail-file-name" id="researchDetailFileName">No file attached</span>
+                                <span class="ra-detail-text" id="researchDetailFileNote">A file is not available for this research.</span>
+                            </div>
+                            <div class="ra-detail-file-actions" id="researchDetailFileActions"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -826,6 +1136,98 @@ document.addEventListener('click', function(event) {
     if (!event.target.closest('.action-menu-wrap')) {
         closeResearchActionMenus();
     }
+});
+
+function formatMetaItem(label, value) {
+    return '<div class="ra-detail-meta-item"><span class="ra-detail-meta-label">' + label + '</span><span class="ra-detail-meta-value">' + value + '</span></div>';
+}
+
+function openResearchDetailModal(research) {
+    const overlay = document.getElementById('researchDetailModal');
+    const title = document.getElementById('researchDetailTitle');
+    const meta = document.getElementById('researchDetailMeta');
+    const abstract = document.getElementById('researchDetailAbstract');
+    const keywords = document.getElementById('researchDetailKeywords');
+    const adviser = document.getElementById('researchDetailAdviser');
+    const fileName = document.getElementById('researchDetailFileName');
+    const fileNote = document.getElementById('researchDetailFileNote');
+    const fileActions = document.getElementById('researchDetailFileActions');
+
+    title.textContent = research.title || 'Untitled research';
+    meta.innerHTML = '';
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Author', research.author || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Department', research.department || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Type', research.type || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Year', research.year || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Status', research.status || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Views', research.views || '0'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Submitted', research.submitted || 'Unknown'));
+
+    abstract.textContent = research.abstract ? research.abstract : 'No abstract available.';
+
+    keywords.innerHTML = '';
+    if (research.keywords) {
+        research.keywords.split(',').map(function(keyword) {
+            return keyword.trim();
+        }).filter(Boolean).forEach(function(keyword) {
+            keywords.insertAdjacentHTML('beforeend', '<span class="ra-detail-chip">' + keyword + '</span>');
+        });
+    }
+    if (!keywords.children.length) {
+        keywords.innerHTML = '<span class="ra-detail-text">No keywords provided.</span>';
+    }
+
+    adviser.textContent = research.adviser ? research.adviser : 'Not available';
+
+    fileActions.innerHTML = '';
+    if (research.fileUrl && research.fileName) {
+        fileName.textContent = research.fileName;
+        fileActions.insertAdjacentHTML('beforeend', '<a href="' + research.fileUrl + '" class="ra-detail-file-button" target="_blank" rel="noopener">View PDF</a>');
+    } else {
+        fileName.textContent = 'No file attached';
+        fileNote.textContent = 'A file is not available for this research.';
+    }
+
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeResearchDetailModal() {
+    const overlay = document.getElementById('researchDetailModal');
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.js-open-research-modal').forEach(function(button) {
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
+            const research = JSON.parse(this.getAttribute('data-research'));
+            openResearchDetailModal(research);
+        });
+    });
+
+    const closeButton = document.querySelector('[data-close-research-modal]');
+    if (closeButton) {
+        closeButton.addEventListener('click', closeResearchDetailModal);
+    }
+
+    const modalOverlay = document.getElementById('researchDetailModal');
+    if (modalOverlay) {
+        modalOverlay.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeResearchDetailModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('is-open')) {
+            closeResearchDetailModal();
+        }
+    });
 });
 </script>
 @endpush

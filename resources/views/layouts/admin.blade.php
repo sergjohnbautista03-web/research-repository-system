@@ -77,15 +77,10 @@
     Users
 </a>
 
-{{-- Graduated Users --}}
-<a href="{{ route('admin.graduated-researchers') }}" class="sidelink {{ request()->routeIs('admin.graduated-researchers') ? 'active' : '' }}">
-    <span class="sidelink-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5-10-5z"/>
-            <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>
-        </svg>
-    </span>
-    Graduated Users
+{{-- Semesters --}}
+<a href="{{ route('admin.semesters') }}" class="sidelink {{ request()->routeIs('admin.semesters*') ? 'active' : '' }}">
+    <span class="sidelink-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h3"/><path d="M13 14h3"/><path d="M8 18h3"/></svg></span>
+    Semesters
 </a>
 
 @if($adminUser->canManageDepartmentKeys())

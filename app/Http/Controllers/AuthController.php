@@ -67,12 +67,6 @@ class AuthController extends Controller
             ->orWhere('student_id', $login)
             ->first();
 
-        if ($user && $user->deactivateIfGraduated()) {
-            return back()
-                ->withErrors(['login' => 'Your account has been automatically deactivated because you are already marked as graduated. Please contact the administrator.'])
-                ->withInput();
-        }
-
         if ($user && ! $user->is_active) {
             return back()
                 ->withErrors(['login' => 'Your account has been deactivated. Please contact the administrator.'])

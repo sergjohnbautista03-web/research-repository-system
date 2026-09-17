@@ -199,7 +199,7 @@ $colleges = [
                         <ul>
                             <li>PhilCST access is controlled through active approved user accounts</li>
                             <li>Protected viewer limits easy browser actions such as save, print, and copy where possible</li>
-                            <li>Direct file downloads are disabled for all roles</li>
+
                             <li>Approved files remain organized inside the portal flow</li>
                         </ul>
                     </div>

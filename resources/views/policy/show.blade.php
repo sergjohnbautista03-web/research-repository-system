@@ -42,7 +42,7 @@
 
             <h2>Student and Faculty Users</h2>
             <p>
-                Students and faculty members may use repository access to support learning, citation, research review, and approved academic work. They must not claim another author's work as their own, remove attribution, bypass viewing restrictions, or share downloaded or viewed materials outside authorized channels.
+                Students and faculty members may use repository access to support learning, citation, research review, and approved academic work. They must not claim another author's work as their own, remove attribution, bypass viewing restrictions, or share viewed materials outside authorized channels.
             </p>
 
             <h2>Researcher Submissions</h2>

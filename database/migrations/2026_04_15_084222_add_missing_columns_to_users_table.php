@@ -29,14 +29,6 @@ return new class extends Migration
             if (! Schema::hasColumn('users', 'graduation_year')) {
                 $table->unsignedSmallInteger('graduation_year')->nullable()->after('course_duration');
             }
-            if (! Schema::hasColumn('users', 'graduated_at')) {
-                $table->timestamp('graduated_at')->nullable()->after('graduation_year');
-            }
-
-            // Legacy researcher status column. Active/Graduated is derived from graduation data.
-            if (! Schema::hasColumn('users', 'researcher_status')) {
-                $table->string('researcher_status')->nullable()->after('graduated_at');
-            }
 
             // Role: set 'user' role as approved by default
             // (handled in seeder/factory or via the default above)
@@ -57,8 +49,6 @@ return new class extends Migration
                 'year_level',
                 'course_duration',
                 'graduation_year',
-                'graduated_at',
-                'researcher_status',
             ])->filter(fn ($column) => Schema::hasColumn('users', $column))->values()->all();
 
             if (! empty($columns)) {

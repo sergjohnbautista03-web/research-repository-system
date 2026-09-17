@@ -543,9 +543,16 @@
 
     document.addEventListener('contextmenu', blockProtectedAction);
     document.addEventListener('dragstart', blockProtectedAction);
+    document.addEventListener('drop', blockProtectedAction);
     document.addEventListener('copy', blockProtectedAction);
     document.addEventListener('cut', blockProtectedAction);
+    document.addEventListener('paste', blockProtectedAction);
     document.addEventListener('selectstart', blockProtectedAction);
+    document.addEventListener('beforeinput', function(e) {
+        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
+            blockProtectedAction(e);
+        }
+    });
     document.addEventListener('contextmenu', function() {
         getViewerLogger()('context_menu_blocked', { reason: 'right_click' });
     });

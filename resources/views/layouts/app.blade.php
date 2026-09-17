@@ -38,9 +38,12 @@
 
 <!-- TOP NAV -->
 <header class="top-nav">
-    <a href="{{ route('home') }}" class="logo-wrap">
-        <img src="{{ asset('images/cropped-philcst766.png') }}" alt="Ube Repository" class="logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-        <span class="logo-fallback" style="display:none">UBE</span>
+    <a href="{{ route('home') }}" class="logo-wrap" aria-label="Ube Repository home">
+        <img src="{{ asset('images/philcstlogologo.png') }}" alt="" class="logo-seal" aria-hidden="true">
+        <span class="logo-text">
+            <strong>Philippine College of Science and Technology</strong>
+            <span>Calasiao, Pangasinan, Philippines 2418</span>
+        </span>
     </a>
 
     <button class="nav-toggle" type="button" aria-label="Toggle navigation" onclick="document.querySelector('.main-nav').classList.toggle('open')">☰</button>
@@ -61,7 +64,7 @@
             @endif
 
             <div class="user-menu">
-    <button class="user-btn">
+    <button type="button" class="user-btn" aria-haspopup="menu">
         @if(auth()->user()->profile_photo)
             <img src="{{ asset('storage/' . auth()->user()->profile_photo) }}" alt="avatar" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">
         @else
@@ -118,6 +121,7 @@
         </form>
     </div>
 </div>
+            </div>
         @else
             <a
                 href="{{ route('login') }}"

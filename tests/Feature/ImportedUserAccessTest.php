@@ -39,8 +39,6 @@ class ImportedUserAccessTest extends TestCase
             $table->unsignedTinyInteger('course_duration')->nullable();
             $table->unsignedSmallInteger('graduation_year')->nullable();
             $table->date('researcher_end_date')->nullable();
-            $table->timestamp('graduated_at')->nullable();
-            $table->string('researcher_status')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

@@ -1,855 +1,742 @@
 @extends('layouts.admin')
-@section('title', 'Dashboard')
-@section('page-title', 'Dashboard')
+@section('title', 'Research Analytics')
+@section('page-title', 'Research Analytics')
 
 @section('content')
+@php
+    $summaryCards = [
+        [
+            'key' => 'papers',
+            'label' => 'Total Research Papers',
+            'value' => $analyticsSummary['total_research_papers'],
+            'note' => $analyticsSummary['report_scope'],
+            'class' => 'is-paper',
+            'icon' => 'paper',
+            'description' => 'Review all research records behind this total, including approvals, department filters, authors, and publication details.',
+            'action_label' => 'Open Research Papers',
+            'action_url' => route('admin.researches'),
+        ],
+        [
+            'key' => 'views',
+            'label' => 'Total Views',
+            'value' => $analyticsSummary['total_views'],
+            'note' => $analyticsSummary['year_range'],
+            'class' => 'is-view',
+            'icon' => 'view',
+            'description' => 'See how repository engagement is distributed across departments and publication years for the current analytics range.',
+            'action_label' => 'Review Analytics Chart',
+            'action_url' => route('admin.dashboard') . '#research-views-panel',
+        ],
+        [
+            'key' => 'citations',
+            'label' => 'Total Copy Citations',
+            'value' => $analyticsSummary['total_copy_citations'],
+            'note' => 'Citation activity',
+            'class' => 'is-copy',
+            'icon' => 'copy',
+            'description' => 'Track citation-copy activity to understand which research papers are being referenced by readers.',
+            'action_label' => 'Open Citation Reports',
+            'action_url' => route('admin.reports'),
+        ],
+        [
+            'key' => 'researchers',
+            'label' => 'Total Researchers',
+            'value' => $analyticsSummary['total_researchers'],
+            'note' => 'Researcher accounts',
+            'class' => 'is-researcher',
+            'icon' => 'researcher',
+            'description' => 'Manage faculty and student researcher accounts that can submit and maintain scholarly work in the repository.',
+            'action_label' => 'Manage Researchers',
+            'action_url' => route('admin.users', ['role' => 'researcher']),
+        ],
+    ];
 
-<div class="stats-grid">
+    $summaryCardDetails = collect($summaryCards)->mapWithKeys(fn ($card) => [
+        $card['key'] => [
+            'label' => $card['label'],
+            'value' => $card['value'],
+            'note' => $card['note'],
+            'description' => $card['description'],
+            'actionLabel' => $card['action_label'],
+            'actionUrl' => $card['action_url'],
+        ],
+    ]);
+@endphp
 
-    <div class="stat-card stat-purple" style="cursor:pointer;" onclick="openModal('researches')">
-        <div class="stat-accent acc-purple"></div>
-        <div class="stat-info">
-            <span class="stat-label">Total Researches</span>
-            <span class="stat-number">{{ number_format($stats['total_researches']) }}</span>
-        </div>
-        <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414A1 1 0 0 1 19 9.414V19a2 2 0 0 1-2 2z"/></svg>
-        </div>
+<div class="ra-toolbar">
+    <div class="ra-toolbar-copy">
+        <span class="ra-eyebrow">Admin Analytics</span>
+        <h2>Research Repository Dashboard</h2>
+        <p>{{ $analyticsSummary['report_scope'] }} | {{ $analyticsSummary['year_range'] }}</p>
     </div>
-
-    <div class="stat-card stat-amber" style="cursor:pointer;" onclick="openModal('pending')">
-        <div class="stat-accent acc-amber"></div>
-        <div class="stat-info">
-            <span class="stat-label">Pending Review</span>
-            <span class="stat-number">{{ number_format($stats['pending']) }}</span>
-        </div>
-        <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-        </div>
-    </div>
-
-    <div class="stat-card stat-green" style="cursor:pointer;" onclick="openModal('approved')">
-        <div class="stat-accent acc-green"></div>
-        <div class="stat-info">
-            <span class="stat-label">Approved</span>
-            <span class="stat-number">{{ number_format($stats['approved']) }}</span>
-        </div>
-        <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22,4 12,14.01 9,11.01"/></svg>
-        </div>
-    </div>
-
-    <div class="stat-card stat-red" style="cursor:pointer;" onclick="openModal('rejected')">
-        <div class="stat-accent acc-red"></div>
-        <div class="stat-info">
-            <span class="stat-label">Rejected</span>
-            <span class="stat-number">{{ number_format($stats['rejected']) }}</span>
-        </div>
-        <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        </div>
-    </div>
-
-    <div class="stat-card stat-blue" style="cursor:pointer;" onclick="openModal('users')">
-        <div class="stat-accent acc-blue"></div>
-        <div class="stat-info">
-            <span class="stat-label">Total Users</span>
-            <span class="stat-number">{{ number_format($stats['total_users']) }}</span>
-        </div>
-        <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-    </div>
-
-    <div class="stat-card stat-teal">
-        <div class="stat-accent acc-teal"></div>
-        <div class="stat-info">
-            <span class="stat-label">Total Views</span>
-            <span class="stat-number">{{ number_format($stats['total_views']) }}</span>
-        </div>
-        <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        </div>
-    </div>
-
+    <button type="button" class="ra-print-btn" onclick="printAnalyticsReport()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Print Report
+    </button>
 </div>
 
-<!-- MAIN GRID -->
-<div class="admin-dashboard-grid">
-    <div class="admin-card">
-        <div class="admin-card-header">
-            <h3>By Department</h3>
-            <span class="department-card-hint">Click for summary</span>
-        </div>
-        @php $maxDeptCount = max($researchByDept->pluck('count')->all() ?: [1]); @endphp
-        @forelse($researchByDept as $dept)
-        <button type="button" class="dept-bar-row dept-bar-button" data-department="{{ $dept->department }}" onclick="openDepartmentAnalyticsModal(this.dataset.department)" aria-label="Open {{ $dept->department }} analytics summary">
-            <span class="dept-bar-label" title="{{ $dept->department }}">{{ Str::limit($dept->department, 30) }}</span>
-            <span class="dept-bar-wrap" aria-hidden="true">
-                <span class="dept-bar" title="{{ $dept->department }}: {{ $dept->count }} research{{ $dept->count == 1 ? '' : 'es' }}" style="width: {{ $maxDeptCount > 0 ? min(100, ($dept->count / $maxDeptCount) * 100) : 0 }}%"></span>
-            </span>
-            <span class="dept-bar-count">{{ $dept->count }}</span>
+<div class="ra-summary-grid">
+    @foreach($summaryCards as $card)
+        <button
+            type="button"
+            class="ra-summary-card {{ $card['class'] }}"
+            data-summary-key="{{ $card['key'] }}"
+            onclick="openSummaryCardModal('{{ $card['key'] }}')"
+            aria-haspopup="dialog"
+            aria-controls="summaryCardModal"
+            aria-label="Open {{ $card['label'] }} details">
+            <div class="ra-summary-copy">
+                <span>{{ $card['label'] }}</span>
+                <strong>{{ number_format($card['value']) }}</strong>
+                <small>{{ $card['note'] }}</small>
+                <span class="ra-summary-action">
+                    View details
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                        <path d="m12 5 7 7-7 7"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="ra-summary-icon" aria-hidden="true">
+                @if($card['icon'] === 'paper')
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                @elseif($card['icon'] === 'view')
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                @elseif($card['icon'] === 'copy')
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                @else
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                @endif
+            </div>
         </button>
-        @empty
-            <div class="empty-sm">No department data yet</div>
-        @endforelse
-    </div>
+    @endforeach
+</div>
 
-    <div class="admin-card">
-        <div class="admin-card-header"><h3>Top Viewed</h3></div>
-        @foreach($topResearches as $i => $r)
-        <div class="top-item">
-            <span class="top-rank">{{ $i + 1 }}</span>
-            <div class="top-info">
-                <a href="{{ route('admin.research.show', $r) }}" class="top-title">{{ Str::limit($r->title, 45) }}</a>
-                <span>{{ number_format($r->view_count) }} views</span>
-                <small>{{ Str::limit($r->department, 36) }} • {{ $r->year_published }}</small>
+<div class="ra-dashboard-grid">
+    <section id="research-views-panel" class="ra-panel ra-chart-panel" tabindex="-1">
+        <div class="ra-panel-header">
+            <div>
+                <h3>Yearly Research Views per Department</h3>
+                <span>X-axis: years | Y-axis: views</span>
             </div>
         </div>
-        @endforeach
-    </div>
 
-    <div class="admin-card analytics-panel-card">
-        <div class="admin-card-header"><h3>Research Trend By Year</h3></div>
-        <div class="analytics-panel-body">
-            @if($researchByYear->isNotEmpty())
-                @php
-                    $chartWidth = 720;
-                    $chartHeight = 220;
-                    $chartPad = 34;
-                    $maxYearCount = max($researchByYear->pluck('count')->all() ?: [1]);
-                    $yearCount = max($researchByYear->count(), 1);
-                    $yearPoints = $researchByYear->values()->map(function ($year, $index) use ($chartWidth, $chartHeight, $chartPad, $maxYearCount, $yearCount) {
-                        $x = $yearCount > 1
-                            ? $chartPad + ($index * (($chartWidth - ($chartPad * 2)) / ($yearCount - 1)))
-                            : $chartWidth / 2;
-                        $usableHeight = $chartHeight - ($chartPad * 2);
-                        $y = ($chartHeight - $chartPad) - (($year->count / max($maxYearCount, 1)) * $usableHeight);
+        <div class="ra-chart-wrap">
+            <div class="ra-y-title">Views</div>
+            <div class="ra-y-axis" aria-hidden="true">
+                @foreach($analyticsYAxisLabels as $label)
+                    <span>{{ number_format($label) }}</span>
+                @endforeach
+            </div>
 
-                        return [
-                            'x' => round($x, 2),
-                            'y' => round($y, 2),
-                            'year' => $year->year_published,
-                            'count' => $year->count,
-                        ];
-                    });
-                    $polylinePoints = $yearPoints->map(fn ($point) => $point['x'] . ',' . $point['y'])->implode(' ');
-                @endphp
-                <div class="trend-line-wrap">
-                    <svg class="trend-line-chart" viewBox="0 0 {{ $chartWidth }} {{ $chartHeight }}" role="img" aria-label="Research trend by year">
-                        <line x1="{{ $chartPad }}" y1="{{ $chartHeight - $chartPad }}" x2="{{ $chartWidth - $chartPad }}" y2="{{ $chartHeight - $chartPad }}" class="trend-axis" />
-                        <line x1="{{ $chartPad }}" y1="{{ $chartPad }}" x2="{{ $chartPad }}" y2="{{ $chartHeight - $chartPad }}" class="trend-axis" />
-                        @foreach([0.25, 0.5, 0.75, 1] as $guide)
-                            @php $guideY = ($chartHeight - $chartPad) - (($chartHeight - ($chartPad * 2)) * $guide); @endphp
-                            <line x1="{{ $chartPad }}" y1="{{ $guideY }}" x2="{{ $chartWidth - $chartPad }}" y2="{{ $guideY }}" class="trend-guide" />
-                        @endforeach
-                        <polyline points="{{ $polylinePoints }}" class="trend-line" />
-                        @foreach($yearPoints as $point)
-                            <g class="trend-point-group">
-                                <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="5" class="trend-point">
-                                    <title>{{ $point['year'] }}: {{ $point['count'] }} research{{ $point['count'] == 1 ? '' : 'es' }}</title>
-                                </circle>
-                                <text x="{{ $point['x'] }}" y="{{ $point['y'] - 12 }}" text-anchor="middle" class="trend-count">{{ $point['count'] }}</text>
-                                <text x="{{ $point['x'] }}" y="{{ $chartHeight - 9 }}" text-anchor="middle" class="trend-year">{{ $point['year'] }}</text>
-                            </g>
-                        @endforeach
-                    </svg>
+            <div class="ra-plot">
+                <div class="ra-grid-lines" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span>
                 </div>
-            @else
-                <div class="empty-sm">No yearly trend data yet</div>
-            @endif
-        </div>
-    </div>
 
-    <div class="admin-card col-span-2">
-        <div class="admin-card-header">
-            <h3>Recently Approved</h3>
-            <a href="{{ route('admin.researches', ['status' => 'approved']) }}" class="btn btn-sm btn-outline">View All</a>
+                <div class="ra-year-groups">
+                    @foreach($analyticsChartData as $yearGroup)
+                        <div class="ra-year-group">
+                            <div class="ra-bars">
+                                @foreach($yearGroup['departments'] as $departmentData)
+                                    @php
+                                        $barHeight = $analyticsChartMaxViews > 0
+                                            ? (($departmentData['views'] / $analyticsChartMaxViews) * 100)
+                                            : 0;
+                                        $barHeight = $departmentData['views'] > 0 ? max(4, $barHeight) : 2;
+                                    @endphp
+                                    <button
+                                        type="button"
+                                        class="ra-bar {{ $departmentData['views'] == 0 ? 'is-empty' : '' }}"
+                                        style="height: {{ round($barHeight, 2) }}%; --bar-color: {{ $departmentData['color'] }};"
+                                        data-department="{{ $departmentData['department'] }}"
+                                        data-year="{{ $yearGroup['year'] }}"
+                                        onclick="openAnalyticsDetail(this.dataset.department, this.dataset.year)"
+                                        title="{{ $departmentData['code'] }} {{ $yearGroup['year'] }}: {{ number_format($departmentData['views']) }} views">
+                                        <span class="ra-sr-only">{{ $departmentData['department'] }} {{ $yearGroup['year'] }} {{ number_format($departmentData['views']) }} views</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                            <span class="ra-year-label">{{ $yearGroup['year'] }}</span>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
         </div>
-        <div class="admin-table-wrap">
-            <table class="admin-table">
+        <div class="ra-x-title">Years</div>
+    </section>
+
+    <aside class="ra-panel ra-side-panel">
+        <div class="ra-panel-header">
+            <div>
+                <h3>Departments</h3>
+                <span>{{ $analyticsDepartments->count() }} tracked</span>
+            </div>
+        </div>
+        <div class="ra-legend-list">
+            @foreach($analyticsDepartments as $department)
+                <div class="ra-legend-row">
+                    <span class="ra-legend-swatch" style="background: {{ $department['color'] }}"></span>
+                    <strong>{{ $department['code'] }}</strong>
+                    <span>{{ $department['name'] }}</span>
+                </div>
+            @endforeach
+        </div>
+    </aside>
+
+    <section class="ra-panel ra-wide-panel">
+        <div class="ra-panel-header">
+            <div>
+                <h3>Top Viewed Research Papers</h3>
+                <span>Approved records</span>
+            </div>
+            <a href="{{ route('admin.researches', ['status' => 'approved']) }}" class="ra-link-btn">View All</a>
+        </div>
+        <div class="ra-table-wrap">
+            <table class="ra-table">
                 <thead>
-                    <tr><th>Title</th><th>Author</th><th>Department</th><th>Year</th><th>Views</th></tr>
+                    <tr>
+                        <th>Title</th>
+                        <th>Department</th>
+                        <th>Year</th>
+                        <th>Views</th>
+                    </tr>
                 </thead>
                 <tbody>
-                    @foreach($recentResearches as $r)
-                    <tr>
-                        <td><a href="{{ route('admin.research.show', $r) }}" class="table-link">{{ Str::limit($r->title, 50) }}</a></td>
-                        <td>{{ $r->author_name }}</td>
-                        <td>{{ Str::limit($r->department, 30) }}</td>
-                        <td>{{ $r->year_published }}</td>
-                        <td>{{ number_format($r->view_count) }}</td>
-                    </tr>
-                    @endforeach
+                    @forelse($topResearches as $research)
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.research.show', $research) }}" class="ra-table-link">{{ $research->title }}</a>
+                                <span>{{ $research->author_name }}</span>
+                            </td>
+                            <td>{{ $research->department ?: 'Unassigned Department' }}</td>
+                            <td>{{ $research->year_published ?: 'N/A' }}</td>
+                            <td>{{ number_format((int) $research->view_count) }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="ra-empty-cell">No approved research activity yet.</td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
+        </div>
+    </section>
+</div>
+
+<div id="summaryCardModal" class="ra-modal ra-summary-modal" aria-hidden="true">
+    <div class="ra-modal-dialog ra-summary-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="summaryCardModalTitle" aria-describedby="summaryCardModalDescription" tabindex="-1">
+        <div class="ra-modal-header">
+            <div>
+                <span class="ra-eyebrow">Dashboard Summary</span>
+                <h3 id="summaryCardModalTitle">Summary Detail</h3>
+                <p id="summaryCardModalDescription">Metric description</p>
+            </div>
+            <button type="button" class="ra-close-btn" onclick="closeSummaryCardModal()" aria-label="Close summary detail">
+                &times;
+            </button>
+        </div>
+        <div class="ra-summary-modal-body">
+            <div class="ra-summary-modal-metric">
+                <span id="summaryCardModalNote">Current scope</span>
+                <strong id="summaryCardModalValue">0</strong>
+            </div>
+            <div class="ra-summary-modal-actions">
+                <button type="button" class="ra-modal-secondary-btn" onclick="closeSummaryCardModal()">Close</button>
+                <a id="summaryCardModalAction" href="#" class="ra-modal-primary-btn">Open Page</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="analyticsDetailModal" class="ra-modal" aria-hidden="true">
+    <div class="ra-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="analyticsDetailTitle" tabindex="-1">
+        <div class="ra-modal-header">
+            <div>
+                <span class="ra-eyebrow">Department-Year Detail</span>
+                <h3 id="analyticsDetailTitle">Analytics Detail</h3>
+                <p id="analyticsDetailSubtitle">Department and year</p>
+            </div>
+            <button type="button" class="ra-close-btn" onclick="closeAnalyticsDetailModal()" aria-label="Close analytics detail">
+                &times;
+            </button>
+        </div>
+        <div class="ra-modal-body">
+            <div id="analyticsDetailMetrics" class="ra-detail-metrics"></div>
+            <div class="ra-modal-table-wrap">
+                <table class="ra-table ra-modal-table">
+                    <thead>
+                        <tr>
+                            <th>Research Paper</th>
+                            <th>Author</th>
+                            <th>Type</th>
+                            <th>Views</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analyticsDetailPapers"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <style>
-.analytics-panel-card{background:linear-gradient(180deg,#ffffff 0%,#fcfaff 100%);border:1px solid #eadff8;box-shadow:0 14px 34px rgba(75,32,125,.06);overflow:hidden}
-.analytics-panel-card .admin-card-header{padding:22px 24px 16px;border-bottom:1px solid rgba(125,97,175,.12)}
-.analytics-panel-card .admin-card-header h3{margin:0;color:#2d124f;font-size:18px}
-.analytics-panel-body{padding:20px 24px 24px}
-.top-info small{display:block;margin-top:3px;color:#8f80aa;font-size:11.5px;line-height:1.35}
-.trend-line-wrap{width:100%;overflow-x:auto;padding:4px 0}
-.trend-line-chart{display:block;width:100%;min-width:520px;height:auto}
-.trend-axis{stroke:#d8cbea;stroke-width:2}
-.trend-guide{stroke:#efe7fb;stroke-width:1}
-.trend-line{fill:none;stroke:#6d28d9;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
-.trend-point{fill:#fff;stroke:#6d28d9;stroke-width:4}
-.trend-count{fill:#3b0f7a;font-size:13px;font-weight:800}
-.trend-year{fill:#7f7099;font-size:12px;font-weight:700}
-.department-card-hint{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8f80aa}
-.dept-bar-button{width:100%;border:0;background:transparent;text-align:left;font:inherit;cursor:pointer;transition:background .16s ease,box-shadow .16s ease}
-.dept-bar-button:hover{background:#fbf9ff;box-shadow:inset 3px 0 0 #7c3aed}
-.dept-bar-button:focus-visible{outline:3px solid rgba(124,58,237,.18);outline-offset:-3px;background:#fbf9ff}
-.department-analytics-overlay{position:fixed;inset:0;z-index:1300;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(19,8,38,.58);backdrop-filter:blur(4px)}
-.department-analytics-overlay.is-open{display:flex}
-.department-analytics-dialog{width:min(1120px,96vw);max-height:92vh;display:flex;flex-direction:column;background:#fff;border:1px solid rgba(226,213,244,.95);border-radius:18px;box-shadow:0 28px 90px rgba(36,14,70,.32);overflow:hidden}
-.da-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 26px;background:linear-gradient(180deg,#fcfbff 0%,#f7f3fd 100%);border-bottom:1px solid #eadff8}
-.da-kicker{display:block;margin-bottom:6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#8f80aa}
-.da-title{margin:0;color:#2d124f;font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.18}
-.da-subtitle{display:block;margin-top:7px;color:#746585;font-size:13px}
-.da-close{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2d5f4;border-radius:8px;background:#fff;color:#6b2fa0;font-size:22px;line-height:1;cursor:pointer}
-.da-close:hover{background:#f4f0fc}
-.da-body{overflow:auto;padding:22px 26px 26px;background:#fff}
-.da-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px;align-items:end;margin-bottom:18px;padding:14px;border:1px solid #eee6fa;border-radius:8px;background:#fcfbff}
-.da-filter-field{display:flex;flex-direction:column;gap:6px;min-width:0}
-.da-filter-field label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8f80aa}
-.da-filter-field input,.da-filter-field select{height:38px;border:1.5px solid #e2d5f4;border-radius:8px;background:#fff;color:#24113f;padding:0 11px;font:inherit;font-size:13px;min-width:0}
-.da-filter-field input:focus,.da-filter-field select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1)}
-.da-reset{height:38px;border:1.5px solid #d7c6ee;border-radius:8px;background:#fff;color:#6b2fa0;font-size:12px;font-weight:800;padding:0 14px;cursor:pointer}
-.da-reset:hover{background:#f4f0fc}
-.da-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
-.da-metric{padding:14px 15px;border:1px solid #eadff8;border-radius:8px;background:#fff;box-shadow:0 6px 16px rgba(75,32,125,.05)}
-.da-metric span{display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#8f80aa;margin-bottom:9px}
-.da-metric strong{display:block;color:#2d124f;font-size:30px;line-height:1;font-weight:850;letter-spacing:-.04em}
-.da-metric small{display:block;margin-top:7px;color:#746585;font-size:12px}
-.da-metric.is-approved{border-color:#bbf7d0;background:#f8fffb}
-.da-metric.is-pending{border-color:#fde68a;background:#fffdf4}
-.da-content-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.78fr);gap:18px}
-.da-panel{border:1px solid #eadff8;border-radius:8px;background:#fff;overflow:hidden}
-.da-panel-wide{grid-column:1/-1}
-.da-panel-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:#faf8ff;border-bottom:1px solid #eee6fa}
-.da-panel-header h4{margin:0;color:#2d124f;font-size:14px;font-weight:800}
-.da-panel-header span{color:#8f80aa;font-size:12px;font-weight:700}
-.da-panel-body{padding:15px 16px}
-.da-status-row{display:grid;grid-template-columns:88px 1fr 42px;gap:12px;align-items:center;margin-bottom:13px}
-.da-status-row:last-child{margin-bottom:0}
-.da-status-label{font-size:12px;font-weight:800;color:#4b345f}
-.da-status-track{height:10px;border-radius:999px;background:#f1ebfa;overflow:hidden}
-.da-status-fill{height:100%;min-width:0;border-radius:999px;background:#7c3aed;transition:width .2s ease}
-.da-status-fill.is-approved{background:#16a34a}
-.da-status-fill.is-pending{background:#d97706}
-.da-status-fill.is-rejected{background:#dc2626}
-.da-status-fill.is-archived{background:#64748b}
-.da-status-count{text-align:right;color:#2d124f;font-size:12px;font-weight:800}
-.da-recent-list{display:grid;gap:10px}
-.da-recent-item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:11px 0;border-bottom:1px solid #f2ecfa}
-.da-recent-item:last-child{border-bottom:none;padding-bottom:0}
-.da-recent-title{color:#2d124f;font-size:13px;font-weight:800;text-decoration:none;line-height:1.35}
-.da-recent-title:hover{color:#6b2fa0;text-decoration:underline}
-.da-recent-meta{display:block;margin-top:4px;color:#746585;font-size:12px;line-height:1.45}
-.da-status-pill{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;background:#f1ebfa;color:#6b2fa0;white-space:nowrap}
-.da-status-pill.is-approved{background:#dcfce7;color:#166534}
-.da-status-pill.is-pending{background:#fef3c7;color:#92400e}
-.da-status-pill.is-rejected{background:#fee2e2;color:#991b1b}
-.da-status-pill.is-archived{background:#e2e8f0;color:#334155}
-.da-timeline{position:relative;display:grid;gap:0}
-.da-timeline-item{position:relative;display:grid;grid-template-columns:22px 1fr;gap:10px;padding:0 0 15px}
-.da-timeline-item::before{content:"";position:absolute;left:6px;top:15px;bottom:0;width:2px;background:#eee6fa}
-.da-timeline-item:last-child{padding-bottom:0}
-.da-timeline-item:last-child::before{display:none}
-.da-timeline-dot{width:14px;height:14px;margin-top:2px;border-radius:50%;background:#7c3aed;box-shadow:0 0 0 4px #f1ebfa}
-.da-timeline-dot.is-approved{background:#16a34a;box-shadow:0 0 0 4px #dcfce7}
-.da-timeline-dot.is-pending,.da-timeline-dot.is-submitted{background:#d97706;box-shadow:0 0 0 4px #fef3c7}
-.da-timeline-dot.is-rejected{background:#dc2626;box-shadow:0 0 0 4px #fee2e2}
-.da-timeline-dot.is-archived{background:#64748b;box-shadow:0 0 0 4px #e2e8f0}
-.da-timeline-content strong{display:block;color:#2d124f;font-size:13px;line-height:1.35}
-.da-timeline-content span{display:block;margin-top:3px;color:#746585;font-size:12px;line-height:1.45}
-.da-actions{display:flex;justify-content:flex-end;margin-top:18px}
-.da-open-records{display:inline-flex;align-items:center;justify-content:center;height:38px;padding:0 15px;border-radius:8px;background:#5b21b6;color:#fff;text-decoration:none;font-size:12px;font-weight:900}
-.da-open-records:hover{background:#4c1d95;color:#fff}
-.da-empty{padding:18px;border:1px dashed #e2d5f4;border-radius:8px;background:#fcfbff;color:#8f80aa;text-align:center;font-size:13px;font-weight:700}
-@media (max-width: 1024px){.da-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.da-content-grid{grid-template-columns:1fr}.da-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width: 768px){.analytics-panel-card .admin-card-header{padding:18px 18px 14px}.analytics-panel-body{padding:16px 18px 18px}.department-analytics-overlay{padding:10px}.department-analytics-dialog{max-height:96vh;border-radius:12px}.da-header,.da-body{padding:18px}.da-title{font-size:20px}.da-filters{grid-template-columns:1fr}.da-content-grid{gap:14px}}
-@media (max-width: 640px){.da-metric-grid{grid-template-columns:1fr}.da-status-row{grid-template-columns:76px 1fr 34px}.da-recent-item{grid-template-columns:1fr}.da-status-pill{width:max-content}.department-card-hint{display:none}}
+.ra-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;padding:20px 22px;background:#fff;border:1px solid rgba(109,40,217,.1);border-radius:16px;box-shadow:0 8px 28px rgba(46,16,101,.06)}
+.ra-toolbar-copy{min-width:0}
+.ra-eyebrow{display:block;margin-bottom:6px;color:#7a5ca8;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.09em}
+.ra-toolbar h2{margin:0;color:#1f1235;font-size:24px;font-weight:850;letter-spacing:0;line-height:1.2}
+.ra-toolbar p{margin:7px 0 0;color:#6d5d85;font-size:13px}
+.ra-print-btn,.ra-link-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;border-radius:10px;border:1px solid #d8c8ef;background:#fff;color:#4f1d7a;font:inherit;font-size:13px;font-weight:850;text-decoration:none;white-space:nowrap;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}
+.ra-print-btn{padding:0 16px;background:#43216f;color:#fff;border-color:#43216f;box-shadow:0 10px 22px rgba(67,33,111,.18)}
+.ra-print-btn:hover{background:#331653;transform:translateY(-1px)}
+.ra-print-btn svg,.ra-link-btn svg{width:16px;height:16px}
+.ra-link-btn{height:34px;padding:0 13px}
+.ra-link-btn:hover{background:#f5f1fb;border-color:#bda6df;color:#3b0f63}
+.ra-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.ra-summary-card{appearance:none;width:100%;position:relative;min-height:142px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px;border-radius:16px;background:#fff;border:1px solid rgba(109,40,217,.1);box-shadow:0 10px 26px rgba(46,16,101,.07);overflow:hidden;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease}
+.ra-summary-card::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:var(--accent,#6d28d9)}
+.ra-summary-card:hover,.ra-summary-card:focus-visible{transform:translateY(-4px);border-color:color-mix(in srgb,var(--accent,#6d28d9) 34%,#fff);box-shadow:0 18px 40px rgba(46,16,101,.12)}
+.ra-summary-card:focus-visible{outline:3px solid rgba(109,40,217,.22);outline-offset:3px}
+.ra-summary-card:active{transform:translateY(-1px)}
+.ra-summary-card.is-paper{--accent:#6d28d9}
+.ra-summary-card.is-view{--accent:#0f766e}
+.ra-summary-card.is-copy{--accent:#b45309}
+.ra-summary-card.is-researcher{--accent:#2563eb}
+.ra-summary-copy{position:relative;z-index:1;min-width:0}
+.ra-summary-copy > span:first-child{display:block;color:#746585;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;line-height:1.35}
+.ra-summary-copy strong{display:block;margin-top:12px;color:#1f1235;font-size:34px;font-weight:900;line-height:1;letter-spacing:0}
+.ra-summary-copy small{display:block;margin-top:9px;color:#786890;font-size:12px;line-height:1.35}
+.ra-summary-action{display:inline-flex;align-items:center;gap:6px;margin-top:14px;color:var(--accent,#6d28d9);font-size:12px;font-weight:900;line-height:1.2}
+.ra-summary-action svg{width:14px;height:14px;transition:transform .18s ease}
+.ra-summary-card:hover .ra-summary-action svg,.ra-summary-card:focus-visible .ra-summary-action svg{transform:translateX(3px)}
+.ra-summary-icon{width:46px;height:46px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:12px;color:var(--accent,#6d28d9);background:color-mix(in srgb,var(--accent,#6d28d9) 12%,#fff);border:1px solid color-mix(in srgb,var(--accent,#6d28d9) 18%,#fff)}
+.ra-summary-icon svg{width:22px;height:22px}
+.ra-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px}
+.ra-panel{background:#fff;border:1px solid rgba(109,40,217,.1);border-radius:16px;box-shadow:0 8px 28px rgba(46,16,101,.06);overflow:hidden}
+.ra-panel:focus{outline:3px solid rgba(109,40,217,.18);outline-offset:3px}
+.ra-panel-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 20px;background:#fbf9ff;border-bottom:1px solid rgba(109,40,217,.08)}
+.ra-panel-header h3{margin:0;color:#1f1235;font-size:16px;font-weight:850;letter-spacing:0;line-height:1.25}
+.ra-panel-header span{display:block;margin-top:4px;color:#7d6c98;font-size:12px;font-weight:700}
+.ra-chart-panel{min-width:0}
+.ra-chart-wrap{display:grid;grid-template-columns:24px 54px minmax(0,1fr);gap:8px;padding:22px 22px 8px;min-height:390px}
+.ra-y-title{writing-mode:vertical-rl;transform:rotate(180deg);align-self:center;justify-self:center;color:#5b3d8a;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.ra-y-axis{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding:2px 0 42px;color:#7d6c98;font-size:11px;font-weight:800}
+.ra-plot{position:relative;min-width:0;border-left:1px solid #ddd2ed;border-bottom:1px solid #ddd2ed}
+.ra-grid-lines{position:absolute;inset:0 0 42px 0;display:flex;flex-direction:column;justify-content:space-between;pointer-events:none}
+.ra-grid-lines span{height:1px;background:#efe9f7}
+.ra-year-groups{position:relative;z-index:1;display:grid;grid-template-columns:repeat({{ max(1, $analyticsChartData->count()) }},minmax(86px,1fr));align-items:end;gap:12px;height:100%;min-height:318px;padding:0 12px 0}
+.ra-year-group{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 42px;align-items:end;min-width:0}
+.ra-bars{height:100%;display:flex;align-items:flex-end;justify-content:center;gap:5px;min-width:0}
+.ra-bar{width:14px;min-width:8px;max-width:18px;border:0;border-radius:7px 7px 2px 2px;background:var(--bar-color);box-shadow:0 7px 14px color-mix(in srgb,var(--bar-color) 28%,transparent);cursor:pointer;transition:opacity .16s ease,transform .16s ease,filter .16s ease}
+.ra-bar:hover,.ra-bar:focus-visible{opacity:.88;transform:translateY(-2px);filter:saturate(1.1)}
+.ra-bar:focus-visible{outline:3px solid rgba(67,33,111,.18);outline-offset:2px}
+.ra-bar.is-empty{opacity:.28;box-shadow:none}
+.ra-year-label{align-self:start;justify-self:center;padding-top:10px;color:#4f3a68;font-size:12px;font-weight:900}
+.ra-x-title{text-align:center;padding:0 20px 18px;color:#5b3d8a;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
+.ra-side-panel{min-width:0}
+.ra-legend-list{display:grid;gap:0;padding:8px 0}
+.ra-legend-row{display:grid;grid-template-columns:14px 48px minmax(0,1fr);gap:10px;align-items:center;padding:11px 18px;border-bottom:1px solid #f1ebfa}
+.ra-legend-row:last-child{border-bottom:none}
+.ra-legend-swatch{width:12px;height:12px;border-radius:4px}
+.ra-legend-row strong{color:#1f1235;font-size:12px;font-weight:900}
+.ra-legend-row span:last-child{min-width:0;color:#665276;font-size:12.5px;font-weight:650;line-height:1.35}
+.ra-wide-panel{grid-column:1/-1}
+.ra-table-wrap,.ra-modal-table-wrap{overflow-x:auto}
+.ra-table{width:100%;border-collapse:collapse;font-size:13px}
+.ra-table th{text-align:left;padding:11px 16px;background:#fbf9ff;color:#5b3d8a;font-size:10.5px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #eadff8;white-space:nowrap}
+.ra-table td{padding:13px 16px;border-bottom:1px solid #f1ebfa;color:#2d2440;vertical-align:top}
+.ra-table tbody tr:last-child td{border-bottom:none}
+.ra-table tbody tr:hover td{background:#fdfbff}
+.ra-table-link{display:block;color:#24113f;font-weight:850;text-decoration:none;line-height:1.35;max-width:720px}
+.ra-table-link:hover{color:#6d28d9;text-decoration:underline}
+.ra-table td span{display:block;margin-top:4px;color:#7d6c98;font-size:12px;line-height:1.35}
+.ra-empty-cell{text-align:center;color:#8b7aaa!important;padding:26px!important}
+.ra-modal{position:fixed;inset:0;z-index:1400;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(19,8,38,.58);backdrop-filter:blur(4px)}
+.ra-modal.is-open{display:flex;animation:ra-modal-fade .18s ease both}
+.ra-modal-dialog{width:min(980px,96vw);max-height:92vh;display:flex;flex-direction:column;background:#fff;border:1px solid #e7daf7;border-radius:16px;box-shadow:0 30px 90px rgba(26,6,56,.32);overflow:hidden}
+.ra-modal.is-open .ra-modal-dialog{animation:ra-modal-rise .22s cubic-bezier(.2,.8,.2,1) both}
+.ra-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 24px;background:#fbf9ff;border-bottom:1px solid #eadff8}
+.ra-modal-header h3{margin:0;color:#1f1235;font-size:22px;font-weight:900;letter-spacing:0;line-height:1.2}
+.ra-modal-header p{margin:7px 0 0;color:#6d5d85;font-size:13px;line-height:1.4}
+.ra-close-btn{width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e2d5f4;border-radius:10px;background:#fff;color:#4f1d7a;font-size:24px;line-height:1;cursor:pointer}
+.ra-close-btn:hover,.ra-close-btn:focus-visible{background:#f5f1fb;outline:none;box-shadow:0 0 0 3px rgba(109,40,217,.14)}
+.ra-modal-body{overflow:auto;padding:20px 24px 24px}
+.ra-summary-modal-dialog{width:min(540px,94vw)}
+.ra-summary-modal-body{display:grid;gap:18px;padding:20px 24px 24px}
+.ra-summary-modal-metric{padding:18px;border:1px solid #eadff8;border-radius:14px;background:linear-gradient(135deg,#fff 0%,#fbf8ff 100%)}
+.ra-summary-modal-metric span{display:block;color:#7d6c98;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
+.ra-summary-modal-metric strong{display:block;margin-top:9px;color:#1f1235;font-size:36px;font-weight:900;line-height:1}
+.ra-summary-modal-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.ra-modal-primary-btn,.ra-modal-secondary-btn{min-height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;padding:0 15px;font:inherit;font-size:13px;font-weight:850;text-decoration:none;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease,box-shadow .16s ease}
+.ra-modal-primary-btn{border:1px solid #43216f;background:#43216f;color:#fff;box-shadow:0 10px 22px rgba(67,33,111,.18)}
+.ra-modal-primary-btn:hover,.ra-modal-primary-btn:focus-visible{background:#331653;transform:translateY(-1px);outline:none;box-shadow:0 14px 28px rgba(67,33,111,.22)}
+.ra-modal-secondary-btn{border:1px solid #d8c8ef;background:#fff;color:#4f1d7a}
+.ra-modal-secondary-btn:hover,.ra-modal-secondary-btn:focus-visible{background:#f5f1fb;border-color:#bda6df;outline:none}
+.ra-detail-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.ra-detail-metric{padding:13px 14px;border:1px solid #eadff8;border-radius:12px;background:#fcfbff}
+.ra-detail-metric span{display:block;color:#7d6c98;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em}
+.ra-detail-metric strong{display:block;margin-top:8px;color:#1f1235;font-size:24px;font-weight:900;line-height:1}
+.ra-modal-table .ra-table-link{max-width:430px}
+.ra-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@keyframes ra-modal-fade{from{opacity:0}to{opacity:1}}
+@keyframes ra-modal-rise{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media (max-width:1200px){.ra-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-dashboard-grid{grid-template-columns:1fr}.ra-side-panel{order:2}.ra-wide-panel{order:3}.ra-chart-wrap{min-height:360px}.ra-year-groups{overflow-x:auto}}
+@media (max-width:760px){.ra-toolbar{align-items:stretch;flex-direction:column}.ra-print-btn{width:100%}.ra-summary-grid{grid-template-columns:1fr}.ra-chart-wrap{grid-template-columns:18px 44px minmax(0,1fr);padding:18px 14px 6px;min-height:330px}.ra-year-groups{grid-template-columns:repeat({{ max(1, $analyticsChartData->count()) }},minmax(76px,1fr));gap:8px;padding:0 8px}.ra-bar{width:10px}.ra-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-modal{padding:10px}.ra-modal-header,.ra-modal-body,.ra-summary-modal-body{padding:18px}.ra-modal-header h3{font-size:19px}.ra-summary-modal-actions{flex-direction:column}.ra-modal-primary-btn,.ra-modal-secondary-btn{width:100%}}
+@media (max-width:520px){.ra-summary-card{min-height:112px}.ra-summary-copy strong{font-size:30px}.ra-panel-header{align-items:flex-start;flex-direction:column}.ra-detail-metrics{grid-template-columns:1fr}.ra-legend-row{grid-template-columns:14px 42px minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){.ra-summary-card,.ra-summary-action svg,.ra-bar,.ra-print-btn,.ra-link-btn,.ra-modal-primary-btn,.ra-modal-secondary-btn{transition:none}.ra-modal.is-open,.ra-modal.is-open .ra-modal-dialog{animation:none}}
 </style>
-
-<!-- Stat Detail Modal -->
-<div id="statModal" class="modal-overlay" style="display:none;">
-    <div class="modal-box" style="width:800px; max-width:95vw; max-height:85vh; overflow-y:auto;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h3 id="modalTitle" style="font-family:var(--font-head); color:var(--purple-deep);">Details</h3>
-            <div style="display:flex; gap:8px;">
-                <button onclick="printModal()" class="btn btn-outline btn-sm">🖨 Print</button>
-                <button onclick="closeModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--muted);">×</button>
-            </div>
-        </div>
-        <div id="modalBody"></div>
-    </div>
-</div>
-
-<!-- Department Analytics Modal -->
-<div id="departmentAnalyticsModal" class="department-analytics-overlay" aria-hidden="true">
-    <div class="department-analytics-dialog" role="dialog" aria-modal="true" aria-labelledby="departmentAnalyticsTitle">
-        <div class="da-header">
-            <div>
-                <span class="da-kicker">Department Analytics</span>
-                <h3 id="departmentAnalyticsTitle" class="da-title">Department Summary</h3>
-                <span id="departmentAnalyticsSubtitle" class="da-subtitle">0 records</span>
-            </div>
-            <button type="button" class="da-close" onclick="closeDepartmentAnalyticsModal()" aria-label="Close department analytics">&times;</button>
-        </div>
-        <div class="da-body">
-            <div class="da-filters">
-                <div class="da-filter-field">
-                    <label for="daDateFrom">Date From</label>
-                    <input type="date" id="daDateFrom" data-department-filter>
-                </div>
-                <div class="da-filter-field">
-                    <label for="daDateTo">Date To</label>
-                    <input type="date" id="daDateTo" data-department-filter>
-                </div>
-                <div class="da-filter-field">
-                    <label for="daCategory">Category</label>
-                    <select id="daCategory" data-department-filter>
-                        <option value="">All categories</option>
-                    </select>
-                </div>
-                <div class="da-filter-field">
-                    <label for="daStatus">Status</label>
-                    <select id="daStatus" data-department-filter>
-                        <option value="">All statuses</option>
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="rejected">Rejected</option>
-                        <option value="archived">Archived</option>
-                    </select>
-                </div>
-                <button type="button" class="da-reset" onclick="resetDepartmentAnalyticsFilters()">Reset</button>
-            </div>
-
-            <div class="da-metric-grid" id="departmentMetricGrid"></div>
-
-            <div class="da-content-grid">
-                <div class="da-panel">
-                    <div class="da-panel-header">
-                        <h4>Recent Submissions</h4>
-                        <span id="departmentRecentCount">Latest uploads</span>
-                    </div>
-                    <div class="da-panel-body" id="departmentRecentList"></div>
-                </div>
-
-                <div class="da-panel">
-                    <div class="da-panel-header">
-                        <h4>Status Distribution</h4>
-                        <span id="departmentDistributionCount">0 records</span>
-                    </div>
-                    <div class="da-panel-body" id="departmentStatusDistribution"></div>
-                </div>
-
-                <div class="da-panel da-panel-wide">
-                    <div class="da-panel-header">
-                        <h4>Activity Timeline</h4>
-                        <span id="departmentTimelineCount">Recent actions</span>
-                    </div>
-                    <div class="da-panel-body" id="departmentTimeline"></div>
-                </div>
-            </div>
-
-            <div class="da-actions">
-                <a href="#" id="departmentOpenRecordsLink" class="da-open-records">Open Research Records</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Reject Modal -->
-<div id="rejectModal" class="modal-overlay" style="display:none">
-    <div class="modal-box">
-        <h3>Reject Research</h3>
-        <p>Please provide a reason for rejection:</p>
-        <form id="rejectForm" method="POST">
-            @csrf
-            <textarea name="reason" rows="4" placeholder="Explain why this submission is being rejected..." required style="width:100%;padding:10px;border:2px solid #e8dff5;border-radius:6px;margin:12px 0;font-size:14px;"></textarea>
-            <div style="display:flex;gap:10px;justify-content:flex-end">
-                <button type="button" class="btn btn-ghost" onclick="closeRejectModal()">Cancel</button>
-                <button type="submit" class="btn btn-red">Reject</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-@php
-$allResearchesJson = $allResearches->map(fn($r) => ['title' => $r->title, 'author' => $r->author_name, 'department' => $r->department, 'status' => $r->status, 'year' => $r->year_published]);
-$allUsersJson = $allUsers->map(fn($u) => ['name' => $u->name, 'email' => $u->email, 'role' => $u->role, 'department' => $u->department, 'joined' => $u->created_at->format('M d, Y')]);
-$pendingJson = $allResearches->where('status','pending')->values()->map(fn($r) => ['title' => $r->title, 'author' => $r->author_name, 'department' => $r->department, 'year' => $r->year_published]);
-$approvedJson = $allResearches->where('status','approved')->values()->map(fn($r) => ['title' => $r->title, 'author' => $r->author_name, 'department' => $r->department, 'year' => $r->year_published]);
-$rejectedJson = $allResearches->where('status','rejected')->values()->map(fn($r) => ['title' => $r->title, 'author' => $r->author_name, 'department' => $r->department, 'year' => $r->year_published]);
-@endphp
 
 @endsection
 
 @push('scripts')
 <script>
-const departmentAnalyticsData = @json($departmentAnalytics);
-const departmentAnalyticsMap = new Map(departmentAnalyticsData.map(item => [item.department, item]));
-const adminResearchesUrl = @json(route('admin.researches'));
-let activeDepartmentAnalytics = null;
+const analyticsChartData = @json($analyticsChartData);
+const analyticsSummary = @json($analyticsSummary);
+const analyticsDepartments = @json($analyticsDepartments);
+const summaryCardData = @json($summaryCardDetails);
+const analyticsLookup = new Map();
+let activeRaModal = null;
+let previousRaFocus = null;
 
-const departmentStatusMeta = {
-    pending: { label: 'Pending', className: 'is-pending' },
-    approved: { label: 'Approved', className: 'is-approved' },
-    rejected: { label: 'Rejected', className: 'is-rejected' },
-    archived: { label: 'Archived', className: 'is-archived' },
-    submitted: { label: 'Submitted', className: 'is-submitted' },
-    updated: { label: 'Updated', className: 'is-updated' },
-};
+analyticsChartData.forEach(yearGroup => {
+    yearGroup.departments.forEach(entry => {
+        analyticsLookup.set(analyticsKey(entry.department, entry.year), entry);
+    });
+});
+
+function analyticsKey(department, year) {
+    return `${year}::${department}`;
+}
 
 function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, function(character) {
-        return {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;',
-        }[character];
-    });
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+    }[character]));
 }
 
 function formatNumber(value) {
     return Number(value || 0).toLocaleString();
 }
 
-function openDepartmentAnalyticsModal(department) {
-    activeDepartmentAnalytics = departmentAnalyticsMap.get(department);
-
-    if (!activeDepartmentAnalytics) {
-        return;
-    }
-
-    const modal = document.getElementById('departmentAnalyticsModal');
-    document.getElementById('departmentAnalyticsTitle').textContent = activeDepartmentAnalytics.department;
-    document.getElementById('departmentAnalyticsSubtitle').textContent = `${formatNumber(activeDepartmentAnalytics.total)} research record${activeDepartmentAnalytics.total === 1 ? '' : 's'}`;
-
-    populateDepartmentCategoryFilter(activeDepartmentAnalytics.records || []);
-    resetDepartmentAnalyticsFilters(false);
-    renderDepartmentAnalytics();
-
+function openRaModal(modal, focusTarget = null) {
+    previousRaFocus = document.activeElement;
+    activeRaModal = modal;
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+
+    window.requestAnimationFrame(() => {
+        (focusTarget || modal.querySelector('[role="dialog"]') || modal).focus();
+    });
 }
 
-function closeDepartmentAnalyticsModal() {
-    const modal = document.getElementById('departmentAnalyticsModal');
+function closeRaModal(modal) {
+    if (!modal) {
+        return;
+    }
+
     modal.classList.remove('is-open');
     modal.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
-    activeDepartmentAnalytics = null;
-}
 
-function populateDepartmentCategoryFilter(records) {
-    const select = document.getElementById('daCategory');
-    const categories = new Map();
+    if (activeRaModal === modal) {
+        activeRaModal = null;
+    }
 
-    records.forEach(record => {
-        if (record.category) {
-            categories.set(record.category, record.category_label || record.category);
-        }
-    });
+    if (!document.querySelector('.ra-modal.is-open')) {
+        document.body.style.overflow = '';
+    }
 
-    const options = Array.from(categories.entries())
-        .sort((a, b) => a[1].localeCompare(b[1]))
-        .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
-        .join('');
-
-    select.innerHTML = '<option value="">All categories</option>' + options;
-}
-
-function resetDepartmentAnalyticsFilters(shouldRender = true) {
-    ['daDateFrom', 'daDateTo', 'daCategory', 'daStatus'].forEach(id => {
-        const element = document.getElementById(id);
-        if (element) {
-            element.value = '';
-        }
-    });
-
-    if (shouldRender) {
-        renderDepartmentAnalytics();
+    if (previousRaFocus && typeof previousRaFocus.focus === 'function') {
+        previousRaFocus.focus();
     }
 }
 
-function filteredDepartmentRecords() {
-    if (!activeDepartmentAnalytics) {
-        return [];
-    }
-
-    const fromDate = document.getElementById('daDateFrom').value;
-    const toDate = document.getElementById('daDateTo').value;
-    const category = document.getElementById('daCategory').value;
-    const status = document.getElementById('daStatus').value;
-
-    return (activeDepartmentAnalytics.records || []).filter(record => {
-        if (fromDate && (!record.created_date || record.created_date < fromDate)) {
-            return false;
-        }
-
-        if (toDate && (!record.created_date || record.created_date > toDate)) {
-            return false;
-        }
-
-        if (category && record.category !== category) {
-            return false;
-        }
-
-        if (status && record.status !== status) {
-            return false;
-        }
-
-        return true;
-    });
+function focusableElements(modal) {
+    return Array.from(modal.querySelectorAll([
+        'a[href]',
+        'button:not([disabled])',
+        'textarea:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+    ].join(','))).filter(element => element.offsetParent !== null);
 }
 
-function countDepartmentStatuses(records) {
-    return records.reduce((counts, record) => {
-        const status = record.status || 'pending';
-        counts[status] = (counts[status] || 0) + 1;
-        return counts;
-    }, { pending: 0, approved: 0, rejected: 0, archived: 0 });
-}
-
-function renderDepartmentAnalytics() {
-    if (!activeDepartmentAnalytics) {
+function keepFocusInModal(event) {
+    if (!activeRaModal || event.key !== 'Tab') {
         return;
     }
 
-    const records = filteredDepartmentRecords();
-    const counts = countDepartmentStatuses(records);
+    const focusable = focusableElements(activeRaModal);
 
-    renderDepartmentMetrics(records, counts);
-    renderDepartmentDistribution(records, counts);
-    renderDepartmentRecentSubmissions(records);
-    renderDepartmentTimeline(records);
-    updateDepartmentRecordsLink();
+    if (!focusable.length) {
+        event.preventDefault();
+        activeRaModal.querySelector('[role="dialog"]')?.focus();
+        return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
 }
 
-function renderDepartmentMetrics(records, counts) {
-    const metrics = [
-        { label: 'Total Researches', value: records.length, note: 'Matching records' },
-        { label: 'Submitted', value: records.length, note: 'All uploads' },
-        { label: 'Approved', value: counts.approved, note: 'Ready for viewing', className: 'is-approved' },
-        { label: 'Pending', value: counts.pending, note: 'Waiting for review', className: 'is-pending' },
-    ];
+function openSummaryCardModal(key) {
+    const card = summaryCardData[key];
 
-    document.getElementById('departmentMetricGrid').innerHTML = metrics.map(metric => `
-        <div class="da-metric ${metric.className || ''}">
-            <span>${escapeHtml(metric.label)}</span>
-            <strong>${formatNumber(metric.value)}</strong>
-            <small>${escapeHtml(metric.note)}</small>
+    if (!card) {
+        return;
+    }
+
+    document.getElementById('summaryCardModalTitle').textContent = card.label;
+    document.getElementById('summaryCardModalDescription').textContent = card.description;
+    document.getElementById('summaryCardModalNote').textContent = card.note;
+    document.getElementById('summaryCardModalValue').textContent = formatNumber(card.value);
+
+    const action = document.getElementById('summaryCardModalAction');
+    action.textContent = card.actionLabel;
+    action.href = card.actionUrl;
+
+    const modal = document.getElementById('summaryCardModal');
+    openRaModal(modal, action);
+}
+
+function closeSummaryCardModal() {
+    closeRaModal(document.getElementById('summaryCardModal'));
+}
+
+function openAnalyticsDetail(department, year) {
+    const entry = analyticsLookup.get(analyticsKey(department, Number(year)));
+
+    if (!entry) {
+        return;
+    }
+
+    document.getElementById('analyticsDetailTitle').textContent = `${entry.code} - ${entry.year}`;
+    document.getElementById('analyticsDetailSubtitle').textContent = entry.department;
+    document.getElementById('analyticsDetailMetrics').innerHTML = [
+        ['Department', entry.code],
+        ['Year', entry.year],
+        ['Total Views', formatNumber(entry.views)],
+        ['Papers', formatNumber(entry.paper_count)],
+    ].map(metric => `
+        <div class="ra-detail-metric">
+            <span>${escapeHtml(metric[0])}</span>
+            <strong>${escapeHtml(metric[1])}</strong>
         </div>
     `).join('');
+
+    const papers = entry.papers || [];
+    document.getElementById('analyticsDetailPapers').innerHTML = papers.length
+        ? papers.map(paper => `
+            <tr>
+                <td><a href="${escapeHtml(paper.url)}" class="ra-table-link">${escapeHtml(paper.title)}</a></td>
+                <td>${escapeHtml(paper.author)}</td>
+                <td>${escapeHtml(paper.type)}</td>
+                <td>${formatNumber(paper.views)}</td>
+            </tr>
+        `).join('')
+        : '<tr><td colspan="5" class="ra-empty-cell">No approved research papers for this department and year.</td></tr>';
+
+    const modal = document.getElementById('analyticsDetailModal');
+    openRaModal(modal, modal.querySelector('.ra-close-btn'));
 }
 
-function renderDepartmentDistribution(records, counts) {
-    const total = records.length;
-    const maxCount = Math.max(1, ...Object.values(counts));
-    const statuses = ['pending', 'approved', 'rejected', 'archived'];
-
-    document.getElementById('departmentDistributionCount').textContent = `${formatNumber(total)} record${total === 1 ? '' : 's'}`;
-
-    if (total === 0) {
-        document.getElementById('departmentStatusDistribution').innerHTML = '<div class="da-empty">No records match the selected filters.</div>';
-        return;
-    }
-
-    document.getElementById('departmentStatusDistribution').innerHTML = statuses.map(status => {
-        const meta = departmentStatusMeta[status];
-        const count = counts[status] || 0;
-        const width = count > 0 ? Math.max(4, (count / maxCount) * 100) : 0;
-
-        return `
-            <div class="da-status-row">
-                <span class="da-status-label">${meta.label}</span>
-                <span class="da-status-track" aria-hidden="true">
-                    <span class="da-status-fill ${meta.className}" style="width:${width}%"></span>
-                </span>
-                <span class="da-status-count">${formatNumber(count)}</span>
-            </div>
-        `;
-    }).join('');
+function closeAnalyticsDetailModal() {
+    closeRaModal(document.getElementById('analyticsDetailModal'));
 }
 
-function renderDepartmentRecentSubmissions(records) {
-    const recent = [...records]
-        .sort((a, b) => (b.created_sort || 0) - (a.created_sort || 0))
-        .slice(0, 6);
-
-    document.getElementById('departmentRecentCount').textContent = `${formatNumber(recent.length)} shown`;
-
-    if (recent.length === 0) {
-        document.getElementById('departmentRecentList').innerHTML = '<div class="da-empty">No recent submissions match the selected filters.</div>';
-        return;
-    }
-
-    document.getElementById('departmentRecentList').innerHTML = `
-        <div class="da-recent-list">
-            ${recent.map(record => {
-                const statusMeta = departmentStatusMeta[record.status] || departmentStatusMeta.pending;
-
-                return `
-                    <div class="da-recent-item">
-                        <div>
-                            <a href="${escapeHtml(record.url)}" class="da-recent-title">${escapeHtml(record.title)}</a>
-                            <span class="da-recent-meta">${escapeHtml(record.author)} | ${escapeHtml(record.category_label)} | ${escapeHtml(record.created_at || 'No date recorded')}</span>
-                        </div>
-                        <span class="da-status-pill ${statusMeta.className}">${statusMeta.label}</span>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
-function buildDepartmentTimeline(records) {
-    const timeline = [];
-
-    records.forEach(record => {
-        if (record.created_sort) {
-            timeline.push({
-                type: 'submitted',
-                label: 'Submitted',
-                title: record.title,
-                time: record.created_at,
-                sort: record.created_sort,
-            });
-        }
-
-        if (record.approved_sort) {
-            timeline.push({
-                type: 'approved',
-                label: 'Approved',
-                title: record.title,
-                time: record.approved_at,
-                sort: record.approved_sort,
-            });
-        }
-
-        if (['rejected', 'archived'].includes(record.status) && record.updated_sort && record.updated_sort !== record.created_sort) {
-            const meta = departmentStatusMeta[record.status];
-            timeline.push({
-                type: record.status,
-                label: meta.label,
-                title: record.title,
-                time: record.updated_at,
-                sort: record.updated_sort,
-            });
-        }
-    });
-
-    return timeline
-        .filter(event => event.sort)
-        .sort((a, b) => b.sort - a.sort)
-        .slice(0, 8);
-}
-
-function renderDepartmentTimeline(records) {
-    const timeline = buildDepartmentTimeline(records);
-    document.getElementById('departmentTimelineCount').textContent = `${formatNumber(timeline.length)} shown`;
-
-    if (timeline.length === 0) {
-        document.getElementById('departmentTimeline').innerHTML = '<div class="da-empty">No activity found for the selected filters.</div>';
-        return;
-    }
-
-    document.getElementById('departmentTimeline').innerHTML = `
-        <div class="da-timeline">
-            ${timeline.map(event => {
-                const meta = departmentStatusMeta[event.type] || departmentStatusMeta.updated;
-
-                return `
-                    <div class="da-timeline-item">
-                        <span class="da-timeline-dot ${meta.className}" aria-hidden="true"></span>
-                        <div class="da-timeline-content">
-                            <strong>${escapeHtml(event.label)}: ${escapeHtml(event.title)}</strong>
-                            <span>${escapeHtml(event.time || 'No date recorded')}</span>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        </div>
-    `;
-}
-
-function updateDepartmentRecordsLink() {
-    if (!activeDepartmentAnalytics) {
-        return;
-    }
-
-    const status = document.getElementById('daStatus').value;
-    const url = new URL(adminResearchesUrl, window.location.origin);
-
-    if (activeDepartmentAnalytics.department !== 'Unassigned Department') {
-        url.searchParams.set('department', activeDepartmentAnalytics.department);
-    }
-
-    if (status) {
-        url.searchParams.set('status', status);
-    }
-
-    document.getElementById('departmentOpenRecordsLink').href = url.toString();
-}
-
-document.querySelectorAll('[data-department-filter]').forEach(element => {
-    element.addEventListener('change', renderDepartmentAnalytics);
-});
-
-document.getElementById('departmentAnalyticsModal').addEventListener('click', function(event) {
-    if (event.target === this) {
-        closeDepartmentAnalyticsModal();
+document.getElementById('summaryCardModal').addEventListener('click', event => {
+    if (event.target === event.currentTarget) {
+        closeSummaryCardModal();
     }
 });
 
-document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape' && document.getElementById('departmentAnalyticsModal').classList.contains('is-open')) {
-        closeDepartmentAnalyticsModal();
+document.getElementById('summaryCardModalAction').addEventListener('click', event => {
+    const hash = event.currentTarget.hash;
+
+    if (hash && document.querySelector(hash)) {
+        closeSummaryCardModal();
+
+        window.setTimeout(() => {
+            document.querySelector(hash)?.focus();
+        }, 80);
     }
 });
 
-const modalData = {
-    researches: {
-        title: 'All Researches ({{ $stats["total_researches"] }})',
-        headers: ['Title','Author','Department','Status','Year'],
-        rows: @json($allResearchesJson),
-        keys: ['title','author','department','status','year'],
-        printable: true
-    },
-    users: {
-        title: 'All Users ({{ $stats["total_users"] }})',
-        headers: ['Name','Email','Role','Department','Joined'],
-        rows: @json($allUsersJson),
-        keys: ['name','email','role','department','joined'],
-        printable: true
-    },
-    pending: {
-        title: 'Pending Review ({{ $stats["pending"] }})',
-        headers: ['Title','Author','Department','Year'],
-        rows: @json($pendingJson),
-        keys: ['title','author','department','year'],
-        printable: false
-    },
-    approved: {
-        title: 'Approved ({{ $stats["approved"] }})',
-        headers: ['Title','Author','Department','Year'],
-        rows: @json($approvedJson),
-        keys: ['title','author','department','year'],
-        printable: false
-    },
-    rejected: {
-        title: 'Rejected ({{ $stats["rejected"] }})',
-        headers: ['Title','Author','Department','Year'],
-        rows: @json($rejectedJson),
-        keys: ['title','author','department','year'],
-        printable: false
-    },
-};
+document.getElementById('analyticsDetailModal').addEventListener('click', event => {
+    if (event.target === event.currentTarget) {
+        closeAnalyticsDetailModal();
+    }
+});
 
-let currentModal = null;
+document.addEventListener('keydown', event => {
+    keepFocusInModal(event);
 
-function openModal(type) {
-    currentModal = type;
-    const data = modalData[type];
-    document.getElementById('modalTitle').textContent = data.title;
+    if (event.key !== 'Escape') {
+        return;
+    }
 
-    let html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">';
-    html += '<thead><tr>';
-    data.headers.forEach(h => {
-        html += `<th style="text-align:left;padding:10px 12px;background:var(--purple-ghost);color:var(--purple-deep);font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);">${h}</th>`;
-    });
-    html += '</tr></thead><tbody>';
+    if (document.getElementById('summaryCardModal').classList.contains('is-open')) {
+        closeSummaryCardModal();
+    } else if (document.getElementById('analyticsDetailModal').classList.contains('is-open')) {
+        closeAnalyticsDetailModal();
+    }
+});
 
-    if (data.rows.length === 0) {
-        html += `<tr><td colspan="${data.headers.length}" style="text-align:center;padding:24px;color:var(--muted);">No data found.</td></tr>`;
-    } else {
-        data.rows.forEach(row => {
-            html += '<tr>';
-            data.keys.forEach(key => {
-                const val = row[key] || '—';
-                html += `<td style="padding:10px 12px;border-bottom:1px solid #f3eefb;vertical-align:middle;">${val}</td>`;
+function flattenAnalyticsRows() {
+    const rows = [];
+
+    analyticsChartData.forEach(yearGroup => {
+        yearGroup.departments.forEach(entry => {
+            rows.push({
+                department: entry.department,
+                code: entry.code,
+                year: entry.year,
+                views: entry.views,
+                citationCopies: entry.citation_copies,
+                paperCount: entry.paper_count,
             });
-            html += '</tr>';
         });
-    }
+    });
 
-    html += '</tbody></table></div>';
-    document.getElementById('modalBody').innerHTML = html;
-    document.getElementById('statModal').style.display = 'flex';
+    return rows;
 }
 
-function closeModal() {
-    document.getElementById('statModal').style.display = 'none';
-    currentModal = null;
-}
+function flattenPaperRows() {
+    const rows = [];
 
-function printModal() {
-    if (!currentModal) return;
-    const data = modalData[currentModal];
-    let rows = '';
-    data.rows.forEach(row => {
-        rows += '<tr>';
-        data.keys.forEach(key => {
-            rows += `<td style="padding:8px 10px;border:1px solid #ddd;">${row[key] || '—'}</td>`;
+    analyticsChartData.forEach(yearGroup => {
+        yearGroup.departments.forEach(entry => {
+            (entry.papers || []).forEach(paper => {
+                rows.push({
+                    department: entry.department,
+                    code: entry.code,
+                    year: entry.year,
+                    title: paper.title,
+                    author: paper.author,
+                    views: paper.views,
+                    citationCopies: paper.citation_copies,
+                });
+            });
         });
-        rows += '</tr>';
     });
 
-    let headers = '';
-    data.headers.forEach(h => {
-        headers += `<th style="padding:8px 10px;background:#f0e8f8;border:1px solid #ddd;text-align:left;">${h}</th>`;
+    return rows.sort((a, b) => (b.views || 0) - (a.views || 0));
+}
+
+function printAnalyticsReport() {
+    const generatedAt = new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
     });
 
-    const content = `
-        <html><head><title>${data.title}</title>
-        <style>
-            body{font-family:Arial,sans-serif;padding:30px;}
-            h1{color:#52297a;}
-            table{width:100%;border-collapse:collapse;font-size:13px;}
-            th{background:#f0e8f8;color:#52297a;}
-            p{color:#666;margin-bottom:20px;}
-        </style>
-        </head><body>
-        <h1>Ube Repository</h1>
-        <h2 style="color:#52297a;">${data.title}</h2>
-        <p>Printed on: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</p>
-        <table><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>
-        </body></html>
+    const summaryRows = [
+        ['Total Research Papers', analyticsSummary.total_research_papers],
+        ['Total Views', analyticsSummary.total_views],
+        ['Total Copy Citations', analyticsSummary.total_copy_citations],
+        ['Total Researchers', analyticsSummary.total_researchers],
+    ].map(row => `<tr><td>${escapeHtml(row[0])}</td><td>${formatNumber(row[1])}</td></tr>`).join('');
+
+    const analyticsRows = flattenAnalyticsRows().map(row => `
+        <tr>
+            <td>${escapeHtml(row.code)}</td>
+            <td>${escapeHtml(row.department)}</td>
+            <td>${escapeHtml(row.year)}</td>
+            <td>${formatNumber(row.views)}</td>
+            <td>${formatNumber(row.citationCopies)}</td>
+            <td>${formatNumber(row.paperCount)}</td>
+        </tr>
+    `).join('');
+
+    const paperRows = flattenPaperRows().map(row => `
+        <tr>
+            <td>${escapeHtml(row.title)}</td>
+            <td>${escapeHtml(row.author)}</td>
+            <td>${escapeHtml(row.code)}</td>
+            <td>${escapeHtml(row.year)}</td>
+            <td>${formatNumber(row.views)}</td>
+            <td>${formatNumber(row.citationCopies)}</td>
+        </tr>
+    `).join('');
+
+    const html = `
+        <html>
+        <head>
+            <title>Research Analytics Report</title>
+            <style>
+                body{font-family:Arial,sans-serif;padding:30px;color:#1f1235;font-size:12px}
+                h1{margin:0 0 4px;color:#3b0f63;font-size:24px}
+                h2{margin:24px 0 8px;color:#3b0f63;font-size:16px}
+                .meta{color:#65536f;margin-bottom:4px}
+                .scope{margin:14px 0 20px;padding:10px 12px;border-left:4px solid #6d28d9;background:#f7f2ff;color:#3b0f63}
+                table{width:100%;border-collapse:collapse;margin-top:8px}
+                th{padding:8px 9px;border:1px solid #d9cce9;background:#f4effb;color:#3b0f63;text-align:left;text-transform:uppercase;font-size:10px;letter-spacing:.04em}
+                td{padding:8px 9px;border:1px solid #e8e0f2;vertical-align:top}
+                .summary{max-width:520px}
+                @media print{body{padding:16px} h2{break-after:avoid} tr{break-inside:avoid}}
+            </style>
+        </head>
+        <body>
+            <h1>Research Analytics Report</h1>
+            <div class="meta">Philippine College of Science and Technology</div>
+            <div class="meta">Generated: ${escapeHtml(generatedAt)}</div>
+            <div class="scope"><strong>Scope:</strong> ${escapeHtml(analyticsSummary.report_scope)} | <strong>Years:</strong> ${escapeHtml(analyticsSummary.year_range)}</div>
+
+            <h2>Summary</h2>
+            <table class="summary"><tbody>${summaryRows}</tbody></table>
+
+            <h2>Yearly Department Views</h2>
+            <table>
+                <thead><tr><th>Code</th><th>Department</th><th>Year</th><th>Views</th><th>Copy Citations</th><th>Papers</th></tr></thead>
+                <tbody>${analyticsRows || '<tr><td colspan="6">No analytics data available.</td></tr>'}</tbody>
+            </table>
+
+            <h2>Top Research Paper List</h2>
+            <table>
+                <thead><tr><th>Title</th><th>Author</th><th>Department</th><th>Year</th><th>Views</th><th>Copy Citations</th></tr></thead>
+                <tbody>${paperRows || '<tr><td colspan="6">No approved research papers available.</td></tr>'}</tbody>
+            </table>
+        </body>
+        </html>
     `;
 
-    const blob = new Blob([content], {type: 'text/html'});
+    printHtml(html);
+}
+
+function printHtml(html) {
+    const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;';
+    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;visibility:hidden;';
     iframe.src = url;
     document.body.appendChild(iframe);
+
     iframe.onload = function() {
+        iframe.contentWindow.focus();
         iframe.contentWindow.print();
         iframe.contentWindow.onafterprint = function() {
             document.body.removeChild(iframe);
             URL.revokeObjectURL(url);
         };
     };
-}
-
-function openRejectModal(id) {
-    document.getElementById('rejectForm').action = '/admin/researches/' + id + '/reject';
-    document.getElementById('rejectModal').style.display = 'flex';
-}
-function closeRejectModal() {
-    document.getElementById('rejectModal').style.display = 'none';
 }
 </script>
 @endpush

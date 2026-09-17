@@ -142,7 +142,6 @@ class DatabaseSeeder extends Seeder
                 'approved_by'    => $s['status'] === 'approved' ? $admin->id : null,
                 'approved_at'    => $s['status'] === 'approved' ? now() : null,
                 'view_count'     => rand(10, 400),
-                'download_count' => rand(2, 80),
             ]);
         }
     }

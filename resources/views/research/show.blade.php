@@ -12,7 +12,8 @@
     $canViewFullPaper = $authUser?->canViewFullDocument() ?? false;
     $isPinned = $authUser ? $authUser->pinnedResearches->contains($research->id) : false;
     $citationYear = $research->year_published ?: 'n.d.';
-    $citation = trim($research->author_name) . ' (' . $citationYear . '). ' . trim($research->title) . '. Ube Repository. ' . route('research.show', $research);
+    $authorListLabel = $research->authorListLabel();
+    $citation = $authorListLabel . ' (' . $citationYear . '). ' . trim($research->title) . '. Ube Repository. ' . route('research.show', $research);
 @endphp
 <div class="page-container page-narrow">
     <div class="breadcrumb-nav">
@@ -49,7 +50,7 @@
                     <span class="rd-meta-icon">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                     </span>
-                    <span class="rd-meta-val">{{ $research->author_name }}</span>
+                    <span class="rd-meta-val">{{ $authorListLabel }}</span>
                 </div>
                 <div class="rd-meta-sep">&middot;</div>
                 <div class="rd-meta-item">
@@ -120,7 +121,7 @@
                 @endif
             @endif
 
-            <button type="button" class="rd-btn rd-btn-outline rd-btn-citation" data-citation="{{ $citation }}" onclick="copyCitation(this)">
+            <button type="button" class="rd-btn rd-btn-outline rd-btn-citation" data-security-copy-allowed="true" data-citation="{{ $citation }}" data-copy-url="{{ route('research.citation-copy', $research) }}" onclick="copyCitation(this)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -338,6 +339,7 @@ async function copyCitation(button) {
 
         button.classList.add('copied');
         button.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        recordCitationCopy(button);
 
         window.setTimeout(() => {
             button.classList.remove('copied');
@@ -356,18 +358,44 @@ function copyCitationFallback(citation) {
     const textArea = document.createElement('textarea');
     textArea.value = citation;
     textArea.setAttribute('readonly', '');
+    textArea.setAttribute('data-security-copy-allowed', 'true');
     textArea.style.position = 'fixed';
     textArea.style.left = '-9999px';
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
 
-    const copied = document.execCommand('copy');
-    textArea.remove();
+    window.__ubeAllowProgrammaticCopy = true;
+
+    let copied = false;
+    try {
+        copied = document.execCommand('copy');
+    } finally {
+        window.__ubeAllowProgrammaticCopy = false;
+        textArea.remove();
+    }
 
     if (!copied) {
         throw new Error('Copy command was not allowed.');
     }
+}
+
+function recordCitationCopy(button) {
+    const url = button.getAttribute('data-copy-url');
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    if (!url || !token) {
+        return;
+    }
+
+    fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': token,
+        },
+    }).catch(() => {});
 }
 </script>
 @endpush

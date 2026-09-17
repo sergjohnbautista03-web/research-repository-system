@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DepartmentAccessKey;
+use App\Models\AcademicSemester;
 use App\Models\Message;
 use App\Models\CaptureAttemptLog;
 use App\Models\CaptureLogRead;
@@ -21,6 +22,12 @@ class AdminController extends Controller
 {
     private const MIN_RESEARCH_YEAR = 2022;
     private const MAX_RESEARCH_YEAR = 2026;
+    private const SEMESTER_OPTIONS = [
+        AcademicSemester::FIRST_SEMESTER,
+        AcademicSemester::SECOND_SEMESTER,
+    ];
+    private const ANALYTICS_DETAIL_PAPER_LIMIT = 25;
+    private const REPORTS_PER_PAGE = 50;
 
     private function currentAdmin(): User
     {
@@ -79,6 +86,73 @@ class AdminController extends Controller
         }
     }
 
+    private function ensureResearchIsWritable(Research $research): void
+    {
+        $research->loadMissing('academicSemester');
+
+        abort_if(
+            $research->academicSemester?->isArchived(),
+            403,
+            'Research linked to an archived semester is read-only.'
+        );
+    }
+
+    private function normalizeSchoolYear(?string $schoolYear): ?string
+    {
+        $schoolYear = trim((string) $schoolYear);
+
+        if ($schoolYear === '') {
+            return null;
+        }
+
+        $parts = preg_split('/\D+/', $schoolYear, -1, PREG_SPLIT_NO_EMPTY);
+
+        if (count($parts) !== 2 || strlen($parts[0]) !== 4 || strlen($parts[1]) !== 4) {
+            return null;
+        }
+
+        $startYear = (int) $parts[0];
+        $endYear = (int) $parts[1];
+
+        if ($startYear < 2000 || $endYear !== $startYear + 1) {
+            return null;
+        }
+
+        return sprintf('%04d-%04d', $startYear, $endYear);
+    }
+
+    private function selectedSemester(?string $semester): ?string
+    {
+        return in_array($semester, self::SEMESTER_OPTIONS, true) ? $semester : null;
+    }
+
+    private function academicSemesterOptions(): array
+    {
+        $semesterQuery = AcademicSemester::query();
+
+        return [
+            'semesterOptions' => self::SEMESTER_OPTIONS,
+            'schoolYears' => (clone $semesterQuery)
+                ->whereNotNull('school_year')
+                ->distinct()
+                ->orderByDesc('school_year')
+                ->pluck('school_year'),
+        ];
+    }
+
+    private function applyAcademicSemesterFilter($query, ?string $schoolYear, ?string $semester, string $relation = 'academicSemesters'): void
+    {
+        if (! $schoolYear && ! $semester) {
+            return;
+        }
+
+        $query->whereHas($relation, function ($semesterQuery) use ($schoolYear, $semester) {
+            $semesterQuery
+                ->when($schoolYear, fn ($inner) => $inner->where('school_year', $schoolYear))
+                ->when($semester, fn ($inner) => $inner->where('semester', $semester));
+        });
+    }
+
     private function ensureUserAccess(User $user): void
     {
         if (! $this->isDepartmentScoped()) {
@@ -95,6 +169,8 @@ class AdminController extends Controller
         $researchBaseQuery = $this->scopeResearchQuery(Research::query());
         $approvedResearchBaseQuery = $this->scopeResearchQuery(Research::approved());
         $userBaseQuery = $this->scopeUserQuery(User::query()->where('role', '!=', 'admin'));
+        $researcherBaseQuery = $this->scopeUserQuery(User::query()->where('role', 'researcher'));
+        $hasCitationCopyCount = Schema::hasColumn('researches', 'citation_copy_count');
 
         $stats = [
             'total_researches' => (clone $researchBaseQuery)->count(),
@@ -103,100 +179,242 @@ class AdminController extends Controller
             'rejected'         => (clone $researchBaseQuery)->where('status', 'rejected')->count(),
             'total_users'      => (clone $userBaseQuery)->count(),
             'total_views'      => (clone $researchBaseQuery)->sum('view_count'),
+            'total_copy_citations' => $hasCitationCopyCount
+                ? (clone $researchBaseQuery)->sum('citation_copy_count')
+                : 0,
+            'total_researchers' => (clone $researcherBaseQuery)->count(),
         ];
 
-        $recentResearches  = $this->scopeResearchQuery(Research::approved()->with('user'))->latest()->take(5)->get();
         $topResearches     = $this->scopeResearchQuery(Research::approved())->orderBy('view_count', 'desc')->take(5)->get();
-        $researchByDept = $this->scopeResearchQuery(Research::query())
-            ->selectRaw('department, count(*) as count')
-            ->groupBy('department')
-            ->orderByDesc('count')
-            ->get()
-            ->groupBy(fn ($row) => trim((string) $row->department) !== '' ? $row->department : 'Unassigned Department')
-            ->map(function ($rows, $department) {
-                return (object) [
-                    'department' => $department,
-                    'count' => $rows->sum('count'),
-                ];
-            })
-            ->sortByDesc('count')
-            ->values();
 
-        $researchByYear = $this->scopeResearchQuery(Research::approved())
-            ->selectRaw('year_published, count(*) as count')
-            ->groupBy('year_published')
-            ->orderBy('year_published')
-            ->get();
-
-        $allResearches  = $this->scopeResearchQuery(Research::with('user'))->latest()->get();
-        $allUsers       = $this->scopeUserQuery(User::where('role', '!=', 'admin'))->orderBy('name')->get();
-
-        $dashboardHighlights = [
-            'average_views' => $stats['total_researches'] > 0 ? round($stats['total_views'] / $stats['total_researches'], 1) : 0,
-            'active_departments' => $researchByDept->count(),
-            'latest_year' => optional($researchByYear->last())->year_published,
-        ];
-
-        $formatDashboardDate = function ($date, string $format = 'M d, Y h:i A'): ?string {
-            return $date ? $date->copy()->timezone('Asia/Manila')->format($format) : null;
-        };
-
-        $departmentAnalytics = $allResearches
-            ->groupBy(fn ($research) => $research->department ?: 'Unassigned Department')
-            ->map(function ($departmentResearches, $department) use ($formatDashboardDate) {
-                $records = $departmentResearches->values();
-
-                return [
-                    'department' => $department,
-                    'total' => $records->count(),
-                    'submitted' => $records->count(),
-                    'approved' => $records->where('status', 'approved')->count(),
-                    'pending' => $records->where('status', 'pending')->count(),
-                    'rejected' => $records->where('status', 'rejected')->count(),
-                    'archived' => $records->where('status', 'archived')->count(),
-                    'records' => $records->map(function ($research) use ($formatDashboardDate) {
-                        $category = $research->submission_category ?: Research::inferCategoryFromType($research->type);
-
-                        return [
-                            'id' => $research->id,
-                            'title' => $research->title ?: 'Untitled research',
-                            'author' => $research->author_name ?: 'Unknown author',
-                            'status' => $research->status ?: 'pending',
-                            'category' => $category,
-                            'category_label' => $research->getSubmissionCategoryLabel(),
-                            'type' => $research->getTypeLabel(),
-                            'year' => $research->year_published,
-                            'created_date' => $research->created_at?->copy()->timezone('Asia/Manila')->toDateString(),
-                            'created_at' => $formatDashboardDate($research->created_at),
-                            'created_sort' => $research->created_at?->timestamp ?? 0,
-                            'updated_date' => $research->updated_at?->copy()->timezone('Asia/Manila')->toDateString(),
-                            'updated_at' => $formatDashboardDate($research->updated_at),
-                            'updated_sort' => $research->updated_at?->timestamp ?? 0,
-                            'approved_date' => $research->approved_at?->copy()->timezone('Asia/Manila')->toDateString(),
-                            'approved_at' => $formatDashboardDate($research->approved_at),
-                            'approved_sort' => $research->approved_at?->timestamp ?? 0,
-                            'url' => route('admin.research.show', $research),
-                        ];
-                    })->values(),
-                ];
-            })
-            ->sortByDesc('total')
-            ->values();
+        $analytics = $this->buildResearchAnalyticsPayload($hasCitationCopyCount);
 
         return view('admin.dashboard', compact(
-            'stats', 'recentResearches',
-            'topResearches', 'researchByDept', 'researchByYear',
-            'dashboardHighlights', 'allResearches', 'allUsers',
-            'departmentAnalytics'
-        ));
+            'stats',
+            'topResearches',
+        ) + $analytics);
+    }
+
+    private function buildResearchAnalyticsPayload(bool $hasCitationCopyCount): array
+    {
+        $years = collect(range(self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR));
+        $palette = ['#6d28d9', '#0f766e', '#b45309', '#2563eb', '#be123c', '#4f46e5', '#15803d', '#9333ea'];
+        $fixedDepartments = $this->isDepartmentScoped()
+            ? collect([$this->adminDepartment()])
+            : collect($this->departments());
+
+        $analyticsBaseQuery = $this->scopeResearchQuery(
+            Research::approved()
+                ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+        );
+
+        $dataDepartments = (clone $analyticsBaseQuery)
+            ->distinct()
+            ->pluck('department')
+            ->map(fn ($department) => $this->normalizedDepartmentName($department))
+            ->unique()
+            ->values();
+
+        $departments = $fixedDepartments
+            ->merge($dataDepartments)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $departmentMeta = $departments
+            ->values()
+            ->map(function ($department, $index) use ($palette) {
+                return [
+                    'name' => $department,
+                    'code' => $this->departmentCode($department),
+                    'color' => $palette[$index % count($palette)],
+                ];
+            });
+
+        $analyticsTotals = (clone $analyticsBaseQuery)
+            ->selectRaw('department')
+            ->selectRaw('year_published')
+            ->selectRaw('COUNT(*) as paper_count')
+            ->selectRaw('COALESCE(SUM(view_count), 0) as views')
+            ->when(
+                $hasCitationCopyCount,
+                fn ($query) => $query->selectRaw('COALESCE(SUM(citation_copy_count), 0) as citation_copies'),
+                fn ($query) => $query->selectRaw('0 as citation_copies')
+            )
+            ->groupBy('department', 'year_published')
+            ->get()
+            ->groupBy(fn ($row) => $this->normalizedDepartmentName($row->department) . '|' . $row->year_published)
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                return (object) [
+                    'department_name' => $this->normalizedDepartmentName($first?->department),
+                    'year_published' => (int) ($first?->year_published ?? 0),
+                    'paper_count' => (int) $rows->sum('paper_count'),
+                    'views' => (int) $rows->sum('views'),
+                    'citation_copies' => (int) $rows->sum('citation_copies'),
+                ];
+            });
+
+        $analyticsChartMaxViews = 0;
+        $analyticsChartData = $years->map(function ($year) use ($departmentMeta, $analyticsTotals, &$analyticsChartMaxViews, $hasCitationCopyCount) {
+            return [
+                'year' => $year,
+                'departments' => $departmentMeta->map(function ($department) use ($year, $analyticsTotals, &$analyticsChartMaxViews, $hasCitationCopyCount) {
+                    $totals = $analyticsTotals->get($department['name'] . '|' . $year);
+                    $views = (int) ($totals?->views ?? 0);
+                    $citationCopies = $hasCitationCopyCount ? (int) ($totals?->citation_copies ?? 0) : 0;
+                    $paperCount = (int) ($totals?->paper_count ?? 0);
+                    $analyticsChartMaxViews = max($analyticsChartMaxViews, $views);
+
+                    return [
+                        'department' => $department['name'],
+                        'code' => $department['code'],
+                        'color' => $department['color'],
+                        'year' => $year,
+                        'views' => $views,
+                        'citation_copies' => $citationCopies,
+                        'paper_count' => $paperCount,
+                        'papers' => $paperCount > 0
+                            ? $this->analyticsDetailPapers($department['name'], (int) $year, $hasCitationCopyCount)
+                            : collect(),
+                    ];
+                })->values(),
+            ];
+        })->values();
+
+        $analyticsChartMaxViews = max(1, $analyticsChartMaxViews);
+        $analyticsYAxisLabels = collect([1, 0.75, 0.5, 0.25, 0])
+            ->map(fn ($ratio) => (int) round($analyticsChartMaxViews * $ratio))
+            ->values();
+
+        $analyticsSummary = [
+            'total_research_papers' => $this->scopeResearchQuery(Research::query())->count(),
+            'total_views' => $this->scopeResearchQuery(Research::query())->sum('view_count'),
+            'total_copy_citations' => $hasCitationCopyCount
+                ? $this->scopeResearchQuery(Research::query())->sum('citation_copy_count')
+                : 0,
+            'total_researchers' => $this->scopeUserQuery(User::query()->where('role', 'researcher'))->count(),
+            'report_scope' => $this->adminDepartment() ?: 'All Departments',
+            'year_range' => self::MIN_RESEARCH_YEAR . '-' . self::MAX_RESEARCH_YEAR,
+            'generated_at' => now('Asia/Manila')->format('F d, Y h:i A'),
+        ];
+
+        return [
+            'analyticsYears' => $years,
+            'analyticsDepartments' => $departmentMeta,
+            'analyticsChartData' => $analyticsChartData,
+            'analyticsChartMaxViews' => $analyticsChartMaxViews,
+            'analyticsYAxisLabels' => $analyticsYAxisLabels,
+            'analyticsSummary' => $analyticsSummary,
+        ];
+    }
+
+    private function analyticsDetailPapers(string $department, int $year, bool $hasCitationCopyCount)
+    {
+        $columns = [
+            'id',
+            'title',
+            'author_name',
+            'type',
+            'department',
+            'year_published',
+            'view_count',
+            'created_at',
+        ];
+
+        if ($hasCitationCopyCount) {
+            $columns[] = 'citation_copy_count';
+        }
+
+        $query = $this->scopeResearchQuery(
+            Research::approved()
+                ->select($columns)
+                ->where('year_published', $year)
+        );
+
+        if ($department === 'Unassigned Department') {
+            $query->where(function ($inner) {
+                $inner->whereNull('department')
+                    ->orWhereRaw("TRIM(department) = ''");
+            });
+        } else {
+            $query->where('department', $department);
+        }
+
+        return $query
+            ->orderByDesc('view_count')
+            ->orderByDesc('created_at')
+            ->limit(self::ANALYTICS_DETAIL_PAPER_LIMIT)
+            ->get()
+            ->map(fn ($research) => [
+                'title' => $research->title ?: 'Untitled research',
+                'author' => $research->author_name ?: 'Unknown author',
+                'type' => $research->getTypeLabel(),
+                'views' => (int) $research->view_count,
+                'citation_copies' => $hasCitationCopyCount ? (int) ($research->citation_copy_count ?? 0) : 0,
+                'url' => route('admin.research.show', $research),
+            ])
+            ->values();
+    }
+
+    private function normalizedDepartmentName(?string $department): string
+    {
+        $department = trim((string) $department);
+
+        return $department !== '' ? $department : 'Unassigned Department';
+    }
+
+    private function departmentCode(?string $department): string
+    {
+        $department = trim((string) $department);
+
+        return match ($department) {
+            'College of Accountancy and Business Education',
+            'College of Business and Management' => 'CBA',
+            'College of Computer Studies' => 'CCS',
+            'College of Criminal Justice Education' => 'CCJE',
+            'College of Education' => 'COE',
+            'College of Engineering and Architecture',
+            'College of Engineering' => 'CEA',
+            'College of Maritime Studies' => 'CMS',
+            default => $this->departmentInitials($department),
+        };
+    }
+
+    private function departmentInitials(string $department): string
+    {
+        if ($department === '') {
+            return 'N/A';
+        }
+
+        $words = preg_split('/\s+/', preg_replace('/[^A-Za-z0-9 ]/', ' ', $department)) ?: [];
+        $skipWords = ['of', 'and', 'the'];
+        $initials = '';
+
+        foreach ($words as $word) {
+            if ($word === '' || in_array(strtolower($word), $skipWords, true)) {
+                continue;
+            }
+
+            $initials .= strtoupper($word[0]);
+
+            if (strlen($initials) >= 4) {
+                break;
+            }
+        }
+
+        return $initials !== '' ? $initials : 'N/A';
     }
 
     // ── Research Management ──────────────────────────────────────────────────
 
     public function researches(Request $request)
     {
-        $query = $this->scopeResearchQuery(Research::with('user'))
+        $query = $this->scopeResearchQuery(Research::with(['user', 'academicSemester']))
             ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR]);
+        $selectedSchoolYear = $this->normalizeSchoolYear($request->get('school_year'));
+        $selectedSemester = $this->selectedSemester($request->get('semester'));
 
         if ($status = $request->get('status')) {
             $query->where('status', $status);
@@ -207,6 +425,7 @@ class AdminController extends Controller
         if ($year = $request->get('year')) {
             $query->where('year_published', $year);
         }
+        $this->applyAcademicSemesterFilter($query, $selectedSchoolYear, $selectedSemester, 'academicSemester');
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
@@ -217,8 +436,9 @@ class AdminController extends Controller
         $researches  = $query->latest()->paginate(15)->withQueryString();
         $departments = $this->scopeResearchQuery(Research::query())->distinct()->pluck('department')->sort()->values();
         $years = collect(range(self::MAX_RESEARCH_YEAR, self::MIN_RESEARCH_YEAR));
+        $academicSemesterOptions = $this->academicSemesterOptions();
 
-        return view('admin.researches', compact('researches', 'departments', 'years'));
+        return view('admin.researches', compact('researches', 'departments', 'years', 'selectedSchoolYear', 'selectedSemester') + $academicSemesterOptions);
     }
 
     public function approveResearch(Research $research)
@@ -226,6 +446,7 @@ class AdminController extends Controller
         abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can approve research submissions.');
 
         $this->ensureResearchAccess($research);
+        $this->ensureResearchIsWritable($research);
 
         $research->update([
             'status'      => 'approved',
@@ -241,6 +462,7 @@ class AdminController extends Controller
         abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can archive research submissions.');
 
         $this->ensureResearchAccess($research);
+        $this->ensureResearchIsWritable($research);
 
         abort_unless($research->status === 'approved', 400, 'Only approved research can be archived.');
 
@@ -256,6 +478,7 @@ class AdminController extends Controller
         abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can publish archived research submissions.');
 
         $this->ensureResearchAccess($research);
+        $this->ensureResearchIsWritable($research);
 
         abort_unless($research->status === 'archived', 400, 'Only archived research can be published.');
 
@@ -273,6 +496,7 @@ class AdminController extends Controller
         abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can reject research submissions.');
 
         $this->ensureResearchAccess($research);
+        $this->ensureResearchIsWritable($research);
 
         $request->validate(['reason' => 'required|string|max:1000']);
 
@@ -289,6 +513,7 @@ class AdminController extends Controller
         abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only main administrators can move research submissions to trash.');
 
         $this->ensureResearchAccess($research);
+        $this->ensureResearchIsWritable($research);
 
         $research->delete();
         return back()->with('success', 'Research deleted successfully.');
@@ -298,7 +523,7 @@ class AdminController extends Controller
     {
         $this->ensureResearchAccess($research);
 
-        $research->load('user');
+        $research->load(['user', 'academicSemester']);
 
         return view('admin.research-detail', compact('research'));
     }
@@ -308,6 +533,8 @@ class AdminController extends Controller
     public function users(Request $request)
     {
         $query = User::query();
+        $selectedSchoolYear = $this->normalizeSchoolYear($request->get('school_year'));
+        $selectedSemester = $this->selectedSemester($request->get('semester'));
 
         if ($this->isDepartmentScoped()) {
             $query->where('role', '!=', 'admin')
@@ -341,6 +568,8 @@ class AdminController extends Controller
             $query->whereIn('id', session('imported_user_ids'));
         }
 
+        $this->applyAcademicSemesterFilter($query, $selectedSchoolYear, $selectedSemester);
+
         if ($search = trim((string) $request->get('search'))) {
             $namePrefix = "{$search}%";
             $nameWordPrefix = "% {$search}%";
@@ -359,7 +588,7 @@ class AdminController extends Controller
         }
 
         $users = $query
-            ->with(['createdBy', 'researcherApprovedBy', 'studentApprovedBy'])
+            ->with(['createdBy', 'researcherApprovedBy', 'studentApprovedBy', 'currentAcademicSemester'])
             ->withCount('researches')
             ->latest()
             ->paginate(15)
@@ -367,13 +596,16 @@ class AdminController extends Controller
         $departments = $this->isDepartmentScoped()
             ? [$this->adminDepartment()]
             : $this->departments();
+        $academicSemesterOptions = $this->academicSemesterOptions();
 
         return view('admin.users', [
             'users' => $users,
             'departments' => $departments,
             'fixedDepartment' => $this->adminDepartment(),
             'isDepartmentScoped' => $this->isDepartmentScoped(),
-        ]);
+            'selectedSchoolYear' => $selectedSchoolYear,
+            'selectedSemester' => $selectedSemester,
+        ] + $academicSemesterOptions);
     }
 
     private function applyPhilcstMemberTypeFilter($query, string $memberType): void
@@ -398,8 +630,8 @@ class AdminController extends Controller
     {
         $this->ensureUserAccess($user);
 
-        $user->load(['createdBy', 'researcherApprovedBy', 'studentApprovedBy']);
-        $researches = $user->researches()->latest()->paginate(10);
+        $user->load(['createdBy', 'researcherApprovedBy', 'studentApprovedBy', 'currentAcademicSemester']);
+        $researches = $user->researches()->with('academicSemester')->latest()->paginate(10);
         return view('admin.user-detail', compact('user', 'researches'));
     }
 
@@ -547,7 +779,6 @@ class AdminController extends Controller
             'researcher_approved_by' => $this->currentAdmin()->id,
             'researcher_approved_at' => now(),
             'researcher_end_date' => $data['researcher_end_date'],
-            'graduated_at' => null,
         ]);
 
         try {
@@ -586,8 +817,6 @@ class AdminController extends Controller
             'course_duration' => null,
             'graduation_year' => null,
             'researcher_end_date' => null,
-            'graduated_at' => null,
-            'researcher_status' => null,
             'researcher_rejection_reason' => $data['rejection_reason'],
             'researcher_rejected_at' => now(),
             'researcher_approved_by' => null,
@@ -903,6 +1132,99 @@ class AdminController extends Controller
 
     // ── Add Research (Admin) ─────────────────────────────────────────────────
 
+    public function semesters(Request $request)
+    {
+        $selectedSchoolYear = $this->normalizeSchoolYear($request->get('school_year'));
+        $selectedSemester = $this->selectedSemester($request->get('semester'));
+        $selectedStatus = in_array($request->get('status'), ['active', 'archived'], true)
+            ? $request->get('status')
+            : null;
+
+        $query = AcademicSemester::query()
+            ->withCount([
+                'users' => function ($userQuery) {
+                    if ($this->isDepartmentScoped()) {
+                        $userQuery->where('department', $this->adminDepartment());
+                    }
+                },
+                'researches' => function ($researchQuery) {
+                    $this->scopeResearchQuery($researchQuery);
+                },
+            ])
+            ->when($selectedSchoolYear, fn ($inner) => $inner->where('school_year', $selectedSchoolYear))
+            ->when($selectedSemester, fn ($inner) => $inner->where('semester', $selectedSemester));
+
+        if ($selectedStatus === 'active') {
+            $query->active();
+        } elseif ($selectedStatus === 'archived') {
+            $query->archived();
+        }
+
+        $semesters = $query
+            ->orderByDesc('school_year')
+            ->orderBy('semester')
+            ->paginate(12)
+            ->withQueryString();
+
+        return view('admin.semesters', [
+            'semesters' => $semesters,
+            'selectedSchoolYear' => $selectedSchoolYear,
+            'selectedSemester' => $selectedSemester,
+            'selectedStatus' => $selectedStatus,
+            'canArchiveSemesters' => $this->currentAdmin()->isGlobalAdmin(),
+        ] + $this->academicSemesterOptions());
+    }
+
+    public function showSemester(AcademicSemester $academicSemester)
+    {
+        $academicSemester->load(['creator', 'archivedBy']);
+
+        $usersQuery = $academicSemester->users()
+            ->with('currentAcademicSemester')
+            ->withCount('researches')
+            ->orderBy('name');
+
+        if ($this->isDepartmentScoped()) {
+            $usersQuery->where('department', $this->adminDepartment());
+        }
+
+        $researchesQuery = $academicSemester->researches()
+            ->with('user')
+            ->latest();
+
+        $this->scopeResearchQuery($researchesQuery);
+
+        $users = $usersQuery
+            ->paginate(10, ['*'], 'users_page')
+            ->withQueryString();
+        $researches = $researchesQuery
+            ->paginate(10, ['*'], 'researches_page')
+            ->withQueryString();
+
+        return view('admin.semester-detail', [
+            'semester' => $academicSemester,
+            'users' => $users,
+            'researches' => $researches,
+            'canArchiveSemesters' => $this->currentAdmin()->isGlobalAdmin(),
+        ]);
+    }
+
+    public function archiveSemester(AcademicSemester $academicSemester)
+    {
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only main administrators can archive semesters.');
+
+        if ($academicSemester->isArchived()) {
+            return back()->with('success', $academicSemester->label . ' is already archived.');
+        }
+
+        $academicSemester->update([
+            'archived_at' => now(),
+            'archived_by' => $this->currentAdmin()->id,
+        ]);
+
+        return back()->with('success', $academicSemester->label . ' archived. Linked users and research records remain available for reference.');
+    }
+
     public function addResearch()
     {
         abort_if($this->isDepartmentScoped(), 403, 'Department deans cannot add research records directly.');
@@ -914,44 +1236,77 @@ class AdminController extends Controller
     {
         abort_if($this->isDepartmentScoped(), 403, 'Department deans cannot add research records directly.');
 
-        $data = $request->validate([
-            'title'          => ['required', 'string', 'min:10', 'max:500'],
-            'submission_category' => ['required', Rule::in(array_keys(Research::submissionCategories()))],
-            'type'           => ['required', 'string'],
-            'author_name'    => 'required|string|max:255',
-            'department'     => 'required|string|max:255',
-            'course'         => 'required|string|max:255',
-            'year_published' => 'required|integer|min:' . self::MIN_RESEARCH_YEAR . '|max:' . self::MAX_RESEARCH_YEAR,
-            'keywords'       => 'nullable|string|max:500',
-            'abstract'       => 'required|string',
-            'file'           => 'nullable|file|mimes:pdf,doc,docx|max:30720',
+        $programsByDepartment = Research::programsByDepartment();
+        $submissionCategories = Research::adminSubmissionCategories();
+
+        $validator = validator($request->all(), [
+            'title'          => ['required', 'string', 'max:500'],
+            'submission_category' => ['required', Rule::in(array_keys($submissionCategories))],
+            'type'           => ['required', Rule::in(Research::journalTypeOptions())],
+            'authors'        => ['required', 'array', 'min:1', 'max:12'],
+            'authors.*'      => ['required', 'string', 'max:150'],
+            'department'     => ['required', Rule::in(Research::departmentOptions())],
+            'course'         => ['nullable', 'string', 'max:255'],
+            'year_published' => ['required', 'integer', 'min:' . self::MIN_RESEARCH_YEAR, 'max:' . self::MAX_RESEARCH_YEAR],
+            'keywords'       => ['nullable', 'string', 'max:500'],
+            'abstract'       => ['required', 'string'],
+            'file'           => ['required', 'file', 'mimes:pdf', 'max:30720'],
         ], [
-            'title.regex' => 'Research title may only contain letters, numbers, and basic punctuation ( \' - : , . & / ).',
-            'title.min'   => 'Research title must be at least 10 characters.',
+            'authors.required' => 'Add at least one author or researcher.',
+            'authors.*.required' => 'Each author or researcher name is required.',
+            'course.required' => 'Program is required for Student Research Journal.',
+            'file.mimes' => 'The full paper must be a PDF file.',
+            'file.max' => 'The full paper PDF must not exceed 30MB.',
         ]);
 
-        validator($data, [
-            'type' => [Rule::in(Research::typesForCategory($data['submission_category']))],
-        ])->validate();
+        $validator->after(function ($validator) use ($request, $programsByDepartment) {
+            if ($request->input('submission_category') !== Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL) {
+                return;
+            }
+
+            $department = (string) $request->input('department');
+            $program = (string) $request->input('course');
+            $allowedPrograms = $programsByDepartment[$department] ?? [];
+
+            if ($program === '') {
+                $validator->errors()->add('course', 'Program is required for Student Research Journal.');
+                return;
+            }
+
+            if (! in_array($program, $allowedPrograms, true)) {
+                $validator->errors()->add('course', 'Choose a valid program for the selected department.');
+            }
+        });
+
+        $data = $validator->validate();
+
+        $authors = collect($data['authors'])
+            ->map(fn ($author) => trim((string) $author))
+            ->filter()
+            ->values();
+
+        $isStudentJournal = $data['submission_category'] === Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL;
+        $program = $isStudentJournal ? ($data['course'] ?? null) : null;
 
         $filePath = null;
         $fileName = null;
 
-        if ($request->hasFile('file')) {
-            $file     = $request->file('file');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $filePath = $file->storeAs('researches', $fileName, 'public');
-            $fileName = $file->getClientOriginalName();
-        }
+        $file     = $request->file('file');
+        $storedFileName = time() . '_' . $file->getClientOriginalName();
+        $filePath = $file->storeAs('researches', $storedFileName, 'public');
+        $fileName = $file->getClientOriginalName();
 
         Research::create([
             'title'          => $data['title'],
             'submission_category' => $data['submission_category'],
+            'issn'           => Research::issnForSubmissionCategory($data['submission_category']),
             'type'           => $data['type'],
-            'author_name'    => $data['author_name'],
+            'author_name'    => $authors->implode('; '),
+            'authors'        => $authors->all(),
             'user_id'        => Auth::id(),
             'department'     => $data['department'],
-            'course'         => $data['course'],
+            'course'         => $program,
+            'program'        => $program,
             'year_published' => $data['year_published'],
             'keywords'       => $data['keywords'] ?? null,
             'abstract'       => $data['abstract'],
@@ -962,7 +1317,9 @@ class AdminController extends Controller
             'approved_at'    => now(),
         ]);
 
-        return redirect()->route('admin.researches')->with('success', ucfirst($data['submission_category']) . ' added and approved successfully!');
+        $categoryLabel = $submissionCategories[$data['submission_category']] ?? 'Research Journal';
+
+        return redirect()->route('admin.researches')->with('success', $categoryLabel . ' added and approved successfully!');
     }
 
     // ── Admin Management ──────────────────────────────────────────────────────
@@ -1048,8 +1405,34 @@ class AdminController extends Controller
         abort_unless($this->currentAdmin()->canImportUsers(), 403, 'Only department deans can import user accounts.');
 
         $data = $request->validateWithBag('importUsers', [
+            'semester' => ['required', Rule::in(self::SEMESTER_OPTIONS)],
+            'school_year' => ['required', 'string', 'max:20'],
             'file' => ['required', 'file', 'extensions:xlsx,csv,txt', 'max:5120'],
         ]);
+
+        $schoolYear = $this->normalizeSchoolYear($data['school_year']);
+
+        if (! $schoolYear) {
+            return redirect()->route('admin.users')
+                ->withErrors(['school_year' => 'Use a valid school year like 2025-2026.'], 'importUsers')
+                ->withInput();
+        }
+
+        $academicSemester = AcademicSemester::firstOrCreate(
+            [
+                'semester' => $data['semester'],
+                'school_year' => $schoolYear,
+            ],
+            [
+                'created_by' => $this->currentAdmin()->id,
+            ]
+        );
+
+        if ($academicSemester->isArchived()) {
+            return redirect()->route('admin.users')
+                ->withErrors(['semester' => 'This semester is archived and can only be viewed for reference. Choose or create an active semester.'], 'importUsers')
+                ->withInput();
+        }
 
         try {
             $rows = $this->readUserImportRows($data['file']->getRealPath(), strtolower($data['file']->getClientOriginalExtension()));
@@ -1063,6 +1446,7 @@ class AdminController extends Controller
         $validUsers = [];
         $importPreview = [];
         $skippedUsers = [];
+        $existingAssignments = [];
         $seenEmails = [];
         $seenIds = [];
         $existingEmails = [];
@@ -1128,26 +1512,6 @@ class AdminController extends Controller
                 continue;
             }
 
-            $existingUser = $existingEmails[$emailKey] ?? ($idKey !== '' ? ($existingIds[$idKey] ?? null) : null);
-            if ($existingUser) {
-                $matchedBy = [];
-                if (isset($existingEmails[$emailKey])) {
-                    $matchedBy[] = 'email';
-                }
-                if ($idKey !== '' && isset($existingIds[$idKey])) {
-                    $matchedBy[] = 'ID';
-                }
-
-                $skippedUsers[] = [
-                    'row' => $rowNumber,
-                    'name' => $existingUser['name'],
-                    'login_id' => $existingUser['student_id'] ?: $identifier,
-                    'email' => $existingUser['email'],
-                    'reason' => 'Existing ' . implode(' and ', $matchedBy) . ' matched. Existing account was kept.',
-                ];
-                continue;
-            }
-
             if ($idKey !== '' && isset($seenIds[$idKey])) {
                 $skippedUsers[] = [
                     'row' => $rowNumber,
@@ -1173,6 +1537,23 @@ class AdminController extends Controller
             $seenIds[$idKey] = true;
             $seenEmails[$emailKey] = true;
 
+            $existingUser = $existingEmails[$emailKey] ?? ($idKey !== '' ? ($existingIds[$idKey] ?? null) : null);
+            if ($existingUser) {
+                $existingAssignments[$existingUser['id']] = [
+                    'id' => $existingUser['id'],
+                    'name' => $existingUser['name'],
+                    'login_id' => $existingUser['student_id'] ?: $identifier,
+                    'email' => $existingUser['email'],
+                ];
+                $importPreview[] = [
+                    'name' => $existingUser['name'],
+                    'login_id' => $existingUser['student_id'] ?: $identifier,
+                    'email' => $existingUser['email'],
+                    'action' => 'Updated',
+                ];
+                continue;
+            }
+
             $yearLevel = $normalized['year_level'] ? (int) $normalized['year_level'] : null;
             $courseDuration = $role === 'researcher' && $normalized['member_type'] === 'student' && $yearLevel ? 4 : null;
             $graduationYear = $courseDuration ? ((int) date('Y') + ($courseDuration - $yearLevel)) : null;
@@ -1185,6 +1566,7 @@ class AdminController extends Controller
                 'password' => Hash::make($password),
                 'role' => $role,
                 'department' => $normalized['department'],
+                'current_academic_semester_id' => $academicSemester->id,
                 'student_id' => $identifier,
                 'created_by' => $this->currentAdmin()->id,
                 'year_level' => $yearLevel,
@@ -1219,6 +1601,7 @@ class AdminController extends Controller
                 'name' => $payload['name'],
                 'login_id' => $identifier,
                 'email' => $email,
+                'action' => 'Created',
             ];
         }
 
@@ -1228,16 +1611,50 @@ class AdminController extends Controller
         }
 
         $importedUserIds = [];
+        $createdUserIds = [];
+        $updatedUserIds = array_keys($existingAssignments);
 
-        if ($validUsers) {
-            $validEmails = array_column($validUsers, 'email');
-
+        if ($validUsers || $existingAssignments) {
             try {
-                User::insert($validUsers);
-                $importedUserIds = User::query()
-                    ->whereIn('email', $validEmails)
-                    ->pluck('id')
-                    ->all();
+                DB::transaction(function () use ($validUsers, $updatedUserIds, $academicSemester, &$createdUserIds, &$importedUserIds) {
+                    if ($validUsers) {
+                        $validEmails = array_column($validUsers, 'email');
+                        User::insert($validUsers);
+                        $createdUserIds = User::query()
+                            ->whereIn('email', $validEmails)
+                            ->pluck('id')
+                            ->all();
+                    }
+
+                    if ($updatedUserIds) {
+                        User::query()
+                            ->whereIn('id', $updatedUserIds)
+                            ->update([
+                                'current_academic_semester_id' => $academicSemester->id,
+                                'updated_at' => now(),
+                            ]);
+                    }
+
+                    $importedUserIds = array_values(array_unique(array_merge($createdUserIds, $updatedUserIds)));
+
+                    if ($importedUserIds) {
+                        $timestamp = now();
+                        $assignmentRows = array_map(fn ($userId) => [
+                            'academic_semester_id' => $academicSemester->id,
+                            'user_id' => $userId,
+                            'assigned_by' => $this->currentAdmin()->id,
+                            'assigned_at' => $timestamp,
+                            'created_at' => $timestamp,
+                            'updated_at' => $timestamp,
+                        ], $importedUserIds);
+
+                        DB::table('academic_semester_user')->upsert(
+                            $assignmentRows,
+                            ['academic_semester_id', 'user_id'],
+                            ['assigned_by', 'assigned_at', 'updated_at']
+                        );
+                    }
+                });
             } catch (\Throwable $exception) {
                 return redirect()->route('admin.users')->with('import_errors', [
                     ['row' => '-', 'error' => 'Import failed while saving users: ' . $exception->getMessage()],
@@ -1249,9 +1666,10 @@ class AdminController extends Controller
             ? redirect()->route('admin.users', ['imported' => 1])
             : redirect()->route('admin.users');
 
-        $messageType = count($validUsers) > 0 ? 'success' : (count($skippedUsers) > 0 && count($errors) === 0 ? 'success' : 'error');
-        $message = count($validUsers) . ' user(s) imported successfully. '
-            . count($skippedUsers) . ' existing/duplicate row(s) skipped. '
+        $messageType = (count($validUsers) + count($existingAssignments)) > 0 ? 'success' : (count($skippedUsers) > 0 && count($errors) === 0 ? 'success' : 'error');
+        $message = count($validUsers) . ' new user(s) imported, '
+            . count($existingAssignments) . ' existing user(s) assigned to ' . $academicSemester->label . '. '
+            . count($skippedUsers) . ' duplicate row(s) skipped. '
             . count($errors) . ' row(s) failed.';
 
         return $redirect
@@ -1259,6 +1677,7 @@ class AdminController extends Controller
             ->with('import_errors', $errors)
             ->with('import_skipped', $skippedUsers)
             ->with('import_preview', $importPreview)
+            ->with('import_semester', $academicSemester->label)
             ->with('imported_user_ids', $importedUserIds);
     }
 
@@ -1559,14 +1978,35 @@ class AdminController extends Controller
             $query->where('type', $type);
         }
 
-        $researches = $query
-            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+        $reportBaseQuery = $query
+            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR]);
+
+        $departmentTotals = (clone $reportBaseQuery)
+            ->select('department')
+            ->selectRaw('COUNT(*) as count')
+            ->groupBy('department')
+            ->get()
+            ->groupBy(fn ($row) => $this->normalizedDepartmentName($row->department))
+            ->map(fn ($rows) => (int) $rows->sum('count'));
+
+        $researches = $reportBaseQuery
+            ->select([
+                'id',
+                'title',
+                'author_name',
+                'department',
+                'course',
+                'program',
+                'type',
+                'year_published',
+            ])
             ->orderBy('department')
             ->orderBy('year_published', 'desc')
-            ->get();
+            ->paginate(self::REPORTS_PER_PAGE)
+            ->withQueryString();
         $years = collect(range(self::MAX_RESEARCH_YEAR, self::MIN_RESEARCH_YEAR));
 
-        return view('admin.reports', compact('researches', 'departments', 'years'));
+        return view('admin.reports', compact('researches', 'departments', 'years', 'departmentTotals'));
     }
 
     public function captureAttemptLogs(Request $request)
@@ -1702,7 +2142,7 @@ class AdminController extends Controller
         ]);
     }
 
-    // ── Researcher Accounts & Graduation ─────────────────────────────────────
+    // ── Researcher Accounts ─────────────────────────────────────────────────
 
     public function researcherAccounts()
     {
@@ -1713,70 +2153,6 @@ class AdminController extends Controller
             ->latest()
             ->paginate(20);
         return view('admin.researcher-accounts', compact('researchers', 'currentYear'));
-    }
-
-    public function graduatedResearchers()
-    {
-        $graduated = $this->scopeUserQuery(User::where('role', 'researcher'))
-            ->where('is_approved', true)
-            ->whereNotNull('graduated_at')
-            ->with(['researches' => function ($query) {
-                $query->latest();
-            }])
-            ->withCount('researches')
-            ->latest('graduated_at')
-            ->paginate(15);
-        return view('admin.graduated-researchers', compact('graduated'));
-    }
-
-    public function restoreResearcher(User $user, Request $request)
-    {
-        $this->ensureUserAccess($user);
-
-        $request->validate([
-            'year_level'      => 'required|integer|in:1,2,3,4',
-            'course_duration' => 'required|integer|in:3,4',
-            'researcher_end_date' => 'nullable|date|after:today',
-        ]);
-
-        $newGraduationYear = (int) date('Y') + ((int) $request->course_duration - (int) $request->year_level);
-
-        $user->update([
-            'year_level'      => $request->year_level,
-            'course_duration' => $request->course_duration,
-            'graduation_year' => $newGraduationYear,
-            'researcher_end_date' => $request->input('researcher_end_date', $user->researcher_end_date?->toDateString()),
-            'graduated_at'    => null,
-            'is_active'       => true,
-        ]);
-
-        return back()->with('success', $user->name . ' is now an active researcher again. New graduation year: ' . $newGraduationYear . '.');
-    }
-
-    public function restoreToActive(User $user, Request $request)
-    {
-        $this->ensureUserAccess($user);
-
-        $request->validate([
-            'year_level'      => 'required|integer|in:1,2,3,4',
-            'course_duration' => 'nullable|integer|in:3,4',
-            'researcher_end_date' => 'nullable|date|after:today',
-        ]);
-
-        $courseDuration    = $request->course_duration ?? $user->course_duration ?? 4;
-        $newGraduationYear = (int) date('Y') + ((int) $courseDuration - (int) $request->year_level);
-
-        $user->update([
-            'year_level'        => $request->year_level,
-            'course_duration'   => $courseDuration,
-            'graduation_year'   => $newGraduationYear,
-            'researcher_end_date' => $request->input('researcher_end_date', $user->researcher_end_date?->toDateString()),
-            'researcher_status' => null,
-            'graduated_at'      => null,
-            'is_active'         => true,
-        ]);
-
-        return back()->with('success', $user->name . ' has been restored as an Active Researcher. New graduation year: ' . $newGraduationYear . '.');
     }
 
     private function departments(): array

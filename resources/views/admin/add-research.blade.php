@@ -3,20 +3,30 @@
 @section('page-title', 'Add Research')
 
 @section('content')
+@php
+    $submissionCategories = \App\Models\Research::adminSubmissionCategories();
+    $defaultCategory = old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL);
+    $departmentOptions = \App\Models\Research::departmentOptions();
+    $programOptions = \App\Models\Research::programsByDepartment();
+    $journalTypes = \App\Models\Research::journalTypeOptions();
+    $yearOptions = range(2026, 2022);
+    $oldAuthors = old('authors', ['']);
 
-<div style="max-width:860px; margin:0 auto;">
+    if (! is_array($oldAuthors) || $oldAuthors === []) {
+        $oldAuthors = [''];
+    }
+@endphp
 
+<div class="ar-shell">
     <div class="ar-card">
-
-        {{-- HEADER --}}
         <div class="ar-card-header">
             <div class="ar-header-left">
-                <div class="ar-header-icon">
+                <div class="ar-header-icon" aria-hidden="true">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 </div>
                 <div>
                     <h3 class="ar-header-title">Add New Research</h3>
-                    <p class="ar-header-sub">Fill in the details to publish a new entry</p>
+                    <p class="ar-header-sub">Publish a faculty or student research journal entry.</p>
                 </div>
             </div>
             <a href="{{ route('admin.researches') }}" class="ar-back-btn">
@@ -28,172 +38,196 @@
         @if($errors->any())
             <div class="ar-alert-error">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <div>@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>
+                <div>
+                    @foreach($errors->all() as $error)
+                        <p>{{ $error }}</p>
+                    @endforeach
+                </div>
             </div>
         @endif
 
-        <form method="POST" action="{{ route('admin.store-research') }}" enctype="multipart/form-data" class="ar-form">
+        <form method="POST" action="{{ route('admin.store-research') }}" enctype="multipart/form-data" class="ar-form" id="adminResearchForm">
             @csrf
-            @php
-                $submissionCategories = \App\Models\Research::submissionCategories();
-                $journalTypes = \App\Models\Research::typesForCategory(\App\Models\Research::SUBMISSION_CATEGORY_JOURNAL);
-            @endphp
 
-            {{-- SECTION: Basic Info --}}
-            <div class="ar-section-label">
-                <span class="ar-section-num">1</span> Basic Information
+            <div class="ar-stepper" aria-label="Add research steps">
+                <span class="ar-step is-active" data-step-indicator="1"><strong>1</strong> Basic</span>
+                <span class="ar-step" data-step-indicator="2"><strong>2</strong> Department</span>
+                <span class="ar-step" data-step-indicator="3"><strong>3</strong> Content</span>
+                <span class="ar-step" data-step-indicator="4"><strong>4</strong> File</span>
+                <span class="ar-step" data-step-indicator="5"><strong>5</strong> Review</span>
             </div>
 
-            <div class="ar-form-row">
-                <div class="ar-form-group ar-span-2">
-                    <label>Title <span class="ar-required">*</span></label>
-                    <input type="text" name="title" value="{{ old('title') }}" placeholder="Enter the full research title" required>
+            <section class="ar-step-panel" data-step-panel="1">
+                <div class="ar-section-label">
+                    <span class="ar-section-num">1</span> Basic Information
                 </div>
-            </div>
 
-            <div class="ar-form-row">
-                <div class="ar-form-group">
-                    <label>Author Name <span class="ar-required">*</span></label>
-                    <input type="text" name="author_name" value="{{ old('author_name') }}" placeholder="e.g. Dr. Juan dela Cruz" required>
-                </div>
-                <div class="ar-form-group">
-                    <label>Year Published <span class="ar-required">*</span></label>
-                    <input type="number" name="year_published" value="{{ old('year_published', 2026) }}" min="2022" max="2026" required>
-                </div>
-            </div>
-
-            <div class="ar-form-row">
-                <div class="ar-form-group">
-                    <label>Submission Category <span class="ar-required">*</span></label>
-                    <select name="submission_category" id="submission_category" required onchange="updateCoursesAndTypes()">
-                        @foreach($submissionCategories as $value => $label)
-                            <option value="{{ $value }}" {{ old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_JOURNAL) === $value ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
-
-            {{-- SECTION: Department --}}
-            <div class="ar-section-label">
-                <span class="ar-section-num">2</span> Department & Program
-            </div>
-
-            <div class="ar-form-row">
-                <div class="ar-form-group">
-                    <label>Department <span class="ar-required">*</span></label>
-                    <select name="department" id="department" required onchange="updateCoursesAndTypes(this)">
-                        <option value="">-- Select Department --</option>
-                        <option value="College of Accountancy and Business Education" {{ old('department') == 'College of Accountancy and Business Education' ? 'selected' : '' }}>College of Accountancy and Business Education</option>
-                        <option value="College of Computer Studies" {{ old('department') == 'College of Computer Studies' ? 'selected' : '' }}>College of Computer Studies</option>
-                        <option value="College of Criminal Justice Education" {{ old('department') == 'College of Criminal Justice Education' ? 'selected' : '' }}>College of Criminal Justice Education</option>
-                        <option value="College of Education" {{ old('department') == 'College of Education' ? 'selected' : '' }}>College of Education</option>
-                        <option value="College of Engineering and Architecture" {{ old('department') == 'College of Engineering and Architecture' ? 'selected' : '' }}>College of Engineering and Architecture</option>
-                        <option value="College of Maritime Studies" {{ old('department') == 'College of Maritime Studies' ? 'selected' : '' }}>College of Maritime Studies</option>
-                    </select>
-                </div>
-                <div class="ar-form-group">
-                    <label>Program <span class="ar-required">*</span></label>
-                    <select name="course" id="course" required>
-                        <option value="">-- Select Department First --</option>
-                        @php
-                        $courses = [
-                            'College of Accountancy and Business Education' => ['Accountancy','Business Administration-Marketing Mngt.','Hospitality Management','Tourism Management'],
-                            'College of Computer Studies' => ['Computer Science','Information Technology'],
-                            'College of Criminal Justice Education' => ['Criminology'],
-                            'College of Education' => ['Elementary Education','Secondary Education-General Science'],
-                            'College of Engineering and Architecture' => ['Civil Engineering','Computer Engineering','Electrical Engineering','Electronics Engineering','Mechanical Engineering'],
-                            'College of Maritime Studies' => ['Marine Engineering','Transportation'],
-                        ];
-                        $selectedDept = old('department');
-                        @endphp
-                        @if($selectedDept && isset($courses[$selectedDept]))
-                            @foreach($courses[$selectedDept] as $c)
-                                <option value="{{ $c }}" {{ old('course') == $c ? 'selected' : '' }}>{{ $c }}</option>
-                            @endforeach
-                        @endif
-                    </select>
-                </div>
-            </div>
-
-            <div class="ar-form-row">
-                <div class="ar-form-group">
-                    <label><span id="typeLabel">Research Type</span> <span class="ar-required">*</span></label>
-                    <select name="type" id="type" required>
-                        <option value="">-- Select Department First --</option>
-                        @php
-                        $types = [
-                            'College of Accountancy and Business Education' => ['Thesis','Feasibility Study','Descriptive Research','Correlational Research','Quantitative Research'],
-                            'College of Computer Studies' => ['Capstone 1','Capstone 2','Thesis','Applied Research'],
-                            'College of Criminal Justice Education' => ['Thesis','Descriptive Research','Qualitative Research','Mixed Methods Research'],
-                            'College of Education' => ['Thesis','Action Research','Descriptive Research','Experimental Research'],
-                            'College of Engineering and Architecture' => ['Capstone 1','Capstone 2','Thesis','Applied Research','Experimental Research'],
-                            'College of Maritime Studies' => ['Thesis','Applied Research','Descriptive Research','Quantitative Research'],
-                        ];
-                        $selectedCategory = old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_JOURNAL);
-                        @endphp
-                        @if($selectedCategory === \App\Models\Research::SUBMISSION_CATEGORY_JOURNAL)
-                            @foreach($journalTypes as $t)
-                                <option value="{{ $t }}" {{ old('type') == $t ? 'selected' : '' }}>{{ $t }}</option>
-                            @endforeach
-                        @elseif($selectedDept && isset($types[$selectedDept]))
-                            @foreach($types[$selectedDept] as $t)
-                                <option value="{{ $t }}" {{ old('type') == $t ? 'selected' : '' }}>{{ $t }}</option>
-                            @endforeach
-                        @endif
-                    </select>
-                </div>
-            </div>
-
-            {{-- SECTION: Content --}}
-            <div class="ar-section-label">
-                <span class="ar-section-num">3</span> Content & Keywords
-            </div>
-
-            <div class="ar-form-group">
-                <label>Keywords</label>
-                <div class="ar-input-hint-wrap">
-                    <input type="text" name="keywords" value="{{ old('keywords') }}" placeholder="e.g. machine learning, AI, Philippines">
-                    <span class="ar-input-hint">Separate with commas</span>
-                </div>
-            </div>
-
-            <div class="ar-form-group">
-                <label>Abstract <span class="ar-required">*</span></label>
-                <textarea name="abstract" rows="6" placeholder="Write the research abstract here..." required>{{ old('abstract') }}</textarea>
-            </div>
-
-            {{-- SECTION: File --}}
-            <div class="ar-section-label">
-                <span class="ar-section-num">4</span> File Upload
-            </div>
-
-            <div class="ar-form-group">
-                <div class="ar-file-zone" id="fileUploadArea" onclick="document.getElementById('fileInput').click()" ondragover="event.preventDefault(); this.classList.add('dragging')" ondragleave="this.classList.remove('dragging')" ondrop="handleDrop(event)">
-                    <input type="file" name="file" id="fileInput" accept=".pdf" onchange="updateFileName(this)" style="display:none;">
-                    <div class="ar-file-zone-inner">
-                        <div class="ar-file-icon">
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        </div>
-                        <p class="ar-file-label" id="fileName">Click to browse or drag & drop file here</p>
-                        <p class="ar-file-sub">PDF Only — Max 30MB</p>
+                <div class="ar-form-row">
+                    <div class="ar-form-group ar-span-2">
+                        <label for="title">Title <span class="ar-required">*</span></label>
+                        <input type="text" id="title" name="title" value="{{ old('title') }}" placeholder="Enter the full research title" required maxlength="500">
                     </div>
                 </div>
-            </div>
 
-            {{-- AUTO-APPROVE NOTICE --}}
-            <div class="ar-notice">
-                <div class="ar-notice-icon">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <div class="ar-form-row">
+                    <div class="ar-form-group">
+                        <label for="submission_category">Submission Category <span class="ar-required">*</span></label>
+                        <select name="submission_category" id="submission_category" required>
+                            @foreach($submissionCategories as $value => $label)
+                                <option value="{{ $value }}" {{ $defaultCategory === $value ? 'selected' : '' }}>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="ar-form-group">
+                        <label for="year_published">Year Published <span class="ar-required">*</span></label>
+                        <select name="year_published" id="year_published" required>
+                            <option value="">Select year</option>
+                            @foreach($yearOptions as $year)
+                                <option value="{{ $year }}" {{ (string) old('year_published', 2026) === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
-                <p>Research added by admin will be <strong>automatically approved</strong> and visible on the site immediately.</p>
-            </div>
 
-            {{-- FORM ACTIONS --}}
+                <div class="ar-form-group">
+                    <label><span id="authorLabel">Co-author(s)</span> <span class="ar-required">*</span></label>
+                    <div class="ar-author-list" id="authorRepeater">
+                        @foreach($oldAuthors as $author)
+                            <div class="ar-author-row" data-author-row>
+                                <input type="text" class="ar-author-input" name="authors[]" value="{{ $author }}" placeholder="Enter co-author name" required maxlength="150">
+                                <button type="button" class="ar-icon-btn ar-remove-author" data-remove-author aria-label="Remove author">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+                                </button>
+                            </div>
+                        @endforeach
+                    </div>
+                    <button type="button" class="ar-add-author" id="addAuthorBtn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span id="addAuthorText">Add Co-author</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="ar-step-panel" data-step-panel="2" hidden>
+                <div class="ar-section-label">
+                    <span class="ar-section-num">2</span> Department & Program
+                </div>
+
+                <div class="ar-form-row">
+                    <div class="ar-form-group">
+                        <label for="department">Department <span class="ar-required">*</span></label>
+                        <select name="department" id="department" required>
+                            <option value="">Select department</option>
+                            @foreach($departmentOptions as $department)
+                                <option value="{{ $department }}" {{ old('department') === $department ? 'selected' : '' }}>{{ $department }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="ar-form-group" id="programGroup">
+                        <label for="course">Program <span class="ar-required">*</span></label>
+                        <select name="course" id="course" data-old="{{ old('course') }}">
+                            <option value="">Select department first</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ar-form-row">
+                    <div class="ar-form-group">
+                        <label for="type">Journal Type <span class="ar-required">*</span></label>
+                        <select name="type" id="type" required>
+                            <option value="">Select journal type</option>
+                            @foreach($journalTypes as $journalType)
+                                <option value="{{ $journalType }}" {{ old('type') === $journalType ? 'selected' : '' }}>{{ $journalType }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ar-step-panel" data-step-panel="3" hidden>
+                <div class="ar-section-label">
+                    <span class="ar-section-num">3</span> Content & Keywords
+                </div>
+
+                <div class="ar-form-group">
+                    <label for="keywords">Keywords</label>
+                    <div class="ar-input-hint-wrap">
+                        <input type="text" id="keywords" name="keywords" value="{{ old('keywords') }}" placeholder="machine learning, AI, Philippines" maxlength="500">
+                        <span class="ar-input-hint">Comma-separated</span>
+                    </div>
+                </div>
+
+                <div class="ar-form-group">
+                    <label for="abstract">Abstract <span class="ar-required">*</span></label>
+                    <textarea id="abstract" name="abstract" rows="7" placeholder="Write the research abstract here" required>{{ old('abstract') }}</textarea>
+                </div>
+            </section>
+
+            <section class="ar-step-panel" data-step-panel="4" hidden>
+                <div class="ar-section-label">
+                    <span class="ar-section-num">4</span> File Upload
+                </div>
+
+                <div class="ar-form-group">
+                    <label for="fileInput">Full Paper File <span class="ar-required">*</span></label>
+                    <div class="ar-file-zone" id="fileUploadArea">
+                        <input type="file" name="file" id="fileInput" accept="application/pdf,.pdf" required>
+                        <div class="ar-file-zone-inner">
+                            <div class="ar-file-icon" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            </div>
+                            <p class="ar-file-label" id="fileName">Click to browse or drag and drop PDF here</p>
+                            <p class="ar-file-sub">PDF only - max 30MB</p>
+                        </div>
+                    </div>
+                    <p class="ar-file-error" id="fileError" aria-live="polite"></p>
+                </div>
+            </section>
+
+            <section class="ar-step-panel" data-step-panel="5" hidden>
+                <div class="ar-section-label">
+                    <span class="ar-section-num">5</span> Review & Submit
+                </div>
+
+                <article class="ar-preview-card">
+                    <div class="ar-preview-top">
+                        <span class="ar-preview-type" id="previewType">Research: Journal Type</span>
+                        <span class="ar-preview-views" id="previewViews">Views 0</span>
+                    </div>
+                    <h4 id="previewTitle">Research title</h4>
+                    <p class="ar-preview-author" id="previewAuthor">Author Name</p>
+                    <p class="ar-preview-dept" id="previewDepartment">Department</p>
+                    <p class="ar-preview-program" id="previewProgram" hidden>Program</p>
+                    <p class="ar-preview-abstract" id="previewAbstract">Abstract preview</p>
+                    <div class="ar-preview-footer">
+                        <span id="previewYear">2026</span>
+                        <span id="previewFileName">PDF file</span>
+                    </div>
+                </article>
+
+                <div class="ar-notice">
+                    <div class="ar-notice-icon" aria-hidden="true">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <p>Research added by admin will be <strong>automatically approved</strong> and visible on the site immediately.</p>
+                </div>
+            </section>
+
             <div class="ar-form-actions">
-                <a href="{{ route('admin.researches') }}" class="ar-btn ar-btn-ghost">Cancel</a>
-                <button type="submit" class="ar-btn ar-btn-primary">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Add Research
+                <a href="{{ route('admin.researches') }}" class="ar-btn ar-btn-ghost" id="cancelBtn">Cancel</a>
+                <button type="button" class="ar-btn ar-btn-ghost" id="prevStepBtn" hidden>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                    Back
+                </button>
+                <button type="button" class="ar-btn ar-btn-primary" id="nextStepBtn">
+                    Next
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <button type="submit" class="ar-btn ar-btn-primary" id="submitResearchBtn" hidden>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Publish Research
                 </button>
             </div>
         </form>
@@ -201,7 +235,11 @@
 </div>
 
 <style>
-/* ── CARD ──────────────────────────────────────── */
+.ar-shell {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
 .ar-card {
     background: #fff;
     border-radius: 20px;
@@ -211,63 +249,147 @@
     margin-bottom: 40px;
 }
 
-/* ── CARD HEADER ────────────────────────────────── */
 .ar-card-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 18px;
     padding: 24px 32px;
     background: linear-gradient(160deg, #fdfbff 0%, #f8f4fe 100%);
     border-bottom: 1px solid #f0eaf9;
 }
-.ar-header-left { display: flex; align-items: center; gap: 14px; }
+
+.ar-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
 .ar-header-icon {
-    width: 44px; height: 44px;
+    width: 44px;
+    height: 44px;
     border-radius: 12px;
     background: #f0eaf9;
     border: 1px solid #e2d5f4;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #6b2fa0;
     flex-shrink: 0;
 }
+
 .ar-header-title {
     font-size: 17px;
     font-weight: 800;
     color: #1a0638;
     margin: 0 0 2px;
-    letter-spacing: -.3px;
 }
-.ar-header-sub { font-size: 12.5px; color: #a090bc; margin: 0; }
+
+.ar-header-sub {
+    font-size: 12.5px;
+    color: #7d6a9d;
+    margin: 0;
+}
+
 .ar-back-btn {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     padding: 8px 16px;
     background: #fff;
     border: 1.5px solid #e2d5f4;
     border-radius: 50px;
-    font-size: 13px; font-weight: 600;
-    color: #6b2fa0; text-decoration: none;
+    font-size: 13px;
+    font-weight: 700;
+    color: #6b2fa0;
+    text-decoration: none;
     transition: all .15s;
+    white-space: nowrap;
 }
-.ar-back-btn:hover { background: #f4f0fc; border-color: #c4a8e8; }
 
-/* ── ALERT ────────────────────────────────────── */
+.ar-back-btn:hover {
+    background: #f4f0fc;
+    border-color: #c4a8e8;
+}
+
 .ar-alert-error {
-    display: flex; align-items: flex-start; gap: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
     margin: 20px 32px 0;
     background: #fef2f2;
     border: 1px solid #fecaca;
     border-radius: 12px;
     padding: 14px 16px;
-    color: #b91c1c; font-size: 13px;
+    color: #b91c1c;
+    font-size: 13px;
 }
-.ar-alert-error svg { flex-shrink: 0; margin-top: 1px; }
-.ar-alert-error p { margin: 0 0 3px; }
-.ar-alert-error p:last-child { margin: 0; }
 
-/* ── FORM ─────────────────────────────────────── */
-.ar-form { padding: 28px 32px; }
+.ar-alert-error svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+}
 
-/* SECTION LABELS */
+.ar-alert-error p {
+    margin: 0 0 3px;
+}
+
+.ar-alert-error p:last-child {
+    margin: 0;
+}
+
+.ar-form {
+    padding: 28px 32px;
+}
+
+.ar-stepper {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 26px;
+}
+
+.ar-step {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: #faf8ff;
+    border: 1px solid #eadff8;
+    color: #8a78a8;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.ar-step strong {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #efe7fb;
+    color: #6b2fa0;
+    font-size: 11px;
+}
+
+.ar-step.is-active,
+.ar-step.is-complete {
+    background: #3b0f7a;
+    border-color: #3b0f7a;
+    color: #fff;
+}
+
+.ar-step.is-active strong,
+.ar-step.is-complete strong {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+}
+
 .ar-section-label {
     display: flex;
     align-items: center;
@@ -277,47 +399,60 @@
     text-transform: uppercase;
     letter-spacing: 1px;
     color: #6b2fa0;
-    margin: 24px 0 16px;
+    margin: 0 0 16px;
     padding-bottom: 10px;
     border-bottom: 1px solid #f0eaf9;
 }
-.ar-section-label:first-child { margin-top: 0; }
+
 .ar-section-num {
-    width: 22px; height: 22px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     background: #f0eaf9;
     border: 1.5px solid #e0d4f5;
-    display: inline-flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
     color: #6b2fa0;
     flex-shrink: 0;
 }
 
-/* ROWS */
+.ar-step-panel {
+    min-height: 360px;
+}
+
 .ar-form-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
 }
-.ar-span-2 { grid-column: 1 / -1; }
 
-/* GROUPS */
+.ar-span-2 {
+    grid-column: 1 / -1;
+}
+
 .ar-form-group {
     display: flex;
     flex-direction: column;
     margin-bottom: 16px;
 }
+
 .ar-form-group label {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .7px;
     color: #5b3d8a;
     margin-bottom: 7px;
 }
-.ar-required { color: #e53e3e; }
+
+.ar-required {
+    color: #e53e3e;
+}
+
 .ar-form-group input[type="text"],
-.ar-form-group input[type="number"],
 .ar-form-group select,
 .ar-form-group textarea {
     width: 100%;
@@ -331,7 +466,12 @@
     box-sizing: border-box;
     font-family: inherit;
 }
-.ar-form-group textarea { resize: vertical; line-height: 1.6; }
+
+.ar-form-group textarea {
+    resize: vertical;
+    line-height: 1.6;
+}
+
 .ar-form-group input:focus,
 .ar-form-group select:focus,
 .ar-form-group textarea:focus {
@@ -341,25 +481,72 @@
     box-shadow: 0 0 0 3px rgba(124,58,237,.1);
 }
 
-/* DISABLED SELECT */
 .ar-form-group select:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
-/* INPUT HINT */
-.ar-input-hint-wrap { position: relative; }
+.ar-input-hint-wrap {
+    position: relative;
+}
+
 .ar-input-hint {
     position: absolute;
-    right: 12px; top: 50%;
+    right: 12px;
+    top: 50%;
     transform: translateY(-50%);
     font-size: 11px;
-    color: #c0aee0;
+    color: #9f8aba;
     pointer-events: none;
 }
 
-/* FILE ZONE */
+.ar-author-list {
+    display: grid;
+    gap: 10px;
+}
+
+.ar-author-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px;
+    gap: 8px;
+    align-items: center;
+}
+
+.ar-icon-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    border: 1px solid #e8dff5;
+    background: #fff;
+    color: #b91c1c;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.ar-icon-btn:disabled {
+    opacity: .35;
+    cursor: not-allowed;
+}
+
+.ar-add-author {
+    align-self: flex-start;
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1.5px solid #d8c8ee;
+    background: #fff;
+    color: #5b21b6;
+    border-radius: 999px;
+    padding: 9px 14px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
 .ar-file-zone {
+    position: relative;
     border: 2px dashed #d4c5ed;
     border-radius: 14px;
     background: #faf8ff;
@@ -368,24 +555,144 @@
     cursor: pointer;
     transition: border-color .15s, background .15s;
 }
-.ar-file-zone:hover, .ar-file-zone.dragging {
+
+.ar-file-zone:hover,
+.ar-file-zone.dragging {
     border-color: #7c3aed;
     background: #f4f0fc;
 }
-.ar-file-zone-inner { pointer-events: none; }
+
+.ar-file-zone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.ar-file-zone-inner {
+    pointer-events: none;
+}
+
 .ar-file-icon {
-    width: 52px; height: 52px;
+    width: 52px;
+    height: 52px;
     border-radius: 14px;
     background: #f0eaf9;
     border: 1.5px solid #e2d5f4;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #7c3aed;
     margin: 0 auto 12px;
 }
-.ar-file-label { font-size: 14px; font-weight: 600; color: #3b0f7a; margin: 0 0 4px; }
-.ar-file-sub { font-size: 12px; color: #b0a0cc; margin: 0; }
 
-/* NOTICE */
+.ar-file-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #3b0f7a;
+    margin: 0 0 4px;
+    overflow-wrap: anywhere;
+}
+
+.ar-file-sub {
+    font-size: 12px;
+    color: #8a78a8;
+    margin: 0;
+}
+
+.ar-file-error {
+    min-height: 18px;
+    margin: 8px 0 0;
+    color: #b91c1c;
+    font-size: 12.5px;
+    font-weight: 700;
+}
+
+.ar-preview-card {
+    border: 1px solid #e5daf3;
+    border-top: 3px solid #6b2fa0;
+    border-radius: 12px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 8px 22px rgba(59,15,122,.07);
+    display: grid;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.ar-preview-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ar-preview-type {
+    display: inline-flex;
+    width: fit-content;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+}
+
+.ar-preview-views {
+    color: #746486;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.ar-preview-card h4 {
+    margin: 0;
+    color: #2e1065;
+    font-family: var(--font-head);
+    font-size: 18px;
+    line-height: 1.35;
+}
+
+.ar-preview-author,
+.ar-preview-dept,
+.ar-preview-program,
+.ar-preview-abstract {
+    margin: 0;
+}
+
+.ar-preview-author {
+    color: #5b3d8a;
+    font-weight: 800;
+}
+
+.ar-preview-dept,
+.ar-preview-program {
+    color: #78698f;
+    font-size: 13px;
+}
+
+.ar-preview-abstract {
+    color: #4b405f;
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+
+.ar-preview-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-top: 10px;
+    border-top: 1px solid #efe7fb;
+    color: #746486;
+    font-size: 12.5px;
+    font-weight: 800;
+}
+
 .ar-notice {
     display: flex;
     align-items: flex-start;
@@ -394,23 +701,28 @@
     border: 1px solid #86efac;
     border-radius: 12px;
     padding: 14px 18px;
-    margin-bottom: 24px;
     font-size: 13.5px;
     color: #15803d;
 }
+
 .ar-notice-icon {
-    width: 28px; height: 28px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     background: #dcfce7;
     border: 1.5px solid #86efac;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #16a34a;
     flex-shrink: 0;
 }
-.ar-notice p { margin: 0; line-height: 1.6; }
-.ar-notice strong { font-weight: 700; }
 
-/* FORM ACTIONS */
+.ar-notice p {
+    margin: 0;
+    line-height: 1.6;
+}
+
 .ar-form-actions {
     display: flex;
     align-items: center;
@@ -419,134 +731,381 @@
     padding-top: 20px;
     border-top: 1px solid #f0eaf9;
 }
+
 .ar-btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 11px 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    padding: 10px 20px;
     border-radius: 50px;
-    font-size: 13.5px; font-weight: 700;
-    cursor: pointer; text-decoration: none; border: none;
+    font-size: 13.5px;
+    font-weight: 800;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
     transition: all .16s ease;
 }
+
 .ar-btn-primary {
-    background: #3b0f7a; color: #fff;
+    background: #3b0f7a;
+    color: #fff;
     box-shadow: 0 4px 16px rgba(59,15,122,.28);
 }
+
 .ar-btn-primary:hover {
     background: #2d0a5e;
     transform: translateY(-1px);
-    box-shadow: 0 7px 22px rgba(59,15,122,.38);
 }
+
 .ar-btn-ghost {
-    background: #fff; color: #8b7aaa;
+    background: #fff;
+    color: #6f5a92;
     border: 1.5px solid #e8dff5;
 }
-.ar-btn-ghost:hover { background: #f4f0fc; color: #3b0f7a; }
 
-/* RESPONSIVE */
-@media (max-width: 640px) {
-    .ar-card-header, .ar-form { padding-left: 20px; padding-right: 20px; }
-    .ar-form-row { grid-template-columns: 1fr; }
-    .ar-span-2 { grid-column: auto; }
+.ar-btn-ghost:hover {
+    background: #f4f0fc;
+    color: #3b0f7a;
+}
+
+@media (max-width: 760px) {
+    .ar-card-header,
+    .ar-form {
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    .ar-card-header,
+    .ar-form-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ar-stepper {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ar-form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .ar-span-2 {
+        grid-column: auto;
+    }
 }
 </style>
 
 @push('scripts')
 <script>
-const deptData = {
-    'College of Accountancy and Business Education': {
-        courses: ['Accountancy','Business Administration-Marketing Mngt.','Hospitality Management','Tourism Management'],
-        types:   ['Thesis','Feasibility Study','Descriptive Research','Correlational Research','Quantitative Research']
-    },
-    'College of Computer Studies': {
-        courses: ['Computer Science','Information Technology'],
-        types:   ['Capstone 1','Capstone 2','Thesis','Applied Research']
-    },
-    'College of Criminal Justice Education': {
-        courses: ['Criminology'],
-        types:   ['Thesis','Descriptive Research','Qualitative Research','Mixed Methods Research']
-    },
-    'College of Education': {
-        courses: ['Elementary Education','Secondary Education-General Science'],
-        types:   ['Thesis','Action Research','Descriptive Research','Experimental Research']
-    },
-    'College of Engineering and Architecture': {
-        courses: ['Civil Engineering','Computer Engineering','Electrical Engineering','Electronics Engineering','Mechanical Engineering'],
-        types:   ['Capstone 1','Capstone 2','Thesis','Applied Research','Experimental Research']
-    },
-    'College of Maritime Studies': {
-        courses: ['Marine Engineering','Transportation'],
-        types:   ['Thesis','Applied Research','Descriptive Research','Quantitative Research']
-    },
-};
-const journalTypes = @json($journalTypes);
+const researchPrograms = @json($programOptions);
+const facultyCategory = @json(\App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL);
+const studentCategory = @json(\App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL);
+const maxPdfBytes = 30 * 1024 * 1024;
 
-function updateCoursesAndTypes() {
-    const deptSelect  = document.getElementById('department');
-    const category    = document.getElementById('submission_category').value;
-    const dept        = deptSelect.value;
-    const courseSelect = document.getElementById('course');
-    const typeSelect   = document.getElementById('type');
-    const typeLabel    = document.getElementById('typeLabel');
+const form = document.getElementById('adminResearchForm');
+const panels = Array.from(document.querySelectorAll('[data-step-panel]'));
+const indicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
+const prevStepBtn = document.getElementById('prevStepBtn');
+const nextStepBtn = document.getElementById('nextStepBtn');
+const submitResearchBtn = document.getElementById('submitResearchBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const categorySelect = document.getElementById('submission_category');
+const departmentSelect = document.getElementById('department');
+const programGroup = document.getElementById('programGroup');
+const programSelect = document.getElementById('course');
+const authorRepeater = document.getElementById('authorRepeater');
+const addAuthorBtn = document.getElementById('addAuthorBtn');
+const addAuthorText = document.getElementById('addAuthorText');
+const authorLabel = document.getElementById('authorLabel');
+const fileInput = document.getElementById('fileInput');
+const fileUploadArea = document.getElementById('fileUploadArea');
+const fileName = document.getElementById('fileName');
+const fileError = document.getElementById('fileError');
+let currentStep = 1;
 
-    courseSelect.innerHTML = '<option value="">-- Select Program --</option>';
-    typeSelect.innerHTML   = '<option value="">-- Select Type --</option>';
-    typeLabel.textContent  = category === 'journal' ? 'Journal Type' : 'Research Type';
+function isStudentJournal() {
+    return categorySelect.value === studentCategory;
+}
 
-    if (dept && deptData[dept]) {
-        deptData[dept].courses.forEach(function(c) {
-            courseSelect.innerHTML += '<option value="' + c + '">' + c + '</option>';
-        });
-        courseSelect.disabled = false;
+function setStep(step, shouldScroll = true) {
+    currentStep = Math.max(1, Math.min(5, step));
 
-        const types = category === 'journal' ? journalTypes : deptData[dept].types;
-        types.forEach(function(t) {
-            typeSelect.innerHTML += '<option value="' + t + '">' + t + '</option>';
-        });
-        typeSelect.disabled = false;
-    } else {
-        courseSelect.innerHTML = '<option value="">-- Select Department First --</option>';
-        typeSelect.innerHTML   = '<option value="">-- Select Department First --</option>';
-        courseSelect.disabled  = true;
-        typeSelect.disabled    = true;
+    panels.forEach((panel) => {
+        panel.hidden = Number(panel.dataset.stepPanel) !== currentStep;
+    });
+
+    indicators.forEach((indicator) => {
+        const indicatorStep = Number(indicator.dataset.stepIndicator);
+        indicator.classList.toggle('is-active', indicatorStep === currentStep);
+        indicator.classList.toggle('is-complete', indicatorStep < currentStep);
+    });
+
+    prevStepBtn.hidden = currentStep === 1;
+    cancelBtn.hidden = currentStep !== 1;
+    nextStepBtn.hidden = currentStep === 5;
+    submitResearchBtn.hidden = currentStep !== 5;
+
+    if (currentStep === 5) {
+        updatePreview();
+    }
+
+    if (shouldScroll) {
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 }
 
-function updateFileName(input) {
-    const label = document.getElementById('fileName');
-    if (input.files && input.files[0]) {
-        label.textContent = input.files[0].name;
-        label.style.color = '#3b0f7a';
-    }
+function setSelectOptions(select, options, placeholder, selectedValue) {
+    select.innerHTML = '';
+
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = '';
+    placeholderOption.textContent = placeholder;
+    select.appendChild(placeholderOption);
+
+    options.forEach((optionValue) => {
+        const option = document.createElement('option');
+        option.value = optionValue;
+        option.textContent = optionValue;
+        option.selected = selectedValue === optionValue;
+        select.appendChild(option);
+    });
 }
 
-function handleDrop(e) {
-    e.preventDefault();
-    document.getElementById('fileUploadArea').classList.remove('dragging');
-    const file = e.dataTransfer.files[0];
-    if (file) {
-        const input = document.getElementById('fileInput');
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        updateFileName(input);
+function populatePrograms() {
+    if (!isStudentJournal()) {
+        programSelect.required = false;
+        programSelect.disabled = true;
+        programSelect.value = '';
+        programGroup.hidden = true;
+        return;
     }
+
+    const department = departmentSelect.value;
+    const previousValue = programSelect.dataset.old || programSelect.value;
+    const programs = researchPrograms[department] || [];
+
+    programGroup.hidden = false;
+    programSelect.required = true;
+    programSelect.disabled = programs.length === 0;
+    setSelectOptions(programSelect, programs, programs.length ? 'Select program' : 'Select department first', previousValue);
+    programSelect.dataset.old = '';
 }
 
-// On page load: restore old() values after validation errors
-(function() {
-    const deptSelect = document.getElementById('department');
-    if (deptSelect.value) {
-        updateCoursesAndTypes();
+function syncCategoryState() {
+    const student = isStudentJournal();
 
-        const oldCourse = "{{ old('course') }}";
-        const oldType   = "{{ old('type') }}";
-        if (oldCourse) document.getElementById('course').value = oldCourse;
-        if (oldType)   document.getElementById('type').value   = oldType;
-    } else if (document.getElementById('submission_category').value === 'journal') {
-        document.getElementById('typeLabel').textContent = 'Journal Type';
+    authorLabel.textContent = student ? 'Researchers' : 'Co-author(s)';
+    addAuthorText.textContent = student ? 'Add Researcher' : 'Add Co-author';
+
+    document.querySelectorAll('.ar-author-input').forEach((input) => {
+        input.placeholder = student ? 'Enter researcher name' : 'Enter co-author name';
+    });
+
+    populatePrograms();
+    updatePreview();
+}
+
+function updateAuthorButtons() {
+    const rows = Array.from(document.querySelectorAll('[data-author-row]'));
+
+    rows.forEach((row) => {
+        const removeButton = row.querySelector('[data-remove-author]');
+        removeButton.disabled = rows.length <= 1;
+    });
+}
+
+function createAuthorRow() {
+    const row = document.createElement('div');
+    row.className = 'ar-author-row';
+    row.dataset.authorRow = 'true';
+
+    row.innerHTML = `
+        <input type="text" class="ar-author-input" name="authors[]" placeholder="${isStudentJournal() ? 'Enter researcher name' : 'Enter co-author name'}" required maxlength="150">
+        <button type="button" class="ar-icon-btn ar-remove-author" data-remove-author aria-label="Remove author">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+        </button>
+    `;
+
+    authorRepeater.appendChild(row);
+    row.querySelector('input').focus();
+    updateAuthorButtons();
+}
+
+function getAuthorNames() {
+    return Array.from(document.querySelectorAll('.ar-author-input'))
+        .map((input) => input.value.trim())
+        .filter(Boolean);
+}
+
+function validateFileInput() {
+    const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+    fileError.textContent = '';
+    fileInput.setCustomValidity('');
+
+    if (!file) {
+        fileError.textContent = 'Upload the full paper PDF.';
+        fileInput.setCustomValidity('Upload the full paper PDF.');
+        return false;
     }
-})();
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+        fileError.textContent = 'The full paper must be a PDF file.';
+        fileInput.setCustomValidity('The full paper must be a PDF file.');
+        return false;
+    }
+
+    if (file.size > maxPdfBytes) {
+        fileError.textContent = 'The full paper PDF must not exceed 30MB.';
+        fileInput.setCustomValidity('The full paper PDF must not exceed 30MB.');
+        return false;
+    }
+
+    return true;
+}
+
+function validateStep(step) {
+    const panel = panels.find((item) => Number(item.dataset.stepPanel) === step);
+    const fields = Array.from(panel.querySelectorAll('input, select, textarea'))
+        .filter((field) => !field.disabled && field.type !== 'hidden' && field !== fileInput);
+
+    for (const field of fields) {
+        if (!field.checkValidity()) {
+            field.reportValidity();
+            return false;
+        }
+    }
+
+    if (step === 4 && !validateFileInput()) {
+        return false;
+    }
+
+    return true;
+}
+
+function updateFileName() {
+    const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+
+    if (!file) {
+        fileName.textContent = 'Click to browse or drag and drop PDF here';
+        return;
+    }
+
+    fileName.textContent = file.name;
+    validateFileInput();
+    updatePreview();
+}
+
+function updatePreview() {
+    const title = document.getElementById('title').value.trim();
+    const type = document.getElementById('type').value.trim();
+    const authors = getAuthorNames();
+    const author = authors.length > 1 ? `${authors[0]} et al.` : (authors[0] || 'Author Name');
+    const department = departmentSelect.value.trim();
+    const program = programSelect.value.trim();
+    const year = document.getElementById('year_published').value.trim();
+    const abstract = document.getElementById('abstract').value.trim();
+    const file = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
+
+    document.getElementById('previewType').textContent = `Research: ${type || 'Journal Type'}`;
+    document.getElementById('previewViews').textContent = 'Views 0';
+    document.getElementById('previewTitle').textContent = title || 'Research title';
+    document.getElementById('previewAuthor').textContent = author;
+    document.getElementById('previewDepartment').textContent = department || 'Department';
+    document.getElementById('previewYear').textContent = year || 'Year';
+    document.getElementById('previewFileName').textContent = file || 'PDF file';
+    document.getElementById('previewAbstract').textContent = abstract || 'Abstract preview';
+
+    const previewProgram = document.getElementById('previewProgram');
+    previewProgram.hidden = !isStudentJournal() || !program;
+    previewProgram.textContent = program;
+}
+
+nextStepBtn.addEventListener('click', () => {
+    if (!validateStep(currentStep)) {
+        return;
+    }
+
+    setStep(currentStep + 1);
+});
+
+prevStepBtn.addEventListener('click', () => setStep(currentStep - 1));
+
+categorySelect.addEventListener('change', syncCategoryState);
+departmentSelect.addEventListener('change', () => {
+    populatePrograms();
+    updatePreview();
+});
+programSelect.addEventListener('change', updatePreview);
+document.getElementById('type').addEventListener('change', updatePreview);
+document.getElementById('title').addEventListener('input', updatePreview);
+document.getElementById('year_published').addEventListener('change', updatePreview);
+document.getElementById('abstract').addEventListener('input', updatePreview);
+fileInput.addEventListener('change', updateFileName);
+
+authorRepeater.addEventListener('input', (event) => {
+    if (event.target.classList.contains('ar-author-input')) {
+        updatePreview();
+    }
+});
+
+authorRepeater.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('[data-remove-author]');
+
+    if (!removeButton || document.querySelectorAll('[data-author-row]').length <= 1) {
+        return;
+    }
+
+    removeButton.closest('[data-author-row]').remove();
+    updateAuthorButtons();
+    updatePreview();
+});
+
+addAuthorBtn.addEventListener('click', createAuthorRow);
+
+fileUploadArea.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    fileUploadArea.classList.add('dragging');
+});
+
+fileUploadArea.addEventListener('dragleave', () => {
+    fileUploadArea.classList.remove('dragging');
+});
+
+fileUploadArea.addEventListener('drop', (event) => {
+    event.preventDefault();
+    fileUploadArea.classList.remove('dragging');
+
+    const file = event.dataTransfer.files && event.dataTransfer.files[0] ? event.dataTransfer.files[0] : null;
+
+    if (!file) {
+        return;
+    }
+
+    const dataTransfer = new DataTransfer();
+    dataTransfer.items.add(file);
+    fileInput.files = dataTransfer.files;
+    updateFileName();
+});
+
+form.addEventListener('submit', (event) => {
+    for (let step = 1; step <= 4; step += 1) {
+        setStep(step, false);
+
+        if (!validateStep(step)) {
+            event.preventDefault();
+            setStep(step);
+            return;
+        }
+    }
+
+    updatePreview();
+});
+
+syncCategoryState();
+updateAuthorButtons();
+setStep(currentStep, false);
 </script>
 @endpush
-
 @endsection

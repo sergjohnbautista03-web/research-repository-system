@@ -29,6 +29,7 @@ Route::post('/contact', function (\Illuminate\Http\Request $request) {
     return back()->with('contact_success', true);
 })->name('contact.send');
 Route::get('/research/{research}', [ResearchController::class, 'show'])->name('research.show');
+Route::post('/research/{research}/citation-copy', [ResearchController::class, 'recordCitationCopy'])->name('research.citation-copy');
 Route::get('/department/{department}', [ResearchController::class, 'byDepartment'])->name('research.department')->where('department', '[^/]+');
 Route::get('/department/{department}/{course}', [ResearchController::class, 'byCourse'])->name('research.course')->where(['department' => '[^/]+', 'course' => '[^/]+']);
 
@@ -115,6 +116,11 @@ Route::middleware(['auth', 'policy.accepted'])->group(function () {
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', 'admin'])->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
 
+    // Semester management
+    Route::get('/semesters', [AdminController::class, 'semesters'])->name('semesters');
+    Route::get('/semesters/{academicSemester}', [AdminController::class, 'showSemester'])->name('semesters.show');
+    Route::post('/semesters/{academicSemester}/archive', [AdminController::class, 'archiveSemester'])->name('semesters.archive');
+
     // Research management
     Route::get('/researches', [AdminController::class, 'researches'])->name('researches');
     Route::get('/researches/{research}', [AdminController::class, 'showResearch'])->name('research.show');
@@ -156,14 +162,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
     Route::post('/create-user', [AdminController::class, 'storeUser'])->name('store-user');
     Route::post('/import-users', [AdminController::class, 'importUsers'])->name('import-users');
 
-    // Researcher accounts & graduation
+    // Researcher accounts
     Route::get('/researcher-accounts', [AdminController::class, 'researcherAccounts'])->name('researcher-accounts');
-    Route::get('/graduated-researchers', [AdminController::class, 'graduatedResearchers'])->name('graduated-researchers');
-    Route::post('/users/{user}/restore-researcher', [AdminController::class, 'restoreResearcher'])->name('users.restore-researcher');
-
-     // Researcher status management
-    Route::post('/users/{user}/restore-to-active', [AdminController::class, 'restoreToActive'])
-        ->name('users.restore-to-active');
 });
 
 // ── Owner routes ─────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
@@ -191,14 +192,23 @@ class ResearchController extends Controller
         return view('research.show', compact('research'));
     }
 
+    public function recordCitationCopy(Research $research)
+    {
+        abort_if($research->status !== 'approved', 404);
+
+        if (Schema::hasColumn('researches', 'citation_copy_count')) {
+            $research->increment('citation_copy_count');
+        }
+
+        return response()->json([
+            'ok' => true,
+            'citation_copy_count' => (int) ($research->fresh()?->citation_copy_count ?? 0),
+        ]);
+    }
+
     public function submitForm()
     {
         $user = auth()->user();
-
-        if ($user->isGraduated()) {
-            return redirect()->route('home')
-                ->with('error', 'Graduated researchers cannot submit.');
-        }
 
         if (! $user->isAdmin() && ! $user->canSubmitResearch()) {
             return redirect()->route('user.dashboard')
@@ -211,10 +221,6 @@ class ResearchController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
-
-        if ($user->isGraduated()) {
-            return redirect()->back()->with('error', 'Graduated users cannot submit.');
-        }
 
         if (! $user->isAdmin() && ! $user->canSubmitResearch()) {
             return redirect()->route('user.dashboard')->with('error', 'Only active approved accounts can submit research.');
@@ -257,6 +263,7 @@ class ResearchController extends Controller
             'type'           => $data['type'],
             'author_name'    => $data['author_name'],
             'user_id'        => Auth::id(),
+            'academic_semester_id' => $user->currentAcademicSemester?->isArchived() ? null : $user->current_academic_semester_id,
             'department'     => $data['department'],
             'course'         => $data['course'],
             'year_published' => $data['year_published'],

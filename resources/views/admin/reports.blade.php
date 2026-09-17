@@ -62,12 +62,18 @@
             <label class="rr-filter-label-hidden">Print</label>
             <button type="button" onclick="printReport()" class="rr-btn rr-btn-outline">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                Print Report
+                Print Page
             </button>
         </div>
 
     </form>
 </div>
+
+@if(method_exists($researches, 'total'))
+    <div class="rr-results-meta">
+        Showing {{ number_format($researches->firstItem() ?? 0) }}-{{ number_format($researches->lastItem() ?? 0) }} of {{ number_format($researches->total()) }} matching papers
+    </div>
+@endif
 
 @php
     $typeColors = [
@@ -91,9 +97,12 @@
 @endphp
 
 {{-- GROUPED TABLE --}}
-@php $grouped = $researches->groupBy('department'); @endphp
+@php
+    $researchRows = method_exists($researches, 'getCollection') ? $researches->getCollection() : collect($researches);
+    $grouped = $researchRows->groupBy(fn ($research) => trim((string) $research->department) !== '' ? $research->department : 'Unassigned Department');
+@endphp
 
-@if($researches->isEmpty())
+@if($researchRows->isEmpty())
     <div class="rr-card">
         <div class="rr-empty">
             <div class="rr-empty-icon">
@@ -105,6 +114,9 @@
     </div>
 @else
     @foreach($grouped as $department => $deptResearches)
+    @php
+        $departmentTotal = (int) ($departmentTotals[$department] ?? $deptResearches->count());
+    @endphp
     <div class="rr-card">
         <div class="rr-dept-header">
             <div class="rr-dept-header-left">
@@ -113,7 +125,7 @@
                 </div>
                 <span class="rr-dept-name">{{ $department }}</span>
             </div>
-            <span class="rr-dept-count">{{ $deptResearches->count() }} {{ $deptResearches->count() == 1 ? 'paper' : 'papers' }}</span>
+            <span class="rr-dept-count">{{ number_format($departmentTotal) }} {{ $departmentTotal == 1 ? 'paper' : 'papers' }}</span>
         </div>
 
         <div class="rr-table-wrap">
@@ -152,6 +164,12 @@
         </div>
     </div>
     @endforeach
+
+    @if(method_exists($researches, 'links'))
+        <div class="rr-pagination">
+            {{ $researches->links('vendor.pagination.custom') }}
+        </div>
+    @endif
 @endif
 
 <style>
@@ -164,6 +182,7 @@
 .rr-filter-group select,.rr-fixed-department{padding:9px 13px;border:1.5px solid #e8dff5;border-radius:10px;background:#faf8ff;font-size:13.5px;color:#1a0638;box-sizing:border-box;font-family:inherit;width:100%;min-height:39px;}
 .rr-fixed-department{display:flex;align-items:center;color:#6b2fa0;font-weight:800;}
 .rr-filter-group select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+.rr-results-meta{margin:-8px 0 14px;color:#7d6c98;font-size:12.5px;font-weight:700;}
 .rr-filter-actions{display:flex;flex-direction:column;gap:4px;}
 .rr-print-wrap{display:flex;flex-direction:column;gap:4px;margin-left:auto;}
 .rr-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:50px;font-size:13px;font-weight:700;cursor:pointer;border:none;text-decoration:none;transition:all .14s ease;font-family:inherit;white-space:nowrap;}
@@ -197,6 +216,7 @@
 .rr-empty{text-align:center;padding:48px 20px;color:#c0aee0;}
 .rr-empty-icon{width:56px;height:56px;border-radius:16px;background:#f4f0fc;border:1px solid #e8dff5;display:flex;align-items:center;justify-content:center;color:#c0aee0;margin:0 auto 14px;}
 .rr-empty p{font-size:14px;margin:0;}
+.rr-pagination{margin-top:20px;}
 @media(max-width:640px){.rr-filter-form{flex-direction:column;}.rr-filter-group,.rr-filter-group.rr-filter-sm{flex:none;width:100%;min-width:unset;}.rr-print-wrap{margin-left:0;}.rr-bar-row{grid-template-columns:50px 1fr 34px;}}
 </style>
 
@@ -209,6 +229,8 @@ function printReport() {
         department: @json($fixedDepartment ?: (request('department') ?: 'All Departments')),
         year:       @json(request('year') ?: 'All Years'),
         type:       @json(request('type') ?: 'All Types'),
+        page:       @json(method_exists($researches, 'currentPage') ? $researches->currentPage() : 1),
+        total:      @json(method_exists($researches, 'total') ? $researches->total() : $researchRows->count()),
     };
 
     const typeColors = {
@@ -241,10 +263,10 @@ function printReport() {
         <h1>Ube Repository — Research Inventory Report</h1>
         <div class="subtitle">Philippine College of Science and Technology</div>
         <div class="subtitle">Printed on: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
-        <div class="filters"><strong>Filters:</strong> Department: ${filters.department} | Year: ${filters.year} | Type: ${filters.type}</div>`;
+        <div class="filters"><strong>Filters:</strong> Department: ${filters.department} | Year: ${filters.year} | Type: ${filters.type} | Page: ${filters.page} | Total: ${filters.total} matching paper(s)</div>`;
 
     @foreach($grouped as $department => $deptResearches)
-    html += `<div class="dept-title"><span>{{ $department }}</span><span>{{ $deptResearches->count() }} paper(s)</span></div>
+    html += `<div class="dept-title"><span>{{ $department }}</span><span>{{ (int) ($departmentTotals[$department] ?? $deptResearches->count()) }} matching paper(s)</span></div>
     <table><thead><tr><th>#</th><th>Title</th><th>Author</th><th>Program</th><th>Type</th><th>Year</th></tr></thead><tbody>`;
     @foreach($deptResearches->sortByDesc('year_published') as $i => $r)
     html += `<tr>

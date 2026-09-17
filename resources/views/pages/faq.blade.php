@@ -186,18 +186,6 @@
 
                 <div class="faq-item">
                     <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false">
-                        Can I download or save a research file directly?
-                        <span class="faq-arrow" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>
-                        </span>
-                    </button>
-                    <div class="faq-answer" hidden>
-                        <p>Direct file download is disabled for all roles. Users, admins, and department deans use protected in-browser viewing where save, print, and copy actions are restricted where possible.</p>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false">
                         What is the Save feature?
                         <span class="faq-arrow" aria-hidden="true">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6,9 12,15 18,9"/></svg>

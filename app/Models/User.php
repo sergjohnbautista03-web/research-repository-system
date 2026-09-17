@@ -14,12 +14,12 @@ class User extends Authenticatable implements CanResetPassword
 
     protected $fillable = [
         'name', 'middle_name', 'verification_documents', 'research_documents', 'email', 'password', 'role',
-        'department', 'student_id', 'profile_photo', 'created_by',
+        'department', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
         'is_active', 'is_approved', 'student_approved_by', 'student_approved_at', 'researcher_approved_by', 'researcher_approved_at',
         'is_department_dean', 'last_seen_at', 'capture_logs_seen_log_id',
         'policy_accepted_at', 'policy_version', 'policy_accepted_ip', 'policy_accepted_user_agent',
-        'year_level', 'course_duration', 'graduation_year', 'researcher_end_date', 'graduated_at',
-        'researcher_status', 'researcher_rejection_reason', 'researcher_rejected_at', 'researcher_applied_at',
+        'year_level', 'course_duration', 'graduation_year', 'researcher_end_date',
+        'researcher_rejection_reason', 'researcher_rejected_at', 'researcher_applied_at',
         'department_access_department', 'department_access_school_year', 'department_access_semester',
         'department_access_expires_at',
     ];
@@ -34,11 +34,11 @@ class User extends Authenticatable implements CanResetPassword
         'student_approved_at' => 'datetime',
         'researcher_approved_at' => 'datetime',
         'is_department_dean'=> 'boolean',
+        'current_academic_semester_id' => 'integer',
         'last_seen_at'      => 'datetime',
         'capture_logs_seen_log_id' => 'integer',
         'policy_accepted_at'=> 'datetime',
         'researcher_end_date' => 'date',
-        'graduated_at'      => 'datetime',
         'researcher_rejected_at' => 'datetime',
         'researcher_applied_at' => 'datetime',
         'verification_documents' => 'array',
@@ -51,6 +51,18 @@ class User extends Authenticatable implements CanResetPassword
     public function researches()
     {
         return $this->hasMany(Research::class);
+    }
+
+    public function currentAcademicSemester()
+    {
+        return $this->belongsTo(AcademicSemester::class, 'current_academic_semester_id');
+    }
+
+    public function academicSemesters()
+    {
+        return $this->belongsToMany(AcademicSemester::class, 'academic_semester_user')
+            ->withPivot(['assigned_at', 'assigned_by'])
+            ->withTimestamps();
     }
 
     public function pinnedResearches()
@@ -138,7 +150,7 @@ class User extends Authenticatable implements CanResetPassword
      * - PhilCST students (role=user with student_id)
      *
      * Guests / unauthenticated users cannot — enforce this in your
-     * ResearchController@viewFile / @download methods via auth middleware.
+     * ResearchController@viewFile method via auth middleware.
      */
     public function canViewFullDocument(): bool
     {
@@ -172,56 +184,6 @@ class User extends Authenticatable implements CanResetPassword
 
     // ── Graduation / Expiry ──────────────────────────────────────────────────
 
-    public function isGraduated(): bool
-    {
-        if (! is_null($this->graduated_at)) {
-            return true;
-        }
-
-        if ($this->role === 'researcher' && $this->researcher_end_date) {
-            return $this->researcher_end_date->isPast();
-        }
-
-        return $this->role === 'researcher'
-            && $this->graduation_year
-            && $this->graduation_year < (int) date('Y');
-    }
-
-    public function deactivateIfGraduated(): bool
-    {
-        if (! $this->isGraduated()) {
-            return false;
-        }
-
-        $updates = [];
-
-        if ($this->is_active) {
-            $updates['is_active'] = false;
-        }
-
-        if (! $this->graduated_at) {
-            $updates['graduated_at'] = now();
-        }
-
-        if ($updates !== []) {
-            $this->update($updates);
-        }
-
-        return true;
-    }
-
-    public function isGraduatingSoon(): bool
-    {
-        if ($this->role === 'researcher' && $this->researcher_end_date) {
-            return $this->researcher_end_date->isFuture()
-                && $this->researcher_end_date->year === (int) date('Y');
-        }
-
-        return $this->role === 'researcher'
-            && $this->graduation_year
-            && $this->graduation_year == (int) date('Y');
-    }
-
     public function yearsUntilGraduation(): ?int
     {
         if ($this->researcher_end_date) {
@@ -247,7 +209,7 @@ class User extends Authenticatable implements CanResetPassword
         if (! in_array($this->role, ['user', 'researcher'], true)) return false;
         if (! $this->is_active)           return false;
         if (! $this->is_approved)         return false;
-        if ($this->role === 'researcher' && $this->isGraduated())  return false;
+        if ($this->currentAcademicSemester?->isArchived()) return false;
         return true;
     }
 
@@ -266,6 +228,23 @@ class User extends Authenticatable implements CanResetPassword
 
     public function getResearcherStatusLabelAttribute(): string
     {
-        return $this->isGraduated() ? 'Graduated' : 'Active';
+        if (! $this->isResearcher()) {
+            return 'N/A';
+        }
+
+        if ($this->researcher_rejected_at) {
+            return 'Rejected';
+        }
+
+        if (! $this->is_approved) {
+            return 'Pending';
+        }
+
+        if (! $this->is_active) {
+            return 'Inactive';
+        }
+
+        return 'Active';
     }
+
 }

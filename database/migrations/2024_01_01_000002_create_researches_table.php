@@ -24,7 +24,6 @@ return new class extends Migration
             $table->enum('status', ['pending', 'approved', 'rejected', 'archived'])->default('pending');
             $table->text('rejection_reason')->nullable();
             $table->integer('view_count')->default(0);
-            $table->integer('download_count')->default(0);
             $table->foreignId('approved_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamp('approved_at')->nullable();
             $table->timestamps();

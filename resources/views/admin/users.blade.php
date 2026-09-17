@@ -9,9 +9,6 @@
     $allResearchers = $users->getCollection()->filter(fn($u) => $u->role === 'researcher');
     $approvedStudents = $users->getCollection()->filter(fn($u) => $u->role === 'user' && !empty($u->student_id));
     $deans = $users->getCollection()->filter(fn($u) => $u->role === 'admin' && $u->is_department_dean);
-    $students    = $allResearchers->filter(fn($u) => !is_null($u->graduation_year));
-    $faculty     = $allResearchers->filter(fn($u) => is_null($u->graduation_year));
-    $graduated   = $students->filter(fn($u) => $u->isGraduated())->count();
     $currentYear = (int) date('Y');
 @endphp
 
@@ -40,12 +37,6 @@
     </div>
     @endif
 
-    <div class="summary-card sc-graduated">
-        <div class="sc-icon sc-i-graduated">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div class="sc-info"><div class="sc-val">{{ $graduated }}</div><div class="sc-lbl">Graduated</div></div>
-    </div>
 </div>
 
 @if(session('success'))
@@ -93,10 +84,13 @@
 @endif
 @if(session('import_preview') && count(session('import_preview')) > 0)
     <div class="mu-import-preview">
-        <strong>Latest imported login IDs</strong>
+        <strong>Latest imported login IDs{{ session('import_semester') ? ' - ' . session('import_semester') : '' }}</strong>
         <div class="mu-import-preview-list">
             @foreach(session('import_preview') as $imported)
                 <div>
+                    @if(! empty($imported['action']))
+                        <span class="mu-import-action">{{ $imported['action'] }}</span>
+                    @endif
                     <span>{{ $imported['name'] }}</span>
                     <code>{{ $imported['login_id'] }}</code>
                     <small>{{ $imported['email'] }}</small>
@@ -141,6 +135,24 @@
                 </select>
             </div>
         @endunless
+
+        <div class="mu-select-wrap">
+            <select name="school_year">
+                <option value="">All School Years</option>
+                @foreach($schoolYears as $schoolYear)
+                    <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
+                @endforeach
+            </select>
+        </div>
+
+        <div class="mu-select-wrap">
+            <select name="semester">
+                <option value="">All Semesters</option>
+                @foreach($semesterOptions as $semesterOption)
+                    <option value="{{ $semesterOption }}" {{ $selectedSemester === $semesterOption ? 'selected' : '' }}>{{ $semesterOption }}</option>
+                @endforeach
+            </select>
+        </div>
 
     </div>
 
@@ -188,11 +200,8 @@
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
+                    <th>Semester</th>
                     <th>ID</th>
-                    <th>Grad. Year</th>
-                    <th>Researcher Status</th>
-                    <th>Last Seen</th>
-                    <th>Papers</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -207,12 +216,9 @@
                     $isDean = $user->role === 'admin' && $user->is_department_dean;
                     $grad         = $user->graduation_year;
                     $years        = $grad ? ($grad - $currentYear) : null;
-                    $isGraduated  = $isResearcher && $user->isGraduated();
 
                     if (!$isResearcher) {
                         $rowClass = '';
-                    } elseif ($isGraduated) {
-                        $rowClass = 'row-graduated';
                     } elseif ($years !== null && $years <= 1) {
                         $rowClass = 'row-warning';
                     } else {
@@ -227,9 +233,7 @@
                             </div>
                             <div>
                                 <div class="mu-name">{{ $user->name }}</div>
-                                @if($isGraduated)
-                                    <small class="mu-sub-tag mu-tag-graduated">Graduated</small>
-                                @elseif($isFaculty)
+                                @if($isFaculty)
                                     <small class="mu-sub-tag mu-tag-faculty">Faculty</small>
                                 @endif
                             </div>
@@ -251,53 +255,19 @@
                             <span class="mu-role-badge mu-role-{{ $user->role }}">{{ ucfirst($user->role) }}</span>
                         @endif
                     </td>
-                    <td class="mu-dept" data-label="Department">{{ $user->department ? Str::limit($user->department, 24) : '—' }}</td>
+                    <td class="mu-dept" data-label="Department">{{ $user->department ? Str::limit($user->department, 40) : '—' }}</td>
+                    <td data-label="Semester">
+                        @if($user->currentAcademicSemester)
+                            <span class="mu-semester {{ $user->currentAcademicSemester->isArchived() ? 'is-archived' : '' }}">
+                                {{ $user->currentAcademicSemester->semester }}
+                                <small>{{ $user->currentAcademicSemester->school_year }}</small>
+                            </span>
+                        @else
+                            <span class="mu-muted">Unassigned</span>
+                        @endif
+                    </td>
                     <td class="mu-id" data-label="ID">{{ ($isDean || $user->role === 'admin') ? '—' : ($user->student_id ?? '—') }}</td>
-                    <td data-label="Grad. Year">
-                        @if($isDean)
-                            <span class="mu-empty-cell"></span>
-                        @elseif($isFaculty)
-                            <span class="mu-perm">Permanent</span>
-                        @elseif($grad)
-                            <span class="mu-grad-year {{ $isGraduated ? 'gy-past' : ($years <= 1 ? 'gy-soon' : 'gy-future') }}">
-                                {{ $grad }}
-                                <small>{{ $isGraduated ? 'graduated' : ($years === 0 ? 'this year' : $years . 'yr left') }}</small>
-                            </span>
-                        @else
-                            <span class="mu-muted">—</span>
-                        @endif
-                    </td>
-                    <td data-label="Researcher Status">
-                        @if($isDean)
-                            <span class="mu-empty-cell"></span>
-                        @elseif(!$isResearcher)
-                            <span class="mu-muted">—</span>
-                        @elseif($isGraduated)
-                            <span class="mu-res-status rs-graduated">Graduated</span>
-                        @else
-                            <span class="mu-res-status rs-active">Active</span>
-                        @endif
-                    </td>
-                    <td data-label="Last Seen">
-                        @if($user->isOnline())
-                            <span class="mu-online"><span class="mu-dot mu-dot-pulse"></span>Online</span>
-                        @elseif($user->last_seen_at)
-                            <span class="mu-away" title="{{ $user->last_seen_at->format('M d, Y h:i A') }}">
-                                {{ $user->last_seen_at->diffForHumans() }}
-                            </span>
-                        @elseif($isDean || $user->role === 'admin')
-                            <span class="mu-muted">No activity yet</span>
-                        @else
-                            <span class="mu-muted">Never</span>
-                        @endif
-                    </td>
-                    <td data-label="Papers">
-                        @if(($isDean || $user->role === 'admin') && (int) $user->researches_count === 0)
-                            <span class="mu-muted">No records yet</span>
-                        @else
-                            <span class="mu-papers">{{ $user->researches_count }}</span>
-                        @endif
-                    </td>
+                    
                     <td data-label="Actions">
                         <div class="mu-actions">
                             <button type="button" class="act act-view" onclick="openUserModal({{ $user->id }})">
@@ -312,7 +282,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="10" class="mu-empty">
+                    <td colspan="7" class="mu-empty">
                         <div class="mu-empty-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                         </div>
@@ -361,9 +331,26 @@
             @if($errors->importUsers->any())
                 <div class="mu-alert mu-alert-error">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    {{ $errors->importUsers->first('file') }}
+                    {{ $errors->importUsers->first() }}
                 </div>
             @endif
+            <div class="mu-import-term">
+                <div class="mu-create-field">
+                    <label>Semester</label>
+                    <div class="mu-semester-choice-row">
+                        @foreach($semesterOptions as $semesterOption)
+                            <label class="mu-semester-choice">
+                                <input type="radio" name="semester" value="{{ $semesterOption }}" {{ old('semester', $semesterOptions[0]) === $semesterOption ? 'checked' : '' }} required>
+                                <span>{{ $semesterOption }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+                <div class="mu-create-field">
+                    <label for="iu_school_year">School Year</label>
+                    <input type="text" id="iu_school_year" name="school_year" value="{{ old('school_year') }}" placeholder="2025-2026" required>
+                </div>
+            </div>
             <div class="mu-import-guide">
                 <strong>Accepted columns</strong>
                 <span>firstname, middlename, lastname, member_type, student_id, employee_id, year_level, email, password</span>
@@ -397,12 +384,10 @@
 .sc-i-researcher{background:#ede9fe;color:#7c3aed;}
 .sc-i-student{background:#dbeafe;color:#1d4ed8;}
 .sc-i-dean{background:#ede9fe;color:#6b21a8;}
-.sc-i-graduated{background:#dcfce7;color:#16a34a;}
 .sc-total{border-top:3px solid #e2d5f4;}
 .sc-researcher{border-top:3px solid #7c3aed;}
 .sc-student{border-top:3px solid #1d4ed8;}
 .sc-dean{border-top:3px solid #6b21a8;}
-.sc-graduated{border-top:3px solid #16a34a;}
 .sc-info{min-width:0;}
 .sc-val{font-size:2rem;font-weight:800;line-height:1;color:#1a0638;letter-spacing:-1px;}
 .sc-lbl{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#a090bc;margin-top:5px;}
@@ -425,8 +410,17 @@
 .mu-import-preview-list div{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .mu-import-preview-list code{padding:2px 7px;border-radius:7px;background:#dcfce7;color:#14532d;font-weight:800;}
 .mu-import-preview-list small{color:#15803d;}
+.mu-import-action{padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
 .mu-import-guide{display:grid;gap:6px;padding:13px 15px;border:1px solid #e8dff5;border-radius:14px;background:#faf8ff;color:#6b2fa0;font-size:13px;line-height:1.45;}
 .mu-import-guide strong{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#3b0f7a;}
+.mu-import-term{display:grid;grid-template-columns:1fr 220px;gap:14px;align-items:end;}
+.mu-semester-choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.mu-semester-choice{display:flex;align-items:center;gap:8px;min-height:46px;padding:10px 12px;border:1px solid #e8dff5;border-radius:14px;background:#fff;color:#3b0f7a;font-size:13px;font-weight:800;cursor:pointer;}
+.mu-semester-choice input{accent-color:#6d28d9;}
+.mu-semester{display:inline-flex;flex-direction:column;gap:1px;min-width:118px;padding:6px 9px;border-radius:10px;background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;font-size:12px;font-weight:800;line-height:1.2;}
+.mu-semester small{color:#15803d;font-size:11px;font-weight:700;}
+.mu-semester.is-archived{background:#f1f5f9;color:#475569;border-color:#cbd5e1;}
+.mu-semester.is-archived small{color:#64748b;}
 .mu-field-hint{display:block;margin-top:7px;font-size:11.5px;color:#9f8abf;line-height:1.5;}
 
 .mu-filter-card{background:#fff;border-radius:24px;border:1px solid rgba(107,47,160,.1);box-shadow:0 14px 34px rgba(57,26,101,.06);padding:20px 22px;margin-bottom:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
@@ -458,12 +452,14 @@
 .mu-table{width:100%;border-collapse:collapse;font-size:.8125rem;}
 .mu-table thead tr{background:linear-gradient(135deg,#faf8ff,#f5f0fd);border-bottom:2px solid #ede8fa;}
 .mu-table th{padding:14px 16px;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#9070c0;text-align:left;white-space:nowrap;}
+.mu-table th:nth-child(1){min-width:260px;}
+.mu-table th:nth-child(2){min-width:220px;}
+.mu-table th:nth-child(4){min-width:260px;}
 .mu-table tbody tr{border-bottom:1px solid #faf7ff;transition:background .12s;}
 .mu-table tbody tr:last-child{border-bottom:none;}
 .mu-table tbody tr:hover{background:#fcfaff;}
 .mu-table td{padding:16px 16px;vertical-align:middle;}
 .mu-row-inactive{opacity:.5;}
-.row-graduated{background:#fdfbff !important;}
 .row-warning{background:#fffdf0 !important;}
 
 .mu-name-cell{display:flex;align-items:center;gap:12px;text-decoration:none;}
@@ -472,7 +468,6 @@
 .mu-name{font-size:.95rem;font-weight:800;color:#1a0638;}
 .mu-name-cell:hover .mu-name{color:#7c3aed;}
 .mu-sub-tag{font-size:.65rem;font-weight:600;display:block;margin-top:1px;}
-.mu-tag-graduated{color:#7c3aed;}
 .mu-tag-faculty{color:#6b2fa0;}
 
 .mu-role-badge{display:inline-flex;align-items:center;padding:5px 11px;border-radius:999px;font-size:.72rem;font-weight:800;}
@@ -483,7 +478,7 @@
 .mu-role-faculty{background:#ede9fe;color:#6b2fa0;border:1px solid #ddd6fe;}
 
 .mu-email{font-size:.88rem;color:#5b3d8a;}
-.mu-dept{font-size:.88rem;color:#8e80af;max-width:160px;line-height:1.55;}
+.mu-dept{font-size:.88rem;color:#8e80af;max-width:340px;line-height:1.55;}
 .mu-id{font-size:.8rem;color:#a090bc;font-family:monospace;}
 .mu-muted{color:#c0aee0;font-size:.8125rem;}
 .mu-empty-cell{display:block;min-height:16px;}
@@ -492,13 +487,11 @@
 .mu-grad-year{display:flex;flex-direction:column;gap:1px;}
 .mu-grad-year{font-size:.9375rem;font-weight:800;letter-spacing:-.5px;}
 .mu-grad-year small{font-size:.65rem;font-weight:600;}
-.gy-past{color:#7c3aed;} .gy-past small{color:#a090bc;}
 .gy-soon{color:#92400e;} .gy-soon small{color:#b45309;}
 .gy-future{color:#15803d;} .gy-future small{color:#16a34a;}
 
 .mu-res-status{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:.72rem;font-weight:800;}
 .rs-active{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
-.rs-graduated{background:#ede9fe;color:#6b2fa0;border:1px solid #ddd6fe;}
 
 .mu-online{display:inline-flex;align-items:center;gap:5px;font-size:.75rem;font-weight:600;color:#15803d;}
 .mu-away{font-size:.75rem;color:#6b7280;}
@@ -590,6 +583,7 @@
     .mu-modal-head,.mu-modal-body{padding-left:18px;padding-right:18px;}
     .mu-modal-title{font-size:20px;}
     .mu-modal-grid,.mu-modal-stats{grid-template-columns:1fr;}
+    .mu-import-term,.mu-semester-choice-row{grid-template-columns:1fr;}
     .mu-create-form{padding-left:18px;padding-right:18px;}
     .mu-create-grid{grid-template-columns:1fr;}
     .mu-create-actions{flex-direction:column;}
@@ -617,9 +611,12 @@
             $roleLabel = ucfirst($user->role);
         }
 
-        $statusNote = null;
-        if ($isResearcher && $user->isGraduated()) {
-            $statusNote = 'Graduated';
+        if (!$user->is_active) {
+            $statusNote = 'Inactive';
+        } elseif ($isResearcher && !$user->is_approved) {
+            $statusNote = 'Pending Approval';
+        } else {
+            $statusNote = null;
         }
 
         return [
