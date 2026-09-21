@@ -5,6 +5,7 @@
 @section('content')
 @php
     $isArchived = $semester->isArchived();
+    $researchRecordCount = (int) ($totalResearchRecords ?? $researches->total());
 @endphp
 
 <div class="sd-shell">
@@ -36,21 +37,25 @@
         </div>
         <div class="sd-stat-card">
             <span>Research Records</span>
-            <strong>{{ number_format($researches->total()) }}</strong>
+            <strong>{{ number_format($researchRecordCount) }}</strong>
+        </div>
+        <div class="sd-stat-card">
+            <span>End Date</span>
+            <strong>{{ optional($semester->end_date)->format('M d, Y') ?? 'Not set' }}</strong>
         </div>
         <div class="sd-stat-card">
             <span>Created</span>
             <strong>{{ optional($semester->created_at)->format('M d, Y') ?? 'Legacy' }}</strong>
         </div>
         <div class="sd-stat-card">
-            <span>{{ $isArchived ? 'Archived By' : 'Created By' }}</span>
-            <strong>{{ $isArchived ? ($semester->archivedBy?->name ?? 'Unknown') : ($semester->creator?->name ?? 'System') }}</strong>
+            <span>{{ $isArchived ? 'Closed By' : 'Created By' }}</span>
+            <strong>{{ $isArchived ? ($semester->closedBy?->name ?? 'System') : ($semester->creator?->name ?? 'System') }}</strong>
         </div>
     </div>
 
-    @if($isArchived)
+    @if($isArchived && $semester->closed_at)
         <div class="sd-archive-note">
-            Archived on {{ $semester->archived_at->format('M d, Y h:i A') }}. Linked users and researches remain visible for reference.
+            Closed on {{ $semester->closed_at->format('M d, Y h:i A') }}. Linked users and researches remain visible for reference.
         </div>
     @endif
 
@@ -78,7 +83,7 @@
                 <tbody>
                     @forelse($users as $user)
                         @php
-                            $assignedAt = $user->pivot?->assigned_at ?: $user->pivot?->created_at;
+                            $assignedAt = $user->pivot?->enrolled_at ?: $user->pivot?->created_at;
                             $assignedDate = $assignedAt ? \Illuminate\Support\Carbon::parse($assignedAt)->format('M d, Y') : 'Legacy';
                         @endphp
                         <tr>
@@ -89,8 +94,8 @@
                             <td data-label="Email">{{ $user->email }}</td>
                             <td data-label="Department">{{ $user->department ? Str::limit($user->department, 34) : 'Unassigned' }}</td>
                             <td data-label="Current">
-                                <span class="sd-mini-status {{ (int) $user->current_academic_semester_id === (int) $semester->id ? 'is-current' : 'is-history' }}">
-                                    {{ (int) $user->current_academic_semester_id === (int) $semester->id ? 'Current' : 'History' }}
+                                <span class="sd-mini-status {{ (int) $user->current_semester_id === (int) $semester->id ? 'is-current' : 'is-history' }}">
+                                    {{ (int) $user->current_semester_id === (int) $semester->id ? 'Current' : 'History' }}
                                 </span>
                             </td>
                             <td data-label="Papers">{{ number_format($user->researches_count) }}</td>
@@ -176,9 +181,10 @@
 .sd-status.is-archived,.sd-mini-status.is-history{background:#e5e7eb;color:#4b5563}
 .sd-mini-status{min-height:28px;padding:0 10px}
 .sd-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;border:0;border-radius:12px;font-size:13px;font-weight:900;text-decoration:none;cursor:pointer;white-space:nowrap}
+.sd-btn-primary{background:#42127f;color:#fff;box-shadow:0 14px 24px rgba(59,15,122,.16)}
 .sd-btn-ghost{background:#f6f1ff;color:#5f3890;border:1px solid #e5d8f7}
 .sd-btn-danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}
-.sd-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.sd-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
 .sd-stat-card{padding:18px;border-radius:18px}
 .sd-stat-card strong{display:block;margin-top:8px;color:#2f144f;font-size:22px;line-height:1.15}
 .sd-archive-note{padding:14px 16px;border-radius:16px;background:#f8fafc;color:#475569;font-size:14px}

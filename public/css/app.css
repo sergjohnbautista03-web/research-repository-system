@@ -1469,9 +1469,28 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: flex;
     align-items: center;
     gap: 9px;
-    margin: 4px 0 18px;
     color: #6b587c;
     font-size: 13px;
+}
+
+.login-modal-options {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0 18px;
+}
+
+.login-modal-forgot {
+    color: var(--purple-main);
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.login-modal-forgot:hover {
+    text-decoration: underline;
 }
 
 .login-modal-submit {

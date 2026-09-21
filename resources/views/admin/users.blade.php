@@ -257,10 +257,10 @@
                     </td>
                     <td class="mu-dept" data-label="Department">{{ $user->department ? Str::limit($user->department, 40) : '—' }}</td>
                     <td data-label="Semester">
-                        @if($user->currentAcademicSemester)
-                            <span class="mu-semester {{ $user->currentAcademicSemester->isArchived() ? 'is-archived' : '' }}">
-                                {{ $user->currentAcademicSemester->semester }}
-                                <small>{{ $user->currentAcademicSemester->school_year }}</small>
+                        @if($user->currentSemester)
+                            <span class="mu-semester {{ $user->currentSemester->isArchived() ? 'is-archived' : '' }}">
+                                {{ $user->currentSemester->semester }}
+                                <small>{{ $user->currentSemester->school_year }}</small>
                             </span>
                         @else
                             <span class="mu-muted">Unassigned</span>
@@ -350,6 +350,10 @@
                     <label for="iu_school_year">School Year</label>
                     <input type="text" id="iu_school_year" name="school_year" value="{{ old('school_year') }}" placeholder="2025-2026" required>
                 </div>
+                <div class="mu-create-field">
+                    <label for="iu_end_date">Semester End Date</label>
+                    <input type="date" id="iu_end_date" name="end_date" value="{{ old('end_date') }}" required>
+                </div>
             </div>
             <div class="mu-import-guide">
                 <strong>Accepted columns</strong>
@@ -413,7 +417,7 @@
 .mu-import-action{padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
 .mu-import-guide{display:grid;gap:6px;padding:13px 15px;border:1px solid #e8dff5;border-radius:14px;background:#faf8ff;color:#6b2fa0;font-size:13px;line-height:1.45;}
 .mu-import-guide strong{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#3b0f7a;}
-.mu-import-term{display:grid;grid-template-columns:1fr 220px;gap:14px;align-items:end;}
+.mu-import-term{display:grid;grid-template-columns:1fr 220px 190px;gap:14px;align-items:end;}
 .mu-semester-choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 .mu-semester-choice{display:flex;align-items:center;gap:8px;min-height:46px;padding:10px 12px;border:1px solid #e8dff5;border-radius:14px;background:#fff;color:#3b0f7a;font-size:13px;font-weight:800;cursor:pointer;}
 .mu-semester-choice input{accent-color:#6d28d9;}

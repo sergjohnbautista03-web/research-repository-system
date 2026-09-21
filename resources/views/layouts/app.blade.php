@@ -239,10 +239,13 @@
                     </div>
                 </div>
 
-                <label class="login-modal-remember">
-                    <input type="checkbox" name="remember">
-                    <span>Remember me</span>
-                </label>
+                <div class="login-modal-options">
+                    <label class="login-modal-remember">
+                        <input type="checkbox" name="remember">
+                        <span>Remember me</span>
+                    </label>
+                    <a href="{{ route('password.request') }}" class="login-modal-forgot">Forgot Password?</a>
+                </div>
 
                 <button type="submit" class="login-modal-submit">
                     <span>Sign In</span>

@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\CaptureAttemptLog;
 use App\Models\Research;
 use App\Models\User;
+use App\Services\WatermarkedPdf;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Throwable;
 
 class ResearchController extends Controller
 {
@@ -18,6 +20,8 @@ class ResearchController extends Controller
     private const MAX_RESEARCH_YEAR = 2026;
 
     private const AUDIT_TIMEZONE = 'Asia/Manila';
+    private const PDF_WATERMARK_TEXT = 'PROPERTY OF PHILCST';
+    private const PDF_WATERMARK_STYLE_VERSION = 4;
 
     private function renderProtectedViewer(Request $request, Research $research, bool $adminMode = false)
     {
@@ -73,6 +77,65 @@ class ResearchController extends Controller
     private function canAccessFullDocument(Request $request, $user): bool
     {
         return $user?->canViewFullDocument() === true;
+    }
+
+    private function researchPdfHeaders(Research $research): array
+    {
+        $fileName = addcslashes($research->file_name ?: 'research.pdf', "\\\"");
+
+        return [
+            'Content-Type'           => 'application/pdf',
+            'Content-Disposition'    => 'inline; filename="' . $fileName . '"',
+            'Cache-Control'          => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma'                 => 'no-cache',
+            'Expires'                => '0',
+            'X-Frame-Options'        => 'SAMEORIGIN',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
+    }
+
+    private function watermarkedPdfCachePath(Research $research, string $sourcePath): string
+    {
+        $signature = hash('sha256', implode('|', [
+            $research->id,
+            $research->file_path,
+            @filemtime($sourcePath) ?: 0,
+            @filesize($sourcePath) ?: 0,
+            self::PDF_WATERMARK_TEXT,
+            self::PDF_WATERMARK_STYLE_VERSION,
+            @filemtime(public_path('images/philcstlogologo.png')) ?: 0,
+            @filesize(public_path('images/philcstlogologo.png')) ?: 0,
+        ]));
+
+        return storage_path('app/research-watermarks/' . $research->id . '-' . substr($signature, 0, 24) . '.pdf');
+    }
+
+    private function ensureWatermarkedPdfExists(string $sourcePath, string $watermarkedPath): void
+    {
+        if (is_file($watermarkedPath)) {
+            return;
+        }
+
+        $directory = dirname($watermarkedPath);
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $temporaryPath = $watermarkedPath . '.tmp-' . bin2hex(random_bytes(6));
+
+        try {
+            file_put_contents(
+                $temporaryPath,
+                WatermarkedPdf::fromPath($sourcePath, self::PDF_WATERMARK_TEXT, public_path('images/philcstlogologo.png')),
+                LOCK_EX
+            );
+            rename($temporaryPath, $watermarkedPath);
+        } finally {
+            if (is_file($temporaryPath)) {
+                @unlink($temporaryPath);
+            }
+        }
     }
 
     private function auditDayWindow(): array
@@ -256,6 +319,7 @@ class ResearchController extends Controller
         $file = $request->file('file');
         $fileName = time() . '_' . $file->getClientOriginalName();
         $filePath = $file->storeAs('researches', $fileName, 'public');
+        $currentSemester = $user->currentSemester;
 
         Research::create([
             'title'          => $data['title'],
@@ -263,7 +327,7 @@ class ResearchController extends Controller
             'type'           => $data['type'],
             'author_name'    => $data['author_name'],
             'user_id'        => Auth::id(),
-            'academic_semester_id' => $user->currentAcademicSemester?->isArchived() ? null : $user->current_academic_semester_id,
+            'semester_id'    => $currentSemester && ! $currentSemester->isArchived() ? $currentSemester->id : null,
             'department'     => $data['department'],
             'course'         => $data['course'],
             'year_published' => $data['year_published'],
@@ -374,16 +438,17 @@ class ResearchController extends Controller
         }
 
         $path = Storage::disk('public')->path($research->file_path);
+        $watermarkedPath = $this->watermarkedPdfCachePath($research, $path);
 
-        return response()->file($path, [
-            'Content-Type'           => 'application/pdf',
-            'Content-Disposition'    => 'inline; filename="' . $research->file_name . '"',
-            'Cache-Control'          => 'no-store, no-cache, must-revalidate, max-age=0',
-            'Pragma'                 => 'no-cache',
-            'Expires'                => '0',
-            'X-Frame-Options'        => 'SAMEORIGIN',
-            'X-Content-Type-Options' => 'nosniff',
-        ]);
+        try {
+            $this->ensureWatermarkedPdfExists($path, $watermarkedPath);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            abort(500, 'Unable to prepare the watermarked research file.');
+        }
+
+        return response()->file($watermarkedPath, $this->researchPdfHeaders($research));
     }
 
     public function adminViewFile(Request $request, Research $research)

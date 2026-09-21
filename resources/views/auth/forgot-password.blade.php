@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Forgot Password — Ube Repository')
+@section('title', 'Forgot Password - Ube Repository')
 
 @section('content')
 <div class="fp-page">
@@ -13,12 +13,12 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             </div>
             <h1>Forgot Password</h1>
-            <p>Enter your email and we'll send you a password reset link.</p>
+            <p>Enter your registered email to receive a password reset link.</p>
         </div>
 
         <div class="fp-body">
             @if(session('status'))
-                <div class="alert alert-success">✅ {{ session('status') }}</div>
+                <div class="alert alert-success">{{ session('status') }}</div>
             @endif
             @if($errors->any())
                 <div class="alert alert-error">{{ $errors->first() }}</div>
@@ -27,8 +27,8 @@
             <form method="POST" action="{{ route('password.email') }}">
                 @csrf
                 <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" name="email" value="{{ old('email') }}" placeholder="your@email.com" required>
+                    <label for="reset-email">Email Address</label>
+                    <input type="email" id="reset-email" name="email" value="{{ old('email') }}" placeholder="your@email.com" autocomplete="email" required autofocus>
                 </div>
                 <button type="submit" class="fp-btn">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
@@ -37,7 +37,7 @@
             </form>
 
             <div class="fp-footer">
-                <a href="{{ route('login') }}">← Back to Login</a>
+                <a href="{{ route('login') }}">Back to Login</a>
             </div>
         </div>
     </div>
@@ -54,6 +54,7 @@
 }
 .fp-page-bg {
     position: absolute; inset: 0;
+    background: url('/images/philcstarea.jpg') center/cover no-repeat;
     filter: blur(8px) brightness(0.35);
     transform: scale(1.04);
     z-index: 0;

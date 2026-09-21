@@ -58,7 +58,7 @@ class Research extends Model
 
     protected $fillable = [
         'title', 'abstract', 'author_name', 'authors', 'user_id', 'submission_category', 'issn', 'type',
-        'academic_semester_id',
+        'semester_id', 'academic_semester_id',
         'department', 'course', 'program', 'year_published', 'keywords',
         'file_path', 'file_name', 'status', 'rejection_reason',
         'view_count', 'citation_copy_count', 'approved_by', 'approved_at',
@@ -77,7 +77,12 @@ class Research extends Model
 
     public function academicSemester()
     {
-        return $this->belongsTo(AcademicSemester::class);
+        return $this->semester();
+    }
+
+    public function semester()
+    {
+        return $this->belongsTo(Semester::class);
     }
 
     public function approvedBy()

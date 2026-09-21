@@ -31,10 +31,6 @@
                 <a href="#dashboard-top" class="ud-side-link is-active" data-dashboard-link>Dashboard Overview</a>
                 <button type="button" class="ud-side-link" data-open-pinned>Saved Papers</button>
                 <a href="#profile-settings" class="ud-side-link" data-dashboard-link>Profile Settings</a>
-                @if($canSubmitResearch)
-                    <a href="#submit-research" class="ud-side-link" data-dashboard-link data-open-submit>Submit Research</a>
-                    <button type="button" class="ud-side-link" data-open-submissions>My Submissions</button>
-                @endif
             </nav>
         </aside>
 

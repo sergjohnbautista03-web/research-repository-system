@@ -14,6 +14,33 @@
     ])->filter();
     $shownStart = $researches->firstItem() ?? 0;
     $shownEnd = $researches->lastItem() ?? 0;
+    $departmentAbbreviations = [
+        'College of Accountancy and Business Education' => 'CABE',
+        'College of Computer Science' => 'CCS',
+        'College of Computer Studies' => 'CCS',
+        'College of Criminal Justice Studies Education' => 'CCJSE',
+        'College of Criminal Justice Education' => 'CCJSE',
+        'College of Education' => 'CE',
+        'College of Engineering and Architecture' => 'CEA',
+        'College of Maritime Studies' => 'CMS',
+    ];
+    $departmentAbbreviation = function (?string $department) use ($departmentAbbreviations) {
+        if (! $department) {
+            return 'N/A';
+        }
+
+        if (isset($departmentAbbreviations[$department])) {
+            return $departmentAbbreviations[$department];
+        }
+
+        $initials = collect(preg_split('/\s+/', $department))
+            ->filter()
+            ->reject(fn ($word) => in_array(Str::lower($word), ['of', 'and', 'the'], true))
+            ->map(fn ($word) => Str::upper(Str::substr($word, 0, 1)))
+            ->implode('');
+
+        return $initials ?: Str::limit($department, 12);
+    };
 @endphp
 
 <form method="GET" class="mr-filter-card">
@@ -104,31 +131,30 @@
                     <th>Title</th>
                     <th>Author</th>
                     <th>Department</th>
-                    <th>Type</th>
-                    <th>Year</th>
-                    <th>Status</th>
-                    <th>Views</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($researches as $r)
+                @php
+                    $departmentFullName = $r->department ?: 'Unassigned department';
+                    $departmentCode = $departmentAbbreviation($r->department);
+                @endphp
                 <tr>
                     <td data-label="Title" class="mr-title-cell">
-                        <a href="{{ route('admin.research.show', $r) }}" class="mr-title-link">{{ Str::limit($r->title, 72) }}</a>
-                        <div class="mr-title-meta">
-                            <span>{{ optional($r->created_at)->format('M d, Y') ?? 'No date' }}</span>
-                            @if($r->file_name)
-                                <span>{{ Str::limit($r->file_name, 32) }}</span>
-                            @endif
-                        </div>
+                        <span class="mr-title-link">{{ Str::limit($r->title, 86) }}</span>
                     </td>
                     <td data-label="Author"><span class="mr-author">{{ Str::limit($r->author_name, 46) }}</span></td>
-                    <td data-label="Department"><span class="mr-department">{{ Str::limit($r->department, 34) }}</span></td>
-                    <td data-label="Type"><span class="type-badge type-{{ $r->type }} badge-sm">{{ $r->getSubmissionCategoryLabel() }}: {{ $r->getTypeLabel() }}</span></td>
-                    <td data-label="Year"><span class="mr-year">{{ $r->year_published }}</span></td>
-                    <td data-label="Status"><span class="status-badge status-{{ $r->status }}">{{ ucfirst($r->status) }}</span></td>
-                    <td data-label="Views"><span class="mr-views">{{ number_format($r->view_count) }}</span></td>
+                    <td data-label="Department">
+                        <span
+                            class="mr-department-code"
+                            title="{{ $departmentFullName }}"
+                            data-tooltip="{{ $departmentFullName }}"
+                            aria-label="{{ $departmentFullName }}"
+                            tabindex="0">
+                            {{ $departmentCode }}
+                        </span>
+                    </td>
                     <td data-label="Actions" class="action-cell">
                         <div class="research-action-row">
                             <button type="button" class="btn-action-view js-open-research-modal" data-research="{{ json_encode([
@@ -205,7 +231,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="mr-empty-cell">
+                    <td colspan="4" class="mr-empty-cell">
                         <div class="mr-empty-state">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                             <strong>No researches found</strong>
@@ -416,10 +442,11 @@
 }
 .mr-table {
     width: 100%;
-    min-width: 1240px;
+    min-width: 860px;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13.5px;
+    table-layout: fixed;
 }
 .mr-table th {
     padding: 13px 20px;
@@ -449,7 +476,7 @@
     border-bottom: none;
 }
 .mr-title-cell {
-    min-width: 420px;
+    min-width: 300px;
 }
 .mr-title-link {
     display: inline;
@@ -490,26 +517,86 @@
     display: inline-flex;
     max-width: 340px;
 }
+.mr-department-code {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 66px;
+    min-height: 34px;
+    padding: 0 13px;
+    border-radius: 999px;
+    background: #f5f0fd;
+    border: 1px solid #e4d7f6;
+    color: #5b248c;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .04em;
+    cursor: help;
+    outline: none;
+}
+.mr-department-code::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    width: max-content;
+    max-width: 260px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #250c44;
+    color: #fff;
+    box-shadow: 0 12px 26px rgba(26,6,56,.22);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1.35;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(4px);
+    transition: opacity .15s ease, transform .15s ease, visibility .15s ease;
+    visibility: hidden;
+    z-index: 30;
+}
+.mr-department-code::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 4px);
+    width: 10px;
+    height: 10px;
+    background: #250c44;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) rotate(45deg);
+    transition: opacity .15s ease, visibility .15s ease;
+    visibility: hidden;
+    z-index: 29;
+}
+.mr-department-code:hover::after,
+.mr-department-code:focus::after,
+.mr-department-code:hover::before,
+.mr-department-code:focus::before {
+    opacity: 1;
+    visibility: visible;
+}
+.mr-department-code:hover::after,
+.mr-department-code:focus::after {
+    transform: translateX(-50%) translateY(0);
+}
 .mr-year,
 .mr-views {
     color: #210945;
     font-weight: 800;
 }
-.mr-table th:nth-child(1){min-width:420px}
-.mr-table th:nth-child(2){min-width:220px}
-.mr-table th:nth-child(3){min-width:300px}
-.mr-table th:nth-child(4){min-width:140px}
-.mr-table th:nth-child(5){min-width:80px}
-.mr-table th:nth-child(6){min-width:120px}
-.mr-table th:nth-child(7){min-width:80px}
-.mr-table th:nth-child(8){min-width:150px}
+.mr-table th:nth-child(1){width:44%; min-width:320px}
+.mr-table th:nth-child(2){width:24%; min-width:190px}
+.mr-table th:nth-child(3){width:12%; min-width:110px}
+.mr-table th:nth-child(4){width:20%; min-width:210px}
 
-/* Reduce horizontal padding on small columns to save space */
-.mr-table td:nth-child(4),
-.mr-table td:nth-child(5),
-.mr-table td:nth-child(6),
-.mr-table td:nth-child(7),
-.mr-table td:nth-child(8) {
+.mr-table td:nth-child(3),
+.mr-table td:nth-child(4) {
     padding: 14px 10px;
 }
 .mr-table .type-badge,
@@ -721,7 +808,7 @@
     font-size: 22px;
 }
 
-/* ── Research Detail Modal (base styles - works on all screen sizes) ── */
+/* Research Detail Modal */
 .ra-modal {
     position: fixed;
     inset: 0;
@@ -737,7 +824,7 @@
     display: flex;
 }
 .ra-modal-dialog {
-    width: min(1100px, 95%);
+    width: min(940px, calc(100vw - 40px));
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -752,16 +839,18 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    padding: 24px 28px 0;
+    padding: 24px 28px;
     background: linear-gradient(160deg, #fdfbff 0%, #f8f4fe 100%);
     border-bottom: 1px solid #f0eaf9;
 }
 .ra-modal-title {
+    display: block;
     margin: 0 0 8px;
     color: #230a42;
     font-size: 22px;
     line-height: 1.2;
     font-family: var(--font-head);
+    word-break: break-word;
 }
 .ra-modal-subtitle {
     margin: 0;
@@ -799,7 +888,7 @@
 }
 .ra-detail-meta {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     margin-top: 0;
     margin-bottom: 26px;
@@ -825,6 +914,10 @@
     font-weight: 800;
     color: #221945;
     line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.ra-detail-meta-item-wide {
+    grid-column: span 2;
 }
 .ra-detail-section {
     margin-top: 0;
@@ -864,6 +957,11 @@
     color: #6b2fa0;
     font-size: 13px;
     font-weight: 700;
+}
+.ra-detail-empty-text {
+    color: #6d5d85;
+    font-size: 14px;
+    line-height: 1.7;
 }
 .ra-detail-file-card {
     display: grid;
@@ -925,7 +1023,7 @@
 }
 @media(max-width:860px) {
     .ra-modal-dialog {
-        max-width: 96vw;
+        width: min(96vw, 100%);
     }
     .ra-modal-body {
         padding: 20px 20px 22px;
@@ -937,12 +1035,37 @@
     .ra-detail-meta {
         grid-template-columns: 1fr;
     }
+    .ra-detail-meta-item-wide {
+        grid-column: auto;
+    }
     .ra-detail-file-card {
         grid-template-columns: 1fr;
         padding: 18px;
     }
     .ra-detail-file-actions {
         justify-content: flex-start;
+    }
+}
+
+@media(max-width:560px) {
+    .ra-modal {
+        padding: 12px;
+    }
+    .ra-modal-dialog {
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 16px;
+    }
+    .ra-modal-header {
+        padding: 20px;
+    }
+    .ra-modal-title {
+        font-size: 19px;
+    }
+    .ra-close-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
     }
 }
 
@@ -1077,7 +1200,7 @@
                     </div>
                 </div>
 
-                <div class="ra-detail-section">
+                <div class="ra-detail-section" id="researchDetailAdviserSection" hidden>
                     <span class="ra-detail-section-title">Adviser</span>
                     <div class="ra-detail-section-body">
                         <p class="ra-detail-text" id="researchDetailAdviser">Not available</p>
@@ -1138,53 +1261,93 @@ document.addEventListener('click', function(event) {
     }
 });
 
-function formatMetaItem(label, value) {
-    return '<div class="ra-detail-meta-item"><span class="ra-detail-meta-label">' + label + '</span><span class="ra-detail-meta-value">' + value + '</span></div>';
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, function(char) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        }[char];
+    });
+}
+
+function formatMetaItem(label, value, modifier) {
+    const extraClass = modifier ? ' ra-detail-meta-item-' + modifier : '';
+
+    return '<div class="ra-detail-meta-item' + extraClass + '"><span class="ra-detail-meta-label">'
+        + escapeHtml(label)
+        + '</span><span class="ra-detail-meta-value">'
+        + escapeHtml(value || 'Unknown')
+        + '</span></div>';
 }
 
 function openResearchDetailModal(research) {
     const overlay = document.getElementById('researchDetailModal');
     const title = document.getElementById('researchDetailTitle');
+    const subtitle = document.getElementById('researchDetailSubtitle');
     const meta = document.getElementById('researchDetailMeta');
-    const abstract = document.getElementById('researchDetailAbstract');
+    const abstractEl = document.getElementById('researchDetailAbstract');
     const keywords = document.getElementById('researchDetailKeywords');
+    const adviserSection = document.getElementById('researchDetailAdviserSection');
     const adviser = document.getElementById('researchDetailAdviser');
     const fileName = document.getElementById('researchDetailFileName');
     const fileNote = document.getElementById('researchDetailFileNote');
     const fileActions = document.getElementById('researchDetailFileActions');
 
     title.textContent = research.title || 'Untitled research';
+    subtitle.textContent = (research.author ? 'By ' + research.author : 'Unknown author')
+        + ' | Submitted ' + (research.submitted || 'on an unknown date');
+
     meta.innerHTML = '';
-    meta.insertAdjacentHTML('beforeend', formatMetaItem('Author', research.author || 'Unknown'));
-    meta.insertAdjacentHTML('beforeend', formatMetaItem('Department', research.department || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Authors', research.author || 'Unknown', 'wide'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Department', research.department || 'Unknown', 'wide'));
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Type', research.type || 'Unknown'));
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Year', research.year || 'Unknown'));
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Status', research.status || 'Unknown'));
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Views', research.views || '0'));
-    meta.insertAdjacentHTML('beforeend', formatMetaItem('Submitted', research.submitted || 'Unknown'));
+    meta.insertAdjacentHTML('beforeend', formatMetaItem('Submission Date', research.submitted || 'Unknown'));
 
-    abstract.textContent = research.abstract ? research.abstract : 'No abstract available.';
+    abstractEl.textContent = research.abstract ? research.abstract : 'No abstract available.';
 
-    keywords.innerHTML = '';
+    keywords.textContent = '';
     if (research.keywords) {
         research.keywords.split(',').map(function(keyword) {
             return keyword.trim();
         }).filter(Boolean).forEach(function(keyword) {
-            keywords.insertAdjacentHTML('beforeend', '<span class="ra-detail-chip">' + keyword + '</span>');
+            const chip = document.createElement('span');
+            chip.className = 'ra-detail-chip';
+            chip.textContent = keyword;
+            keywords.appendChild(chip);
         });
     }
     if (!keywords.children.length) {
-        keywords.innerHTML = '<span class="ra-detail-text">No keywords provided.</span>';
+        const emptyKeywords = document.createElement('span');
+        emptyKeywords.className = 'ra-detail-empty-text';
+        emptyKeywords.textContent = 'No keywords provided.';
+        keywords.appendChild(emptyKeywords);
     }
 
+    if (adviserSection) {
+        adviserSection.hidden = !research.adviser;
+    }
     adviser.textContent = research.adviser ? research.adviser : 'Not available';
 
     fileActions.innerHTML = '';
-    if (research.fileUrl && research.fileName) {
-        fileName.textContent = research.fileName;
-        fileActions.insertAdjacentHTML('beforeend', '<a href="' + research.fileUrl + '" class="ra-detail-file-button" target="_blank" rel="noopener">View PDF</a>');
+    if (research.fileUrl) {
+        fileName.textContent = research.fileName || 'Research file';
+        fileNote.textContent = 'Open the attached research document in a new tab.';
+
+        const fileLink = document.createElement('a');
+        fileLink.href = research.fileUrl;
+        fileLink.className = 'ra-detail-file-button';
+        fileLink.target = '_blank';
+        fileLink.rel = 'noopener';
+        fileLink.textContent = 'View Research File';
+        fileActions.appendChild(fileLink);
     } else {
-        fileName.textContent = 'No file attached';
+        fileName.textContent = research.fileName || 'No file attached';
         fileNote.textContent = 'A file is not available for this research.';
     }
 

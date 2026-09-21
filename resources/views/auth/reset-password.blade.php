@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Reset Password — Ube Repository')
+@section('title', 'Reset Password - Ube Repository')
 
 @section('content')
 <div class="fp-page">
@@ -13,7 +13,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
             </div>
             <h1>Reset Password</h1>
-            <p>Enter your new password below.</p>
+            <p>Create and confirm your new password.</p>
         </div>
 
         <div class="fp-body">
@@ -26,23 +26,23 @@
                 <input type="hidden" name="token" value="{{ $token }}">
 
                 <div class="form-group">
-                    <label>Email Address</label>
-                    <input type="email" name="email" value="{{ old('email', request('email')) }}" required>
+                    <label for="reset-email">Email Address</label>
+                    <input type="email" id="reset-email" name="email" value="{{ old('email', request('email')) }}" autocomplete="email" required autofocus>
                 </div>
                 <div class="form-group">
-                    <label>New Password</label>
+                    <label for="reset-password">New Password</label>
                     <div class="password-wrap">
-                        <input type="password" name="password" placeholder="Minimum 8 characters" required>
-                        <button type="button" class="toggle-pw" onclick="togglePassword('password', this)">
+                        <input type="password" id="reset-password" name="password" placeholder="Minimum 8 characters" autocomplete="new-password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePassword('reset-password', this)" aria-label="Show or hide password">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21"/></svg>
                         </button>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Confirm New Password</label>
+                    <label for="reset-password-confirmation">Confirm New Password</label>
                     <div class="password-wrap">
-                        <input type="password" name="password_confirmation" placeholder="Repeat new password" required>
-                        <button type="button" class="toggle-pw" onclick="togglePassword('password_confirmation', this)">
+                        <input type="password" id="reset-password-confirmation" name="password_confirmation" placeholder="Repeat new password" autocomplete="new-password" required>
+                        <button type="button" class="toggle-pw" onclick="togglePassword('reset-password-confirmation', this)" aria-label="Show or hide password confirmation">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 4.411m0 0L21 21"/></svg>
                         </button>
                     </div>

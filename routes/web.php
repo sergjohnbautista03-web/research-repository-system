@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ResearchController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PolicyController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -37,51 +38,11 @@ Route::get('/department/{department}/{course}', [ResearchController::class, 'byC
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotPasswordForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetPasswordForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->name('password.update');
 });
-
-// ── Forgot / Reset Password ────────────────────────────────────────────────
-Route::get('/forgot-password', function () {
-    return view('auth.forgot-password');
-})->middleware('guest')->name('password.request');
-
-Route::post('/forgot-password', function (\Illuminate\Http\Request $request) {
-    $request->validate(['email' => 'required|email']);
-
-    try {
-        $status = \Illuminate\Support\Facades\Password::sendResetLink($request->only('email'));
-    } catch (\Throwable $e) {
-        report($e);
-
-        return back()->withErrors([
-            'email' => 'Password reset email could not be sent right now. Please check the mail configuration and try again.',
-        ]);
-    }
-
-    return $status === \Illuminate\Support\Facades\Password::RESET_LINK_SENT
-        ? back()->with('status', 'A password reset link has been sent to your email.')
-        : back()->withErrors(['email' => 'We could not find an account with that email address.']);
-})->middleware('guest')->name('password.email');
-
-Route::get('/reset-password/{token}', function (string $token) {
-    return view('auth.reset-password', ['token' => $token]);
-})->middleware('guest')->name('password.reset');
-
-Route::post('/reset-password', function (\Illuminate\Http\Request $request) {
-    $request->validate([
-        'token'    => 'required',
-        'email'    => 'required|email',
-        'password' => 'required|confirmed|min:8',
-    ]);
-    $status = \Illuminate\Support\Facades\Password::reset(
-        $request->only('email', 'password', 'password_confirmation', 'token'),
-        function (\App\Models\User $user, string $password) {
-            $user->forceFill(['password' => \Illuminate\Support\Facades\Hash::make($password)])->save();
-        }
-    );
-    return $status === \Illuminate\Support\Facades\Password::PASSWORD_RESET
-        ? redirect()->route('login')->with('success', 'Password reset successfully! You can now login.')
-        : back()->withErrors(['email' => 'Invalid or expired reset link. Please try again.']);
-})->middleware('guest')->name('password.update');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::post('/policy/accept', [PolicyController::class, 'accept'])->middleware('auth')->name('policy.accept');
@@ -118,8 +79,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
 
     // Semester management
     Route::get('/semesters', [AdminController::class, 'semesters'])->name('semesters');
-    Route::get('/semesters/{academicSemester}', [AdminController::class, 'showSemester'])->name('semesters.show');
-    Route::post('/semesters/{academicSemester}/archive', [AdminController::class, 'archiveSemester'])->name('semesters.archive');
+    Route::post('/semesters', [AdminController::class, 'storeSemester'])->name('semesters.store');
+    Route::get('/semesters/{semester}', [AdminController::class, 'showSemester'])->name('semesters.show');
+    Route::patch('/semesters/{semester}', [AdminController::class, 'updateSemester'])->name('semesters.update');
+    Route::post('/semesters/{semester}/archive', [AdminController::class, 'archiveSemester'])->name('semesters.archive');
+    Route::delete('/semesters/{semester}', [AdminController::class, 'destroySemester'])->name('semesters.destroy');
 
     // Research management
     Route::get('/researches', [AdminController::class, 'researches'])->name('researches');

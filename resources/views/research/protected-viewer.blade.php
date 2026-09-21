@@ -148,50 +148,6 @@
             color: rgba(248, 250, 252, 0.84);
         }
 
-        .page-logo-layer {
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            pointer-events: none;
-        }
-
-        .page-logo-mark {
-            position: absolute;
-            width: clamp(54px, 9vw, 92px);
-            height: auto;
-            opacity: 0.28;
-            user-select: none;
-            -webkit-user-drag: none;
-        }
-
-        .page-logo-mark.is-center {
-            left: 50%;
-            top: 50%;
-            width: clamp(150px, 22vw, 240px);
-            opacity: 0.22;
-            transform: translate(-50%, -50%);
-        }
-
-        .page-logo-mark.is-top-left {
-            left: 18px;
-            top: 18px;
-        }
-
-        .page-logo-mark.is-top-right {
-            right: 18px;
-            top: 18px;
-        }
-
-        .page-logo-mark.is-bottom-left {
-            left: 18px;
-            bottom: 18px;
-        }
-
-        .page-logo-mark.is-bottom-right {
-            right: 18px;
-            bottom: 18px;
-        }
-
         @media print {
             body {
                 display: none !important;
@@ -206,14 +162,6 @@
 
             .viewer-note {
                 text-align: left;
-            }
-
-            .page-logo-mark {
-                width: 48px;
-            }
-
-            .page-logo-mark.is-center {
-                width: 132px;
             }
         }
     </style>
@@ -241,7 +189,6 @@
         logUrl: @json(route('research.capture-attempt', $research)),
         viewerScope: @json(!empty($adminMode) ? 'admin' : 'standard'),
         csrfToken: document.querySelector('meta[name="csrf-token"]').content,
-        logoUrl: @json(asset('images/philcstlogologo.png')),
         loadedMessage: 'Protected document loaded. Browser PDF save, print, and screenshot shortcuts are blocked where the browser allows.',
     };
 
@@ -340,7 +287,6 @@
     const pagesEl = document.getElementById('viewerPages');
     const shellEl = document.querySelector('.viewer-shell');
     const guardEl = document.getElementById('screenGuard');
-    const logoPositions = ['is-center', 'is-top-left', 'is-top-right', 'is-bottom-left', 'is-bottom-right'];
     let guardTimer = null;
 
     function updateStatus(message) {
@@ -370,23 +316,6 @@
         setGuardState,
         triggerGuard,
     };
-
-    function appendPageLogoLayer(pageCard) {
-        const layer = document.createElement('div');
-        layer.className = 'page-logo-layer';
-        layer.setAttribute('aria-hidden', 'true');
-
-        logoPositions.forEach((position) => {
-            const logo = document.createElement('img');
-            logo.className = 'page-logo-mark ' + position;
-            logo.src = viewerConfig.logoUrl;
-            logo.alt = '';
-            logo.draggable = false;
-            layer.appendChild(logo);
-        });
-
-        pageCard.appendChild(layer);
-    }
 
     async function renderProtectedPdf() {
         try {
@@ -421,7 +350,6 @@
                 await page.render({ canvasContext: context, viewport }).promise;
 
                 pageCard.appendChild(canvas);
-                appendPageLogoLayer(pageCard);
                 pageCard.appendChild(badge);
                 pagesEl.appendChild(pageCard);
             }

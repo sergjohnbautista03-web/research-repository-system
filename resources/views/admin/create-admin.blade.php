@@ -4,52 +4,7 @@
 
 @section('content')
 <div class="dean-shell">
-    <section class="dean-hero">
-        <div class="dean-hero-copy">
-            <span class="dean-kicker">Department Approval Setup</span>
-            <h2>Create a dean account with the right authority and department scope</h2>
-            <p>Deans can manage researcher approvals for their assigned college, helping keep the review flow organized and department-specific.</p>
-        </div>
-
-        <div class="dean-hero-grid">
-            <article class="dean-mini-card">
-                <strong>Department-based</strong>
-                <span>Approvals stay limited to the assigned college.</span>
-            </article>
-            <article class="dean-mini-card">
-                <strong>Research workflow</strong>
-                <span>Deans can review and reject pending researcher applications.</span>
-            </article>
-            <article class="dean-mini-card">
-                <strong>Admin-controlled</strong>
-                <span>Department keys and broader system access remain with admins.</span>
-            </article>
-        </div>
-    </section>
-
-    <div class="dean-layout">
-        <aside class="dean-side">
-            <div class="dean-side-card">
-                <div class="dean-side-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M22 10v6M2 10l10-5 10 5-10 5-10-5z"/>
-                        <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>
-                    </svg>
-                </div>
-                <h3>Before you create the account</h3>
-                <ul class="dean-checklist">
-                    <li>Confirm the dean will only handle one department.</li>
-                    <li>Assign the exact department the dean should manage.</li>
-                    <li>Double-check the dean ID before submitting.</li>
-                </ul>
-                <div class="dean-note">
-                    <strong>Important</strong>
-                    <p>The selected department determines which researcher registrations this dean can approve.</p>
-                </div>
-            </div>
-        </aside>
-
-        <section class="dean-form-card">
+    <section class="dean-form-card">
             <div class="dean-form-header">
                 <div class="dean-form-icon">D</div>
                 <div>
@@ -104,7 +59,6 @@
                             placeholder="e.g. Maria" required autocomplete="off"
                             oninput="validateDeanName(this)"
                             style="{{ $errors->has('firstname') ? 'border-color:#ef4444;' : '' }}">
-                        @error('firstname')<small class="dean-field-error">{{ $message }}</small>@enderror
                     </div>
 
                     <div class="dean-field">
@@ -113,7 +67,6 @@
                             placeholder="e.g. Santos" required autocomplete="off"
                             oninput="validateDeanName(this)"
                             style="{{ $errors->has('lastname') ? 'border-color:#ef4444;' : '' }}">
-                        @error('lastname')<small class="dean-field-error">{{ $message }}</small>@enderror
                     </div>
                 </div>
 
@@ -124,7 +77,6 @@
                             placeholder="Optional" autocomplete="off"
                             oninput="validateDeanName(this)"
                             style="{{ $errors->has('middlename') ? 'border-color:#ef4444;' : '' }}">
-                        @error('middlename')<small class="dean-field-error">{{ $message }}</small>@enderror
                     </div>
 
                     <div class="dean-field">
@@ -175,184 +127,21 @@
                     </button>
                 </div>
             </form>
-        </section>
-    </div>
+    </section>
 </div>
 
 <style>
 .dean-shell{
     display:grid;
     gap:22px;
-    max-width:1200px;
+    max-width:1040px;
 }
 
-.dean-hero{
-    display:grid;
-    gap:20px;
-    padding:28px 30px;
-    border-radius:28px;
-    background:
-        radial-gradient(circle at top right, rgba(124,58,237,.15), transparent 28%),
-        radial-gradient(circle at bottom left, rgba(59,130,246,.1), transparent 26%),
-        linear-gradient(135deg, #ffffff 0%, #f8f4ff 55%, #f1ecff 100%);
-    border:1px solid rgba(121,81,188,.14);
-    box-shadow:0 18px 44px rgba(59,15,122,.08);
-}
-
-.dean-kicker{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
-    margin-bottom:12px;
-    font-size:11px;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:.18em;
-    color:#917dba;
-}
-
-.dean-kicker::before{
-    content:"";
-    width:30px;
-    height:1px;
-    background:linear-gradient(90deg, #6d28d9, transparent);
-}
-
-.dean-hero h2{
-    max-width:760px;
-    margin:0 0 8px;
-    font-size:31px;
-    line-height:1.08;
-    letter-spacing:-.05em;
-    color:#1f123e;
-}
-
-.dean-hero p{
-    max-width:760px;
-    margin:0;
-    color:#7e72a6;
-    font-size:14px;
-    line-height:1.75;
-}
-
-.dean-hero-grid{
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:14px;
-}
-
-.dean-mini-card{
-    padding:16px 18px;
-    border-radius:20px;
-    background:rgba(255,255,255,.82);
-    border:1px solid rgba(136,102,201,.14);
-    backdrop-filter:blur(10px);
-}
-
-.dean-mini-card strong{
-    display:block;
-    margin-bottom:6px;
-    font-size:14px;
-    color:#2b1454;
-}
-
-.dean-mini-card span{
-    font-size:12.5px;
-    line-height:1.6;
-    color:#8477a8;
-}
-
-.dean-layout{
-    display:grid;
-    grid-template-columns:340px minmax(0, 1fr);
-    gap:22px;
-    align-items:start;
-}
-
-.dean-side-card,
 .dean-form-card{
     background:#fff;
     border-radius:24px;
     border:1px solid rgba(117,83,182,.12);
     box-shadow:0 14px 34px rgba(57,26,101,.06);
-}
-
-.dean-side-card{
-    position:sticky;
-    top:20px;
-    padding:24px;
-    background:
-        radial-gradient(circle at top left, rgba(124,58,237,.12), transparent 34%),
-        linear-gradient(180deg, #25114c 0%, #3b166d 100%);
-    color:#fff;
-}
-
-.dean-side-icon{
-    display:grid;
-    place-items:center;
-    width:56px;
-    height:56px;
-    margin-bottom:16px;
-    border-radius:18px;
-    background:rgba(255,255,255,.12);
-    color:#fff;
-}
-
-.dean-side-card h3{
-    margin:0 0 8px;
-    font-size:21px;
-    color:#fff;
-}
-
-.dean-checklist{
-    display:grid;
-    gap:10px;
-    padding:0;
-    margin:20px 0 0;
-    list-style:none;
-}
-
-.dean-checklist li{
-    position:relative;
-    padding-left:18px;
-    color:rgba(255,255,255,.86);
-    line-height:1.6;
-    font-size:13px;
-}
-
-.dean-checklist li::before{
-    content:"";
-    position:absolute;
-    left:0;
-    top:9px;
-    width:8px;
-    height:8px;
-    border-radius:999px;
-    background:#c4b5fd;
-}
-
-.dean-note{
-    margin-top:22px;
-    padding:16px;
-    border-radius:18px;
-    background:rgba(255,255,255,.08);
-    border:1px solid rgba(255,255,255,.12);
-}
-
-.dean-note strong{
-    display:block;
-    margin-bottom:6px;
-    font-size:13px;
-    color:#f8d86a;
-    text-transform:uppercase;
-    letter-spacing:.08em;
-}
-
-.dean-note p{
-    margin:0;
-    color:rgba(255,255,255,.82);
-    font-size:12.5px;
-    line-height:1.6;
 }
 
 .dean-form-header{
@@ -705,10 +494,9 @@ function clearDeanFieldError(input) {
 function validateDeanName(input) {
     if (!input.value.length) { clearDeanFieldError(input); return; }
     if (/[0-9]/.test(input.value) || /[^a-zA-Z\s\-\.]/.test(input.value)) {
-        setDeanFieldError(input, 'Letters only - no numbers or invalid special characters.');
+        input.style.borderColor = '#ef4444';
     } else {
         clearDeanFieldError(input);
-        input.style.borderColor = '#10b981';
     }
 }
 

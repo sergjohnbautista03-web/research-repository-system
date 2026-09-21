@@ -14,7 +14,7 @@ class User extends Authenticatable implements CanResetPassword
 
     protected $fillable = [
         'name', 'middle_name', 'verification_documents', 'research_documents', 'email', 'password', 'role',
-        'department', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
+        'department', 'current_semester_id', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
         'is_active', 'is_approved', 'student_approved_by', 'student_approved_at', 'researcher_approved_by', 'researcher_approved_at',
         'is_department_dean', 'last_seen_at', 'capture_logs_seen_log_id',
         'policy_accepted_at', 'policy_version', 'policy_accepted_ip', 'policy_accepted_user_agent',
@@ -34,6 +34,7 @@ class User extends Authenticatable implements CanResetPassword
         'student_approved_at' => 'datetime',
         'researcher_approved_at' => 'datetime',
         'is_department_dean'=> 'boolean',
+        'current_semester_id' => 'integer',
         'current_academic_semester_id' => 'integer',
         'last_seen_at'      => 'datetime',
         'capture_logs_seen_log_id' => 'integer',
@@ -55,14 +56,29 @@ class User extends Authenticatable implements CanResetPassword
 
     public function currentAcademicSemester()
     {
-        return $this->belongsTo(AcademicSemester::class, 'current_academic_semester_id');
+        return $this->currentSemester();
+    }
+
+    public function currentSemester()
+    {
+        return $this->belongsTo(Semester::class, 'current_semester_id');
     }
 
     public function academicSemesters()
     {
-        return $this->belongsToMany(AcademicSemester::class, 'academic_semester_user')
-            ->withPivot(['assigned_at', 'assigned_by'])
+        return $this->semesters();
+    }
+
+    public function semesters()
+    {
+        return $this->belongsToMany(Semester::class, 'semester_enrollments')
+            ->withPivot(['status', 'enrolled_at', 'enrolled_by'])
             ->withTimestamps();
+    }
+
+    public function semesterEnrollments()
+    {
+        return $this->hasMany(SemesterEnrollment::class);
     }
 
     public function pinnedResearches()
@@ -158,8 +174,8 @@ class User extends Authenticatable implements CanResetPassword
 
         return match ($this->role) {
             'admin'      => true,
-            'researcher' => $this->is_approved,
-            'user'       => $this->isPhilcstStudent(),  // must have a student_id
+            'researcher' => $this->is_approved && $this->hasActiveSemesterEnrollment(),
+            'user'       => $this->isPhilcstStudent() && $this->hasActiveSemesterEnrollment(),
             default      => false,
         };
     }
@@ -209,8 +225,22 @@ class User extends Authenticatable implements CanResetPassword
         if (! in_array($this->role, ['user', 'researcher'], true)) return false;
         if (! $this->is_active)           return false;
         if (! $this->is_approved)         return false;
-        if ($this->currentAcademicSemester?->isArchived()) return false;
+        if (! $this->hasActiveSemesterEnrollment()) return false;
         return true;
+    }
+
+    public function hasActiveSemesterEnrollment(): bool
+    {
+        $semester = $this->currentSemester;
+
+        if (! $semester || ! $semester->isOpen()) {
+            return false;
+        }
+
+        return $this->semesterEnrollments()
+            ->where('semester_id', $semester->id)
+            ->where('status', SemesterEnrollment::STATUS_ACTIVE)
+            ->exists();
     }
 
     // ── Accessors ────────────────────────────────────────────────────────────
