@@ -68,6 +68,10 @@ Route::middleware(['auth', 'policy.accepted'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::post('/profile/password/request-code', [ProfileController::class, 'requestPasswordChangeCode'])->name('profile.password.request-code');
+    Route::post('/profile/password/verify', [ProfileController::class, 'verifyPasswordChangeCode'])->name('profile.password.verify');
+    Route::post('/profile/password/resend-code', [ProfileController::class, 'resendPasswordChangeCode'])->name('profile.password.resend-code');
+    Route::post('/profile/password/cancel', [ProfileController::class, 'cancelPasswordChange'])->name('profile.password.cancel');
     Route::patch('/profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.photo');
     Route::get('/profile/photo/remove', [ProfileController::class, 'removePhoto'])->name('profile.photo.remove');
 
@@ -82,6 +86,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
     Route::post('/semesters', [AdminController::class, 'storeSemester'])->name('semesters.store');
     Route::get('/semesters/{semester}', [AdminController::class, 'showSemester'])->name('semesters.show');
     Route::patch('/semesters/{semester}', [AdminController::class, 'updateSemester'])->name('semesters.update');
+    Route::post('/semesters/{semester}/activate', [AdminController::class, 'activateSemester'])->name('semesters.activate');
     Route::post('/semesters/{semester}/archive', [AdminController::class, 'archiveSemester'])->name('semesters.archive');
     Route::delete('/semesters/{semester}', [AdminController::class, 'destroySemester'])->name('semesters.destroy');
 

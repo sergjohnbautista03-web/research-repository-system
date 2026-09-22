@@ -121,6 +121,128 @@
         </div>
         </div>
 
+        {{-- Change Password Section --}}
+        <div class="prof-card" id="prof-password-card">
+            <div class="prof-card-label">Security</div>
+            <h2 class="prof-card-title">Change Password</h2>
+
+            @if(session('password_code_sent'))
+                <div class="alert alert-success" style="margin-bottom:20px; border-radius:12px; background:#ecfdf5; border:1px solid #bbf7d0; color:#166534; padding:12px 16px;">
+                    <strong>Verification Code Sent:</strong> {{ session('password_code_sent') }}
+                </div>
+            @endif
+
+            @if(session('info'))
+                <div class="alert alert-info" style="margin-bottom:20px; border-radius:12px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; padding:12px 16px;">
+                    {{ session('info') }}
+                </div>
+            @endif
+
+            @if(session('password_change_pending') || $errors->has('verification_code'))
+                {{-- Step 2: Verification Code Form --}}
+                <div class="prof-access-status is-active" style="margin-bottom:20px;">
+                    <strong>Step 2 of 2: Enter Email Verification Code</strong>
+                    <p>A single-use 6-digit verification code has been sent to <strong>{{ auth()->user()->email }}</strong>. Please enter the code below to complete your password change. This code expires in 15 minutes.</p>
+                </div>
+
+                <form method="POST" action="{{ route('profile.password.verify') }}">
+                    @csrf
+                    <div class="prof-form-grid" style="grid-template-columns: minmax(0, 320px);">
+                        <div class="prof-field">
+                            <label class="prof-field-label">6-Digit Verification Code</label>
+                            <input type="text"
+                                   name="verification_code"
+                                   placeholder="••••••"
+                                   maxlength="6"
+                                   pattern="[0-9]{6}"
+                                   inputmode="numeric"
+                                   autocomplete="one-time-code"
+                                   required
+                                   class="prof-input"
+                                   style="font-family:monospace; font-size:22px; letter-spacing:4px; text-align:center;">
+                            @error('verification_code')
+                                <small style="color:#b91c1c; font-weight:700; margin-top:6px;">{{ $message }}</small>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="prof-form-actions" style="gap:12px; flex-wrap:wrap; align-items:center;">
+                        <button type="submit" class="prof-btn prof-btn--primary">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                            Verify & Update Password
+                        </button>
+                    </div>
+                </form>
+
+                <div style="display:flex; gap:10px; margin-top:14px; align-items:center;">
+                    <form method="POST" action="{{ route('profile.password.resend-code') }}">
+                        @csrf
+                        <button type="submit" class="prof-btn prof-btn--ghost" style="min-height:38px; padding:6px 16px; font-size:12.5px;">Resend Code</button>
+                    </form>
+                    <form method="POST" action="{{ route('profile.password.cancel') }}">
+                        @csrf
+                        <button type="submit" class="prof-btn prof-btn--ghost" style="min-height:38px; padding:6px 16px; font-size:12.5px; color:#b91c1c;">Cancel</button>
+                    </form>
+                </div>
+            @else
+                {{-- Step 1: Request Password Change Code Form --}}
+                <div class="prof-access-status" style="margin-bottom:20px;">
+                    <strong>Secure Email Verification</strong>
+                    <p>To update your password, enter your current password and your new password. A 6-digit verification code will be sent to your registered email (<strong>{{ auth()->user()->email }}</strong>) to verify your identity before the password is saved.</p>
+                </div>
+
+                <form method="POST" action="{{ route('profile.password.request-code') }}">
+                    @csrf
+                    <div class="prof-form-grid">
+                        <div class="prof-field prof-field--full" style="max-width:480px;">
+                            <label class="prof-field-label">Current Password</label>
+                            <div class="password-wrap" style="position:relative;">
+                                <input type="password" id="prof_current_password" name="current_password" required autocomplete="current-password" class="prof-input">
+                                <button type="button" class="toggle-pw" onclick="togglePassword('prof_current_password', this)" aria-label="Show or hide current password" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#7c3aed; padding:4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                </button>
+                            </div>
+                            @error('current_password')
+                                <small style="color:#b91c1c; font-weight:700; margin-top:6px;">{{ $message }}</small>
+                            @enderror
+                        </div>
+
+                        <div class="prof-field">
+                            <label class="prof-field-label">New Password</label>
+                            <div class="password-wrap" style="position:relative;">
+                                <input type="password" id="prof_new_password" name="password" placeholder="Minimum 8 characters" required autocomplete="new-password" class="prof-input">
+                                <button type="button" class="toggle-pw" onclick="togglePassword('prof_new_password', this)" aria-label="Show or hide new password" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#7c3aed; padding:4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                </button>
+                            </div>
+                            @error('password')
+                                <small style="color:#b91c1c; font-weight:700; margin-top:6px;">{{ $message }}</small>
+                            @enderror
+                        </div>
+
+                        <div class="prof-field">
+                            <label class="prof-field-label">Confirm New Password</label>
+                            <div class="password-wrap" style="position:relative;">
+                                <input type="password" id="prof_password_confirmation" name="password_confirmation" placeholder="Confirm new password" required autocomplete="new-password" class="prof-input">
+                                <button type="button" class="toggle-pw" onclick="togglePassword('prof_password_confirmation', this)" aria-label="Show or hide confirm password" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#7c3aed; padding:4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <small class="prof-hint" style="margin-bottom:20px;">Requirements: Minimum 8 characters, at least one number (0-9), and at least one symbol (!@#$%^&*).</small>
+
+                    <div class="prof-form-actions">
+                        <button type="submit" class="prof-btn prof-btn--primary">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            Send Verification Code
+                        </button>
+                    </div>
+                </form>
+            @endif
+        </div>
+
     </div>
 </div>
 

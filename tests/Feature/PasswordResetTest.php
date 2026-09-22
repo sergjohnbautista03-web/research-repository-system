@@ -135,6 +135,52 @@ class PasswordResetTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_forgot_password_screen_can_be_rendered(): void
+    {
+        $response = $this->get(route('password.request'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Forgot Password');
+        $response->assertSee('Back to Login');
+    }
+
+    public function test_reset_password_screen_can_be_rendered_with_prefilled_email(): void
+    {
+        $response = $this->get(route('password.reset', [
+            'token' => 'sample-token',
+            'email' => 'prefilled@example.com',
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertSee('Reset Your Password');
+        $response->assertSee('prefilled@example.com');
+        $response->assertSee('Back to Login');
+    }
+
+    public function test_password_reset_fails_when_passwords_do_not_match(): void
+    {
+        $response = $this->post(route('password.update'), [
+            'token' => 'sample-token',
+            'email' => 'user@example.com',
+            'password' => 'NewPass1!',
+            'password_confirmation' => 'DifferentPass2@',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+    }
+
+    public function test_password_reset_fails_when_password_is_too_weak(): void
+    {
+        $response = $this->post(route('password.update'), [
+            'token' => 'sample-token',
+            'email' => 'user@example.com',
+            'password' => 'weak',
+            'password_confirmation' => 'weak',
+        ]);
+
+        $response->assertSessionHasErrors('password');
+    }
+
     private function createUser(array $overrides = []): User
     {
         $user = User::create(array_merge([

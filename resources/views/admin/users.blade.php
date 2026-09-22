@@ -334,6 +334,7 @@
                     {{ $errors->importUsers->first() }}
                 </div>
             @endif
+
             <div class="mu-import-term">
                 <div class="mu-create-field">
                     <label>Semester</label>
@@ -341,32 +342,40 @@
                         @foreach($semesterOptions as $semesterOption)
                             <label class="mu-semester-choice">
                                 <input type="radio" name="semester" value="{{ $semesterOption }}" {{ old('semester', $semesterOptions[0]) === $semesterOption ? 'checked' : '' }} required>
-                                <span>{{ $semesterOption }}</span>
+                                <span>{{ $semesterOption }} Sem</span>
                             </label>
                         @endforeach
                     </div>
                 </div>
                 <div class="mu-create-field">
                     <label for="iu_school_year">School Year</label>
-                    <input type="text" id="iu_school_year" name="school_year" value="{{ old('school_year') }}" placeholder="2025-2026" required>
+                    <input type="text" id="iu_school_year" name="school_year" value="{{ old('school_year', $selectedSchoolYear ?? '') }}" placeholder="2026-2027" pattern="\d{4}-\d{4}" required>
+                </div>
+            </div>
+
+            <div class="mu-import-term">
+                <div class="mu-create-field">
+                    <label for="iu_start_date">Semester Start Date</label>
+                    <input type="date" id="iu_start_date" name="start_date" value="{{ old('start_date') }}">
                 </div>
                 <div class="mu-create-field">
                     <label for="iu_end_date">Semester End Date</label>
-                    <input type="date" id="iu_end_date" name="end_date" value="{{ old('end_date') }}" required>
+                    <input type="date" id="iu_end_date" name="end_date" value="{{ old('end_date') }}">
                 </div>
             </div>
-            <div class="mu-import-guide">
+
+            <div id="iu_guide_section" class="mu-import-guide">
                 <strong>Accepted columns</strong>
                 <span>firstname, middlename, lastname, member_type, student_id, employee_id, year_level, email, password</span>
             </div>
-            <div class="mu-create-field">
+            <div id="iu_file_section" class="mu-create-field">
                 <label for="iu_file">Excel or CSV file</label>
                 <input type="file" id="iu_file" name="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
-                <small class="mu-field-hint">Imported users are automatically active and approved. They can submit research and view full research files immediately.</small>
+                <small class="mu-field-hint">Imported users are automatically active and approved for your department. They can submit research and view full research files immediately.</small>
             </div>
             <div class="mu-create-actions">
                 <button type="button" class="mu-btn mu-btn-ghost" onclick="closeImportUserModal()">Cancel</button>
-                <button type="submit" class="mu-btn mu-btn-primary">Import Users</button>
+                <button type="submit" id="iu_submit_btn" class="mu-btn mu-btn-primary">Import Users</button>
             </div>
         </form>
     </div>
@@ -417,7 +426,15 @@
 .mu-import-action{padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#0369a1;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;}
 .mu-import-guide{display:grid;gap:6px;padding:13px 15px;border:1px solid #e8dff5;border-radius:14px;background:#faf8ff;color:#6b2fa0;font-size:13px;line-height:1.45;}
 .mu-import-guide strong{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#3b0f7a;}
-.mu-import-term{display:grid;grid-template-columns:1fr 220px 190px;gap:14px;align-items:end;}
+.mu-reuse-notice{display:grid;gap:8px;padding:14px 16px;border:1.5px solid #c4b5fd;border-radius:16px;background:linear-gradient(135deg,#fbf9ff 0%,#f5f0ff 100%);color:#4c1d95;font-size:13px;line-height:1.5;}
+.mu-reuse-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6d28d9;}
+.mu-reuse-badge svg{color:#7c3aed;flex-shrink:0;}
+.mu-reuse-notice p{margin:0;color:#5b21b6;font-size:12.5px;font-weight:500;}
+.mu-reuse-upload-opt{display:flex;align-items:center;margin-top:2px;}
+.mu-reuse-link-btn{background:none;border:none;padding:0;color:#7c3aed;font-size:12px;font-weight:700;cursor:pointer;text-decoration:underline;font-family:inherit;}
+.mu-reuse-link-btn:hover{color:#5b21b6;}
+.mu-import-term{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:end;}
+@media(max-width:640px){.mu-import-term{grid-template-columns:1fr;}}
 .mu-semester-choice-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 .mu-semester-choice{display:flex;align-items:center;gap:8px;min-height:46px;padding:10px 12px;border:1px solid #e8dff5;border-radius:14px;background:#fff;color:#3b0f7a;font-size:13px;font-weight:800;cursor:pointer;}
 .mu-semester-choice input{accent-color:#6d28d9;}

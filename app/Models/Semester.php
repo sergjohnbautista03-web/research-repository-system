@@ -80,27 +80,49 @@ class Semester extends Model
 
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+        return $query->where('is_active', true)
+            ->where(function ($inner) use ($today) {
+                $inner->whereNull('end_date')
+                    ->orWhereDate('end_date', '>=', $today);
+            });
     }
 
     public function scopeOpen($query)
     {
+        $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
         return $query
             ->where('is_active', true)
-            ->where(function ($inner) {
+            ->where(function ($inner) use ($today) {
                 $inner->whereNull('end_date')
-                    ->orWhereDate('end_date', '>=', now()->toDateString());
+                    ->orWhereDate('end_date', '>=', $today);
             });
     }
 
     public function scopeClosed($query)
     {
-        return $query->where('is_active', false);
+        $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+        return $query->where(function ($inner) use ($today) {
+            $inner->where('is_active', false)
+                ->orWhere(function ($expired) use ($today) {
+                    $expired->whereNotNull('end_date')
+                        ->whereDate('end_date', '<', $today);
+                });
+        });
     }
 
     public function hasExpired(): bool
     {
-        return $this->end_date !== null && $this->end_date->lt(now()->startOfDay());
+        if ($this->end_date === null) {
+            return false;
+        }
+
+        $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+        return $this->end_date->format('Y-m-d') < $today;
     }
 
     public function isArchived(): bool

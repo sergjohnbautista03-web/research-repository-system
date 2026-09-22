@@ -28,6 +28,7 @@ class AdminController extends Controller
         Semester::FIRST_SEMESTER,
         Semester::SECOND_SEMESTER,
     ];
+    private const SCHOOL_YEAR_START_MONTH = 6;
     private const ANALYTICS_DETAIL_PAPER_LIMIT = 25;
     private const REPORTS_PER_PAGE = 50;
 
@@ -43,7 +44,7 @@ class AdminController extends Controller
     {
         $admin = $this->currentAdmin();
 
-        return $admin->isGlobalAdmin() || $admin->canImportUsers();
+        return $admin->isGlobalAdmin();
     }
 
     private function isDepartmentScoped(): bool
@@ -130,6 +131,33 @@ class AdminController extends Controller
         return sprintf('%04d-%04d', $startYear, $endYear);
     }
 
+    private function currentSchoolYear(?Carbon $date = null): string
+    {
+        $date = ($date ?? now(config('app.timezone', 'Asia/Manila')))->copy();
+        $startYear = $date->month >= self::SCHOOL_YEAR_START_MONTH
+            ? $date->year
+            : $date->year - 1;
+
+        return sprintf('%04d-%04d', $startYear, $startYear + 1);
+    }
+
+    private function importSchoolYearValidationMessage(string $schoolYear): ?string
+    {
+        $currentSchoolYear = $this->currentSchoolYear();
+
+        if ($schoolYear === $currentSchoolYear) {
+            return null;
+        }
+
+        $schoolYearStart = (int) substr($schoolYear, 0, 4);
+        $currentSchoolYearStart = (int) substr($currentSchoolYear, 0, 4);
+        $status = $schoolYearStart < $currentSchoolYearStart
+            ? 'expired and no longer valid'
+            : 'not yet valid';
+
+        return "School year {$schoolYear} is {$status} for imports. The current school year is {$currentSchoolYear}. Please import records for {$currentSchoolYear} only.";
+    }
+
     private function selectedSemester(?string $semester): ?string
     {
         return in_array($semester, self::SEMESTER_OPTIONS, true) ? $semester : null;
@@ -170,21 +198,25 @@ class AdminController extends Controller
 
     private function closeExpiredSemesters(): void
     {
+        $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
         $expiredIds = Semester::query()
             ->where('is_active', true)
             ->whereNotNull('end_date')
-            ->whereDate('end_date', '<', now()->toDateString())
+            ->whereDate('end_date', '<', $today)
             ->pluck('id');
 
         if ($expiredIds->isEmpty()) {
             return;
         }
 
+        $now = now(config('app.timezone', 'Asia/Manila'));
+
         Semester::query()
             ->whereIn('id', $expiredIds)
             ->update([
                 'is_active' => false,
-                'closed_at' => now(),
+                'closed_at' => $now,
             ]);
 
         SemesterEnrollment::query()
@@ -192,7 +224,7 @@ class AdminController extends Controller
             ->where('status', SemesterEnrollment::STATUS_ACTIVE)
             ->update([
                 'status' => SemesterEnrollment::STATUS_ARCHIVED,
-                'updated_at' => now(),
+                'updated_at' => $now,
             ]);
     }
 
@@ -225,6 +257,8 @@ class AdminController extends Controller
 
     public function dashboard()
     {
+        $this->closeExpiredSemesters();
+
         $researchBaseQuery = $this->scopeResearchQuery(Research::query());
         $approvedResearchBaseQuery = $this->scopeResearchQuery(Research::approved());
         $userBaseQuery = $this->scopeUserQuery(User::query()->where('role', '!=', 'admin'));
@@ -502,7 +536,7 @@ class AdminController extends Controller
 
     public function approveResearch(Research $research)
     {
-        abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can approve research submissions.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can approve research submissions.');
 
         $this->ensureResearchAccess($research);
         $this->ensureResearchIsWritable($research);
@@ -518,7 +552,7 @@ class AdminController extends Controller
 
     public function archiveResearch(Research $research)
     {
-        abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can archive research submissions.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can archive research submissions.');
 
         $this->ensureResearchAccess($research);
         $this->ensureResearchIsWritable($research);
@@ -534,7 +568,7 @@ class AdminController extends Controller
 
     public function publishResearch(Research $research)
     {
-        abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can publish archived research submissions.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can publish archived research submissions.');
 
         $this->ensureResearchAccess($research);
         $this->ensureResearchIsWritable($research);
@@ -552,7 +586,7 @@ class AdminController extends Controller
 
     public function rejectResearch(Request $request, Research $research)
     {
-        abort_if($this->isDepartmentScoped(), 403, 'Only the main admin can reject research submissions.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can reject research submissions.');
 
         $this->ensureResearchAccess($research);
         $this->ensureResearchIsWritable($research);
@@ -672,6 +706,57 @@ class AdminController extends Controller
             : $this->departments();
         $semesterOptions = $this->semesterOptions();
 
+        $archivedFirstSemesters = Semester::query()
+            ->where('semester', Semester::FIRST_SEMESTER)
+            ->get()
+            ->filter(fn (Semester $sem) => $sem->isArchived())
+            ->mapWithKeys(function (Semester $sem) {
+                $countQuery = $sem->users();
+                if ($this->isDepartmentScoped()) {
+                    $countQuery->where('users.department', $this->adminDepartment());
+                }
+
+                return [
+                    $sem->school_year => [
+                        'id' => $sem->id,
+                        'school_year' => $sem->school_year,
+                        'users_count' => $countQuery->count(),
+                        'label' => $sem->label,
+                    ],
+                ];
+            })
+            ->all();
+
+        $activeFirstSemesters = Semester::query()
+            ->where('semester', Semester::FIRST_SEMESTER)
+            ->get()
+            ->filter(fn (Semester $sem) => $sem->isOpen())
+            ->mapWithKeys(function (Semester $sem) {
+                return [
+                    $sem->school_year => [
+                        'id' => $sem->id,
+                        'school_year' => $sem->school_year,
+                        'label' => $sem->label,
+                    ],
+                ];
+            })
+            ->all();
+
+        $archivedSemesters = Semester::query()
+            ->get()
+            ->filter(fn (Semester $sem) => $sem->isArchived())
+            ->mapWithKeys(function (Semester $sem) {
+                return [
+                    $sem->school_year . '_' . $sem->semester => [
+                        'id' => $sem->id,
+                        'school_year' => $sem->school_year,
+                        'semester' => $sem->semester,
+                        'label' => $sem->label,
+                    ],
+                ];
+            })
+            ->all();
+
         return view('admin.users', [
             'users' => $users,
             'departments' => $departments,
@@ -680,6 +765,10 @@ class AdminController extends Controller
             'selectedSchoolYear' => $selectedSchoolYear,
             'selectedSemester' => $selectedSemester,
             'activeSemester' => $activeSemester,
+            'currentSchoolYear' => $this->currentSchoolYear(),
+            'archivedFirstSemesters' => $archivedFirstSemesters,
+            'activeFirstSemesters' => $activeFirstSemesters,
+            'archivedSemesters' => $archivedSemesters,
         ] + $semesterOptions);
     }
 
@@ -1211,13 +1300,13 @@ class AdminController extends Controller
     {
         $selectedSchoolYear = $this->normalizeSchoolYear($request->get('school_year'));
         $selectedSemester = $this->selectedSemester($request->get('semester'));
-        $selectedStatus = in_array($request->get('status'), ['active', 'closed', 'archived'], true)
+        $selectedStatus = in_array($request->get('status'), ['active', 'closed', 'archived', 'finished'], true)
             ? $request->get('status')
             : null;
 
         $this->closeExpiredSemesters();
 
-        $query = Semester::query()
+        $baseSemesterQuery = Semester::query()
             ->withCount([
                 'users' => function ($userQuery) {
                     if ($this->isDepartmentScoped()) {
@@ -1230,13 +1319,15 @@ class AdminController extends Controller
                 'researches as total_researches_count' => function ($researchQuery) {
                     $researchQuery->withTrashed();
                 },
-            ])
+            ]);
+
+        $query = (clone $baseSemesterQuery)
             ->when($selectedSchoolYear, fn ($inner) => $inner->where('school_year', $selectedSchoolYear))
             ->when($selectedSemester, fn ($inner) => $inner->where('semester', $selectedSemester));
 
         if ($selectedStatus === 'active') {
             $query->active();
-        } elseif (in_array($selectedStatus, ['closed', 'archived'], true)) {
+        } elseif (in_array($selectedStatus, ['closed', 'archived', 'finished'], true)) {
             $query->closed();
         }
 
@@ -1246,11 +1337,63 @@ class AdminController extends Controller
             ->paginate(12)
             ->withQueryString();
 
+        // Department breakdown per semester
+        $deptQuery = DB::table('semester_enrollments')
+            ->join('users', 'semester_enrollments.user_id', '=', 'users.id')
+            ->select('semester_enrollments.semester_id', 'users.department', DB::raw('count(*) as total'))
+            ->whereNotNull('users.department')
+            ->where('users.department', '!=', '');
+
+        if ($this->isDepartmentScoped()) {
+            $deptQuery->where('users.department', $this->adminDepartment());
+        }
+
+        $departmentBreakdowns = $deptQuery
+            ->groupBy('semester_enrollments.semester_id', 'users.department')
+            ->get()
+            ->groupBy('semester_id')
+            ->map(function ($items) {
+                return $items->pluck('total', 'department')->toArray();
+            });
+
+        // Build structured school years data for primary management cards
+        $allSchoolYearRecords = (clone $baseSemesterQuery)
+            ->orderByDesc('school_year')
+            ->orderBy('semester')
+            ->get();
+
+        $schoolYearGroups = $allSchoolYearRecords->groupBy('school_year')->map(function ($items, $schoolYear) use ($departmentBreakdowns) {
+            $firstSem = $items->firstWhere('semester', Semester::FIRST_SEMESTER);
+            $secondSem = $items->firstWhere('semester', Semester::SECOND_SEMESTER);
+
+            if ($firstSem) {
+                $firstSem->department_breakdown = $departmentBreakdowns->get($firstSem->id, []);
+            }
+            if ($secondSem) {
+                $secondSem->department_breakdown = $departmentBreakdowns->get($secondSem->id, []);
+            }
+
+            return [
+                'school_year' => $schoolYear,
+                'first_semester' => $firstSem,
+                'second_semester' => $secondSem,
+                'active_semester' => $items->firstWhere('is_active', true),
+                'total_users' => $items->sum('users_count'),
+                'total_researches' => $items->sum('researches_count'),
+            ];
+        })->values();
+
+        $semesters->getCollection()->each(function ($sem) use ($departmentBreakdowns) {
+            $sem->department_breakdown = $departmentBreakdowns->get($sem->id, []);
+        });
+
         return view('admin.semesters', [
             'semesters' => $semesters,
+            'schoolYearGroups' => $schoolYearGroups,
+            'departmentBreakdowns' => $departmentBreakdowns,
             'selectedSchoolYear' => $selectedSchoolYear,
             'selectedSemester' => $selectedSemester,
-            'selectedStatus' => $selectedStatus === 'archived' ? 'closed' : $selectedStatus,
+            'selectedStatus' => in_array($selectedStatus, ['archived', 'finished'], true) ? 'closed' : $selectedStatus,
             'canArchiveSemesters' => $this->currentAdmin()->isGlobalAdmin(),
             'canManageSemesters' => $this->canManageSemesters(),
         ] + $this->semesterOptions());
@@ -1263,8 +1406,8 @@ class AdminController extends Controller
         $validator = validator($request->all(), [
             'school_year' => ['required', 'string', 'max:20'],
             'semester' => ['required', Rule::in(self::SEMESTER_OPTIONS)],
-            'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
@@ -1273,7 +1416,15 @@ class AdminController extends Controller
                 return;
             }
 
-            if (Carbon::parse($request->input('end_date'))->lt(now()->startOfDay())) {
+            try {
+                $endDate = Carbon::parse($request->input('end_date'))->toDateString();
+            } catch (\Throwable) {
+                return;
+            }
+
+            $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+            if ($endDate < $today) {
                 $validator->errors()->add('end_date', 'An active semester must have a valid end date today or later.');
             }
         });
@@ -1288,72 +1439,78 @@ class AdminController extends Controller
                 ->withInput();
         }
 
+        $isActive = $request->boolean('is_active');
+
         $semester = Semester::updateOrCreate(
             [
                 'school_year' => $schoolYear,
                 'semester' => $data['semester'],
             ],
             [
-                'start_date' => $data['start_date'],
-                'end_date' => $data['end_date'],
-                'is_active' => $request->boolean('is_active'),
+                'start_date' => $data['start_date'] ?? null,
+                'end_date' => $data['end_date'] ?? null,
+                'is_active' => $isActive,
                 'created_by' => $this->currentAdmin()->id,
-                'closed_by' => null,
-                'closed_at' => null,
+                'closed_by' => $isActive ? null : $this->currentAdmin()->id,
+                'closed_at' => $isActive ? null : now(),
             ]
         );
 
-        return back()->with('success', $semester->label . ' saved.');
+        if ($isActive) {
+            $otherSemesters = Semester::where('school_year', $schoolYear)
+                ->where('id', '!=', $semester->id)
+                ->get();
+
+            $adminId = $this->currentAdmin()->id;
+            $now = now();
+
+            foreach ($otherSemesters as $other) {
+                $other->update([
+                    'is_active' => false,
+                    'closed_at' => $now,
+                    'closed_by' => $adminId,
+                ]);
+
+                SemesterEnrollment::query()
+                    ->where('semester_id', $other->id)
+                    ->where('status', SemesterEnrollment::STATUS_ACTIVE)
+                    ->update([
+                        'status' => SemesterEnrollment::STATUS_ARCHIVED,
+                        'updated_at' => $now,
+                    ]);
+            }
+        }
+
+        return back()->with('success', $semester->label . ' saved successfully.');
     }
 
     public function updateSemester(Request $request, Semester $semester)
     {
-        abort_unless($this->canManageSemesters(), 403, 'Only administrators and department deans can correct semesters.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can correct semesters.');
+
+        if ($semester->hasExpired()) {
+            return back()->with('error', 'Finished semesters are closed and cannot be edited to preserve historical records.');
+        }
 
         $validator = validator($request->all(), [
-            'school_year' => ['required', 'string', 'max:20'],
-            'semester' => ['required', Rule::in(self::SEMESTER_OPTIONS)],
-            'start_date' => ['required', 'date'],
-            'end_date' => ['required', 'date', 'after_or_equal:start_date'],
-            'is_active' => ['nullable', 'boolean'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
         ]);
 
         $validator->after(function ($validator) use ($request, $semester) {
-            $schoolYear = $this->normalizeSchoolYear($request->input('school_year'));
-
-            if (! $schoolYear) {
-                $validator->errors()->add('school_year', 'Use a valid school year like 2025-2026.');
-
-                return;
-            }
-
-            $semesterValue = $request->input('semester');
-
-            if (! in_array($semesterValue, self::SEMESTER_OPTIONS, true)) {
-                return;
-            }
-
-            $duplicateExists = Semester::query()
-                ->where('school_year', $schoolYear)
-                ->where('semester', $semesterValue)
-                ->where('id', '!=', $semester->id)
-                ->exists();
-
-            if ($duplicateExists) {
-                $validator->errors()->add('school_year', 'A semester record already exists for that school year and semester.');
-            }
-
-            if (! $request->boolean('is_active') || ! $request->filled('end_date')) {
+            if (! $semester->is_active || ! $request->filled('end_date')) {
                 return;
             }
 
             try {
-                $endDate = Carbon::parse($request->input('end_date'));
+                $endDate = Carbon::parse($request->input('end_date'))->toDateString();
             } catch (\Throwable) {
                 return;
             }
 
-            if ($endDate->lt(now()->startOfDay())) {
+            $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+            if ($endDate < $today) {
                 $validator->errors()->add('end_date', 'An active semester must have a valid end date today or later.');
             }
         });
@@ -1366,57 +1523,96 @@ class AdminController extends Controller
         }
 
         $data = $validator->validated();
-        $schoolYear = $this->normalizeSchoolYear($data['school_year']);
-        $isActive = $request->boolean('is_active');
-        $wasActive = (bool) $semester->is_active;
 
-        DB::transaction(function () use ($semester, $schoolYear, $data, $isActive, $wasActive) {
-            $semester->fill([
-                'school_year' => $schoolYear,
-                'semester' => $data['semester'],
-                'start_date' => Carbon::parse($data['start_date'])->toDateString(),
-                'end_date' => Carbon::parse($data['end_date'])->toDateString(),
-                'is_active' => $isActive,
-            ]);
+        $semester->update([
+            'start_date' => ! empty($data['start_date']) ? Carbon::parse($data['start_date'])->toDateString() : null,
+            'end_date' => ! empty($data['end_date']) ? Carbon::parse($data['end_date'])->toDateString() : null,
+        ]);
 
-            if ($isActive) {
-                $semester->closed_by = null;
-                $semester->closed_at = null;
-            } elseif ($wasActive || ! $semester->closed_at) {
-                $semester->closed_by = $this->currentAdmin()->id;
-                $semester->closed_at = now();
+        return back()->with('success', $semester->fresh()->label . ' dates updated successfully.');
+    }
+
+    public function activateSemester(Semester $semester)
+    {
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only main administrators can activate semesters.');
+
+        $schoolYear = $semester->school_year;
+        $semesterName = $semester->semester_label;
+        $otherSemesterCode = $semester->semester === Semester::FIRST_SEMESTER
+            ? Semester::SECOND_SEMESTER
+            : Semester::FIRST_SEMESTER;
+        $otherSemesterName = Semester::semesterLabels()[$otherSemesterCode] ?? ($otherSemesterCode . ' Sem');
+
+        DB::transaction(function () use ($semester, $schoolYear) {
+            $today = now(config('app.timezone', 'Asia/Manila'))->toDateString();
+
+            $updateData = [
+                'is_active' => true,
+                'closed_at' => null,
+                'closed_by' => null,
+            ];
+
+            // If end_date is in the past, clear it so closeExpiredSemesters() does not immediately expire it
+            if ($semester->end_date && $semester->end_date->format('Y-m-d') < $today) {
+                $updateData['end_date'] = null;
             }
 
-            $semester->save();
+            $semester->update($updateData);
 
-            if ($isActive) {
+            // Deactivate all other semesters in the same school year
+            $otherSemesters = Semester::where('school_year', $schoolYear)
+                ->where('id', '!=', $semester->id)
+                ->get();
+
+            $adminId = $this->currentAdmin()->id;
+            $now = now();
+
+            foreach ($otherSemesters as $other) {
+                $other->update([
+                    'is_active' => false,
+                    'closed_at' => $now,
+                    'closed_by' => $adminId,
+                ]);
+
                 SemesterEnrollment::query()
-                    ->where('semester_id', $semester->id)
-                    ->where('status', SemesterEnrollment::STATUS_ARCHIVED)
+                    ->where('semester_id', $other->id)
+                    ->where('status', SemesterEnrollment::STATUS_ACTIVE)
                     ->update([
-                        'status' => SemesterEnrollment::STATUS_ACTIVE,
-                        'updated_at' => now(),
+                        'status' => SemesterEnrollment::STATUS_ARCHIVED,
+                        'updated_at' => $now,
                     ]);
-
-                return;
             }
 
+            // Reactivate enrollments for the activated semester
             SemesterEnrollment::query()
                 ->where('semester_id', $semester->id)
-                ->where('status', SemesterEnrollment::STATUS_ACTIVE)
+                ->where('status', SemesterEnrollment::STATUS_ARCHIVED)
                 ->update([
-                    'status' => SemesterEnrollment::STATUS_ARCHIVED,
-                    'updated_at' => now(),
+                    'status' => SemesterEnrollment::STATUS_ACTIVE,
+                    'updated_at' => $now,
                 ]);
         });
 
-        return back()->with('success', $semester->fresh()->label . ' updated.');
+        return back()->with('success', "{$semesterName} ({$schoolYear}) is now ACTIVE. {$otherSemesterName} is INACTIVE.");
     }
 
     public function showSemester(Semester $semester)
     {
+        $this->closeExpiredSemesters();
+
         $semester->load(['creator', 'closedBy']);
         $totalResearchRecords = $semester->researches()->withTrashed()->count();
+
+        $departmentBreakdown = DB::table('semester_enrollments')
+            ->join('users', 'semester_enrollments.user_id', '=', 'users.id')
+            ->select('users.department', DB::raw('count(*) as total'))
+            ->where('semester_enrollments.semester_id', $semester->id)
+            ->whereNotNull('users.department')
+            ->where('users.department', '!=', '')
+            ->when($this->isDepartmentScoped(), fn ($q) => $q->where('users.department', $this->adminDepartment()))
+            ->groupBy('users.department')
+            ->pluck('total', 'users.department')
+            ->toArray();
 
         $usersQuery = $semester->users()
             ->with('currentSemester')
@@ -1444,6 +1640,7 @@ class AdminController extends Controller
             'semester' => $semester,
             'users' => $users,
             'researches' => $researches,
+            'departmentBreakdown' => $departmentBreakdown,
             'canArchiveSemesters' => $this->currentAdmin()->isGlobalAdmin(),
             'canManageSemesters' => $this->canManageSemesters(),
             'semesterOptions' => self::SEMESTER_OPTIONS,
@@ -1478,7 +1675,7 @@ class AdminController extends Controller
 
     public function destroySemester(Semester $semester)
     {
-        abort_unless($this->canManageSemesters(), 403, 'Only administrators and department deans can delete semesters.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can delete semesters.');
 
         if ($this->semesterHasResearchRecords($semester)) {
             return back()->with('error', $semester->label . ' has linked research records. Correct the semester information instead of deleting it.');
@@ -1508,14 +1705,14 @@ class AdminController extends Controller
 
     public function addResearch()
     {
-        abort_if($this->isDepartmentScoped(), 403, 'Department deans cannot add research records directly.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can add research records directly.');
 
         return view('admin.add-research');
     }
 
     public function storeResearch(Request $request)
     {
-        abort_if($this->isDepartmentScoped(), 403, 'Department deans cannot add research records directly.');
+        abort_unless($this->currentAdmin()->isGlobalAdmin(), 403, 'Only administrators can add research records directly.');
 
         $programsByDepartment = Research::programsByDepartment();
         $submissionCategories = Research::adminSubmissionCategories();
@@ -1687,8 +1884,9 @@ class AdminController extends Controller
 
         $data = $request->validateWithBag('importUsers', [
             'semester' => ['required', Rule::in(self::SEMESTER_OPTIONS)],
-            'school_year' => ['required', 'string', 'max:20'],
-            'end_date' => ['required', 'date', 'after_or_equal:today'],
+            'school_year' => ['required', 'string', 'max:20', 'regex:/^\d{4}-\d{4}$/'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'file' => ['required', 'file', 'extensions:xlsx,csv,txt', 'max:5120'],
         ]);
 
@@ -1696,11 +1894,33 @@ class AdminController extends Controller
 
         if (! $schoolYear) {
             return redirect()->route('admin.users')
-                ->withErrors(['school_year' => 'Use a valid school year like 2025-2026.'], 'importUsers')
+                ->withErrors(['school_year' => 'Use a valid school year like 2026-2027.'], 'importUsers')
                 ->withInput();
         }
 
-        $semester = $this->semesterForImport($schoolYear, $data['semester'], $data['end_date']);
+        $semester = Semester::firstOrCreate(
+            [
+                'school_year' => $schoolYear,
+                'semester' => $data['semester'],
+            ],
+            [
+                'start_date' => ! empty($data['start_date']) ? Carbon::parse($data['start_date'])->toDateString() : null,
+                'end_date' => ! empty($data['end_date']) ? Carbon::parse($data['end_date'])->toDateString() : null,
+                'is_active' => true,
+                'created_by' => $this->currentAdmin()->id,
+            ]
+        );
+
+        $semesterUpdates = [];
+        if (! empty($data['start_date']) && ! $semester->start_date) {
+            $semesterUpdates['start_date'] = Carbon::parse($data['start_date'])->toDateString();
+        }
+        if (! empty($data['end_date'])) {
+            $semesterUpdates['end_date'] = Carbon::parse($data['end_date'])->toDateString();
+        }
+        if ($semesterUpdates) {
+            $semester->update($semesterUpdates);
+        }
 
         try {
             $rows = $this->readUserImportRows($data['file']->getRealPath(), strtolower($data['file']->getClientOriginalExtension()));
@@ -1708,6 +1928,11 @@ class AdminController extends Controller
             return redirect()->route('admin.users')->with('import_errors', [
                 ['row' => '-', 'error' => $exception->getMessage()],
             ]);
+        }
+
+        if (empty($rows)) {
+            return redirect()->route('admin.users')
+                ->with('error', 'No rows were found in the uploaded file. Check that the first sheet has headers and user rows.');
         }
 
         $errors = [];
@@ -1721,7 +1946,7 @@ class AdminController extends Controller
         $existingIds = [];
 
         User::query()
-            ->select('id', 'name', 'email', 'student_id', 'is_approved')
+            ->select('id', 'name', 'email', 'student_id', 'is_approved', 'department')
             ->get()
             ->each(function (User $user) use (&$existingEmails, &$existingIds) {
                 $userSummary = [
@@ -1730,6 +1955,7 @@ class AdminController extends Controller
                     'email' => $user->email,
                     'student_id' => $user->student_id,
                     'is_approved' => (bool) $user->is_approved,
+                    'department' => $user->department,
                 ];
 
                 if ($user->email) {
@@ -1807,6 +2033,17 @@ class AdminController extends Controller
 
             $existingUser = $existingEmails[$emailKey] ?? ($idKey !== '' ? ($existingIds[$idKey] ?? null) : null);
             if ($existingUser) {
+                if ($this->isDepartmentScoped() && $existingUser['department'] && $existingUser['department'] !== $this->adminDepartment()) {
+                    $skippedUsers[] = [
+                        'row' => $rowNumber,
+                        'name' => $this->formatImportedUserName($normalized),
+                        'login_id' => $identifier,
+                        'email' => $email,
+                        'reason' => 'User account belongs to another department.',
+                    ];
+                    continue;
+                }
+
                 $existingAssignments[$existingUser['id']] = [
                     'id' => $existingUser['id'],
                     'name' => $existingUser['name'],
@@ -1871,11 +2108,6 @@ class AdminController extends Controller
                 'email' => $email,
                 'action' => 'Created',
             ];
-        }
-
-        if (empty($rows)) {
-            return redirect()->route('admin.users')
-                ->with('error', 'No rows were found in the uploaded file. Check that the first sheet has headers and user rows.');
         }
 
         $importedUserIds = [];
@@ -1948,39 +2180,6 @@ class AdminController extends Controller
             ->with('import_preview', $importPreview)
             ->with('import_semester', $semester->label)
             ->with('imported_user_ids', $importedUserIds);
-    }
-
-    private function semesterForImport(string $schoolYear, string $semesterValue, string $endDate): Semester
-    {
-        $this->closeExpiredSemesters();
-
-        $endDate = Carbon::parse($endDate)->toDateString();
-
-        $semester = Semester::query()
-            ->where('school_year', $schoolYear)
-            ->where('semester', $semesterValue)
-            ->first();
-
-        if (! $semester) {
-            return Semester::create([
-                'school_year' => $schoolYear,
-                'semester' => $semesterValue,
-                'end_date' => $endDate,
-                'is_active' => true,
-                'created_by' => $this->currentAdmin()->id,
-            ]);
-        }
-
-        if (! $semester->isOpen() || ! $semester->end_date) {
-            $semester->update([
-                'end_date' => $endDate,
-                'is_active' => true,
-                'closed_by' => null,
-                'closed_at' => null,
-            ]);
-        }
-
-        return $semester->fresh();
     }
 
     private function readUserImportRows(string $path, string $extension): array

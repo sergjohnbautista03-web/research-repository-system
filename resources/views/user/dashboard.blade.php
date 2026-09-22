@@ -1,23 +1,27 @@
 @extends('layouts.app')
 
-@section('title', 'My Dashboard')
+@section('title', 'My Dashboard — Ube Repository')
 
 @section('content')
 @php
-    $submitFields = ['title', 'author_name', 'year_published', 'submission_category', 'department', 'course', 'type', 'keywords', 'abstract', 'file'];
-    $hasSubmitErrors = $errors->hasAny($submitFields);
-    $submitDepartment = old('department', $user->department);
     $isFacultyAccount = $user->role === 'researcher' && is_null($user->graduation_year);
     $isStudentResearcher = $user->role === 'researcher' && ! is_null($user->graduation_year);
-    $canSubmitResearch = $user->canSubmitResearch();
-    $dashboardRoleLabel = $isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ucfirst($user->role));
-    $submissionCategories = \App\Models\Research::submissionCategories();
-    $journalTypes = \App\Models\Research::typesForCategory(\App\Models\Research::SUBMISSION_CATEGORY_JOURNAL);
+    $dashboardRoleLabel = $user->isDepartmentDean() ? 'Dean' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ucfirst($user->role)));
 @endphp
+
 <div class="ud-shell">
     <div class="ud-layout">
+
+        {{-- ══ SIDEBAR ══ --}}
         <aside class="ud-sidebar">
             <div class="ud-sidebar-card">
+                <div class="ud-sidebar-avatar-wrap">
+                    @if($user->profile_photo)
+                        <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="{{ $user->name }}" class="ud-sidebar-avatar-img">
+                    @else
+                        <div class="ud-sidebar-avatar-initial">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
+                    @endif
+                </div>
                 <span class="ud-sidebar-kicker">User Panel</span>
                 <h2>{{ $user->name }}</h2>
                 <p>{{ $user->department ?? 'PHILCST User' }}</p>
@@ -28,24 +32,31 @@
             </div>
 
             <nav class="ud-side-nav">
-                <a href="#dashboard-top" class="ud-side-link is-active" data-dashboard-link>Dashboard Overview</a>
-                <button type="button" class="ud-side-link" data-open-pinned>Saved Papers</button>
-                <a href="#profile-settings" class="ud-side-link" data-dashboard-link>Profile Settings</a>
+                <a href="#dashboard-top" class="ud-side-link is-active" data-dashboard-link>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <span>Dashboard Overview</span>
+                </a>
+                <button type="button" class="ud-side-link" data-open-pinned>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                    <span>Saved Researches</span>
+                    <span class="ud-side-badge">{{ $pinnedResearches->count() }}</span>
+                </button>
+                <a href="{{ route('home') }}" class="ud-side-link">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span>Browse Repository</span>
+                </a>
             </nav>
         </aside>
 
+        {{-- ══ MAIN CONTENT ══ --}}
         <div class="ud-main" id="dashboard-top">
+
+            {{-- Hero Banner --}}
             <section class="ud-hero">
                 <div>
-                    <span class="ud-kicker">User Dashboard</span>
-                    <h1>{{ $user->name }}</h1>
-                    <p>
-                        @if($canSubmitResearch)
-                            Your account is active. You can browse, view full papers, submit research, and manage your submissions here.
-                        @else
-                            Browse researches and save papers from your dashboard.
-                        @endif
-                    </p>
+                    <span class="ud-kicker">Research Portal</span>
+                    <h1>Welcome, {{ Str::before($user->name, ' ') }}!</h1>
+                    <p>Access published academic works, discover latest departmental research, and manage your saved researches from your personal portal.</p>
                 </div>
                 <div class="ud-status-stack">
                     <span class="ud-pill">{{ $dashboardRoleLabel }}</span>
@@ -56,596 +67,871 @@
                 </div>
             </section>
 
+            {{-- Stat Cards (Balanced 2-Column Grid) --}}
             <section class="ud-stats">
-                <article class="ud-stat-card">
-                    <span class="ud-stat-label">Saved Papers</span>
+                {{-- Clickable Saved Researches Card --}}
+                <article class="ud-stat-card ud-stat-card--clickable" data-open-pinned role="button" tabindex="0" title="Click to view saved researches">
+                    <div class="ud-stat-top">
+                        <span class="ud-stat-label">Saved Researches</span>
+                        <div class="ud-stat-icon-wrap" aria-hidden="true">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                        </div>
+                    </div>
                     <strong>{{ number_format($stats['pinned']) }}</strong>
-                    <small>Saved to your account</small>
+                    <div class="ud-stat-action-row">
+                        <small>Researches saved to your list</small>
+                        <span class="ud-stat-arrow">Open list →</span>
+                    </div>
                 </article>
-                <article class="ud-stat-card">
-                    <span class="ud-stat-label">My Submissions</span>
-                    <strong>{{ number_format($stats['submissions']) }}</strong>
-                    <small>Researches linked to you</small>
-                </article>
+
+                {{-- Department / Repository Card --}}
+                @if($user->department)
+                    <a href="{{ route('research.department', $user->department) }}" class="ud-stat-card ud-stat-card--clickable" title="Browse department researches">
+                        <div class="ud-stat-top">
+                            <span class="ud-stat-label">Department Repository</span>
+                            <div class="ud-stat-icon-wrap" aria-hidden="true">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                            </div>
+                        </div>
+                        <strong>{{ number_format($stats['department_researches']) }}</strong>
+                        <div class="ud-stat-action-row">
+                            <small>{{ Str::limit($user->department, 32) }}</small>
+                            <span class="ud-stat-arrow">Browse Department →</span>
+                        </div>
+                    </a>
+                @else
+                    <a href="{{ route('home') }}" class="ud-stat-card ud-stat-card--clickable" title="Explore repository">
+                        <div class="ud-stat-top">
+                            <span class="ud-stat-label">Explore Repository</span>
+                            <div class="ud-stat-icon-wrap" aria-hidden="true">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            </div>
+                        </div>
+                        <strong style="font-size:28px; padding-top:4px;">Browse All</strong>
+                        <div class="ud-stat-action-row">
+                            <small>Search academic publications</small>
+                            <span class="ud-stat-arrow">Explore All →</span>
+                        </div>
+                    </a>
+                @endif
             </section>
 
-            <section class="ud-card" id="profile-settings">
-                <div class="ud-card-head">
+            {{-- Saved Researches Section --}}
+            <section class="ud-card">
+                <div class="ud-card-head ud-card-head--split">
                     <div>
-                        <h2>Profile Settings</h2>
-                        <p>Manage your photo, account details, and password without leaving the dashboard.</p>
+                        <span class="ud-mini-kicker">Personal Collection</span>
+                        <h2>Saved Researches</h2>
+                        <p>Quick access to research papers you have saved for reading and citation.</p>
                     </div>
+                    @if($pinnedResearches->count() > 0)
+                        <button type="button" class="ud-btn-secondary" data-open-pinned>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                            View All ({{ $pinnedResearches->count() }})
+                        </button>
+                    @endif
                 </div>
 
-                <div class="ud-profile-grid">
-                    <div class="ud-profile-panel">
-                        <span class="ud-mini-kicker">Profile Photo</span>
-                        <div class="ud-photo-block">
-                            @if($user->profile_photo)
-                                <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="Profile Photo" class="ud-profile-photo">
-                            @else
-                                <div class="ud-profile-initial">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
-                            @endif
-                            <div class="ud-photo-meta">
-                                <strong>{{ $user->name }}</strong>
-                                <span>{{ $user->isDepartmentDean() ? 'Dean' : $dashboardRoleLabel }}</span>
+                <div class="ud-saved-grid">
+                    @forelse($pinnedResearches->take(6) as $research)
+                        <article class="ud-pinned-card">
+                            <div class="ud-pinned-badge-row">
+                                <span class="ud-pinned-type">{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</span>
+                                <span class="ud-pinned-year">{{ $research->year_published }}</span>
                             </div>
-                        </div>
-
-                        <form method="POST" action="{{ route('profile.photo') }}" enctype="multipart/form-data" class="ud-inline-form">
-                            @csrf
-                            @method('PATCH')
-                            <div class="ud-field">
-                                <label for="dashboard_profile_photo">Upload New Photo</label>
-                                <input type="file" id="dashboard_profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/jpg,image/gif">
-                                <small>JPG, PNG, or GIF up to 2MB.</small>
-                            </div>
-                            <div class="ud-inline-actions">
-                                <button type="submit" class="ud-btn-primary">Upload Photo</button>
-                                @if($user->profile_photo)
-                                    <a href="{{ route('profile.photo.remove') }}" onclick="return confirm('Remove profile photo?')" class="ud-btn-secondary">Remove</a>
+                            <h3>
+                                <a href="{{ route('research.show', $research) }}">{{ $research->title }}</a>
+                            </h3>
+                            <p>{{ Str::limit($research->abstract, 140) }}</p>
+                            <div class="ud-pinned-meta">
+                                <span><strong>Author:</strong> {{ $research->author_name }}</span>
+                                @if($research->department)
+                                    <span><strong>Dept:</strong> {{ Str::limit($research->department, 26) }}</span>
                                 @endif
                             </div>
-                        </form>
-                    </div>
-
-                    <div class="ud-profile-panel">
-                        <span class="ud-mini-kicker">Account Details</span>
-                        <div class="ud-inline-form">
-                            <div class="ud-form-row">
-                                <div class="ud-field">
-                                    <label>Full Name</label>
-                                    <input type="text" value="{{ $user->name }}" readonly>
-                                </div>
-                                <div class="ud-field">
-                                    <label>Email Address</label>
-                                    <input type="email" value="{{ $user->email }}" readonly>
-                                </div>
+                            <div class="ud-pinned-footer">
+                                <span>{{ number_format($research->view_count) }} views</span>
+                                <a href="{{ route('research.show', $research) }}" class="ud-btn-view">Read Paper →</a>
                             </div>
-                            <div class="ud-form-row">
-                                <div class="ud-field">
-                                    <label>Department</label>
-                                    <input type="text" value="{{ $user->department ?: 'No department assigned' }}" readonly>
-                                </div>
-                                <div class="ud-field">
-                                    <label>{{ $user->isDepartmentDean() ? 'Dean ID' : ($user->isAdmin() ? 'Admin ID' : 'Student / Employee ID') }}</label>
-                                    <input type="text" value="{{ $user->student_id ?: 'No ID assigned' }}" readonly>
-                                </div>
+                        </article>
+                    @empty
+                        <div class="ud-pinned-empty">
+                            <div class="ud-pinned-empty-icon">
+                                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
                             </div>
-                            <div class="ud-lock-note">
-                                This account information is assigned by your dean or administrator and cannot be edited here.
-                            </div>
+                            <strong>No saved researches yet</strong>
+                            <p>You haven't saved any research papers yet. Browse the repository and click "Pin / Save" on any research to keep it here for quick reference.</p>
+                            <a href="{{ route('home') }}" class="ud-btn-primary" style="margin-top:8px;">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                Browse Research Repository
+                            </a>
                         </div>
-                    </div>
-
-                    <div class="ud-profile-panel ud-profile-panel--full">
-                        <span class="ud-mini-kicker">Security</span>
-                        <div class="ud-inline-form">
-                            <div class="ud-security-lock">
-                                <strong>Password updates are locked</strong>
-                                <p>Your login credentials are managed by your dean or administrator. Contact them if you need a password reset.</p>
-                            </div>
-                        </div>
-                    </div>
+                    @endforelse
                 </div>
             </section>
-
-            @if($canSubmitResearch)
-            <div class="ud-modal {{ $hasSubmitErrors ? 'is-visible' : '' }}" id="submitResearchModal">
-                <div class="ud-modal-backdrop" data-close-submit></div>
-                <div class="ud-modal-dialog ud-modal-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="submitResearchTitle">
-                    <div class="ud-modal-head">
-                        <div>
-                            <span class="ud-mini-kicker">Research Submission</span>
-                            <h2 id="submitResearchTitle">Submit Research</h2>
-                            <p>Share your academic work without leaving the dashboard.</p>
-                        </div>
-                        <button type="button" class="ud-modal-close" data-close-submit aria-label="Close submit research modal">×</button>
-                    </div>
-
-                    @if($hasSubmitErrors)
-                        <div class="ud-modal-alert">
-                            @foreach($errors->only($submitFields) as $fieldErrors)
-                                @foreach($fieldErrors as $error)
-                                    <p>{{ $error }}</p>
-                                @endforeach
-                            @endforeach
-                        </div>
-                    @endif
-
-                    <form method="POST" action="{{ route('research.store') }}" enctype="multipart/form-data" class="ud-submit-form">
-                        @csrf
-
-                        <div class="ud-submit-section">
-                            <span class="ud-submit-step">1</span>
-                            <h3>Basic Information</h3>
-                        </div>
-                        <div class="ud-form-row">
-                            <div class="ud-field ud-field-span-2">
-                                <label for="submit_title">Research Title</label>
-                                <input type="text" id="submit_title" name="title" value="{{ old('title') }}" placeholder="Enter the complete title of your research" required>
-                            </div>
-                        </div>
-                        <div class="ud-form-row">
-                            <div class="ud-field">
-                                <label for="submit_author_name">Author Name</label>
-                                <input type="text" id="submit_author_name" name="author_name" value="{{ old('author_name', $user->name) }}" required>
-                            </div>
-                            <div class="ud-field">
-                                <label for="submit_year_published">Year Published</label>
-                                <input type="number" id="submit_year_published" name="year_published" value="{{ old('year_published', 2026) }}" min="2022" max="2026" required>
-                            </div>
-                        </div>
-
-                        <div class="ud-submit-section">
-                            <span class="ud-submit-step">2</span>
-                            <h3>Department and Program</h3>
-                        </div>
-                        <div class="ud-form-row">
-                            <div class="ud-field">
-                                <label for="submit_submission_category">Submission Category</label>
-                                <select id="submit_submission_category" name="submission_category" required>
-                                    @foreach($submissionCategories as $value => $label)
-                                        <option value="{{ $value }}" {{ old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_JOURNAL) === $value ? 'selected' : '' }}>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="ud-form-row">
-                            <div class="ud-field">
-                                <label>Department</label>
-                                <input type="text" value="{{ $user->department ?: 'No department assigned' }}" readonly>
-                                <input type="hidden" id="submit_department" name="department" value="{{ $submitDepartment }}">
-                            </div>
-                            <div class="ud-field">
-                                <label for="submit_course">Program</label>
-                                <select id="submit_course" name="course" required {{ $submitDepartment ? '' : 'disabled' }}>
-                                    <option value="">{{ $submitDepartment ? '-- Select Program --' : '-- No Department Assigned --' }}</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="ud-form-row">
-                            <div class="ud-field">
-                                <label for="submit_type" id="submit_type_label">Research Type</label>
-                                <select id="submit_type" name="type" required {{ $submitDepartment ? '' : 'disabled' }}>
-                                    <option value="">{{ $submitDepartment ? '-- Select Type --' : '-- No Department Assigned --' }}</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="ud-submit-section">
-                            <span class="ud-submit-step">3</span>
-                            <h3>Content and Keywords</h3>
-                        </div>
-                        <div class="ud-field">
-                            <label for="submit_keywords">Keywords</label>
-                            <input type="text" id="submit_keywords" name="keywords" value="{{ old('keywords') }}" placeholder="Separate keywords with commas">
-                        </div>
-                        <div class="ud-field">
-                            <label for="submit_abstract">Abstract or Description</label>
-                            <textarea id="submit_abstract" name="abstract" rows="7" placeholder="Provide a comprehensive summary of your research" required>{{ old('abstract') }}</textarea>
-                        </div>
-
-                        <div class="ud-submit-section">
-                            <span class="ud-submit-step">4</span>
-                            <h3>File Upload</h3>
-                        </div>
-                        <div class="ud-field">
-                            <label for="submit_file">Research PDF</label>
-                            <input type="file" id="submit_file" name="file" accept=".pdf" required>
-                            <small>PDF only, up to 30MB.</small>
-                        </div>
-
-                        <div class="ud-submit-note">
-                            Your submission will be reviewed by an administrator before it becomes publicly visible.
-                        </div>
-
-                        <div class="ud-inline-actions">
-                            <button type="button" class="ud-btn-secondary" data-close-submit>Cancel</button>
-                            <button type="submit" class="ud-btn-primary">Submit for Review</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            @endif
-
-            <div class="ud-modal" id="pinnedPapersModal" aria-hidden="true">
-                <div class="ud-modal-backdrop" data-close-pinned></div>
-                <div class="ud-modal-dialog ud-modal-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="pinnedPapersTitle">
-                    <div class="ud-modal-head">
-                        <div>
-                            <span class="ud-mini-kicker">Saved Papers</span>
-                            <h2 id="pinnedPapersTitle">Saved Papers</h2>
-                            <p>{{ $pinnedResearches->count() }} saved paper{{ $pinnedResearches->count() === 1 ? '' : 's' }} in your account.</p>
-                        </div>
-                        <button type="button" class="ud-modal-close" data-close-pinned aria-label="Close pinned papers modal">×</button>
-                    </div>
-
-                    <div class="ud-pinned-modal-body">
-                        @forelse($pinnedResearches as $research)
-                            <article class="ud-pinned-card">
-                                <span class="ud-pinned-type">{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</span>
-                                <h3>
-                                    <a href="{{ route('research.show', $research) }}">{{ $research->title }}</a>
-                                </h3>
-                                <p>{{ Str::limit($research->abstract, 150) }}</p>
-                                <div class="ud-pinned-meta">
-                                    <span>{{ $research->author_name }}</span>
-                                    <span>{{ $research->year_published }}</span>
-                                </div>
-                                <div class="ud-pinned-footer">
-                                    <span>{{ number_format($research->view_count) }} views</span>
-                                    <a href="{{ route('research.show', $research) }}">View Details</a>
-                                </div>
-                            </article>
-                        @empty
-                            <div class="ud-pinned-empty">
-                                <strong>No saved papers yet</strong>
-                                <p>Save research papers from the details page to keep them here for quick access.</p>
-                                <a href="{{ route('home') }}" class="ud-btn-secondary">Browse Research</a>
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-
-            @if($canSubmitResearch)
-            <div class="ud-modal" id="mySubmissionsModal" aria-hidden="true">
-                <div class="ud-modal-backdrop" data-close-submissions></div>
-                <div class="ud-modal-dialog ud-modal-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="mySubmissionsTitle">
-                    <div class="ud-modal-head">
-                        <div>
-                            <span class="ud-mini-kicker">Research Portfolio</span>
-                            <h2 id="mySubmissionsTitle">My Submissions</h2>
-                            <p>{{ $mySubmissions->count() }} research submission{{ $mySubmissions->count() === 1 ? '' : 's' }} linked to your account.</p>
-                        </div>
-                        <button type="button" class="ud-modal-close" data-close-submissions aria-label="Close my submissions modal">×</button>
-                    </div>
-
-                    <div class="ud-submissions-summary">
-                        <div><strong>{{ $mySubmissions->count() }}</strong><span>Total</span></div>
-                        <div><strong>{{ $mySubmissions->where('status', 'pending')->count() }}</strong><span>Pending</span></div>
-                        <div><strong>{{ $mySubmissions->where('status', 'approved')->count() }}</strong><span>Approved</span></div>
-                        <div><strong>{{ $mySubmissions->where('status', 'rejected')->count() }}</strong><span>Rejected</span></div>
-                    </div>
-
-                    <div class="ud-submissions-modal-body">
-                        @forelse($mySubmissions as $research)
-                            <article class="ud-submission-card status-{{ $research->status }}">
-                                <div class="ud-submission-top">
-                                    <span class="ud-pinned-type">{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</span>
-                                    <span class="ud-submission-status status-{{ $research->status }}">
-                                        @if($research->status === 'approved')
-                                            Approved
-                                        @elseif($research->status === 'pending')
-                                            Under Review
-                                        @else
-                                            Rejected
-                                        @endif
-                                    </span>
-                                </div>
-                                <h3>
-                                    <a href="{{ route('research.show', $research) }}">{{ $research->title }}</a>
-                                </h3>
-                                <div class="ud-pinned-meta">
-                                    <span>{{ $research->year_published }}</span>
-                                    <span>{{ $research->created_at->format('M d, Y') }}</span>
-                                    <span>{{ Str::limit($research->department, 34) }}</span>
-                                </div>
-                                @if($research->status === 'rejected' && $research->rejection_reason)
-                                    <div class="ud-submission-note">
-                                        <strong>Rejection reason:</strong>
-                                        <span>{{ $research->rejection_reason }}</span>
-                                    </div>
-                                @endif
-                                <div class="ud-pinned-footer">
-                                    <span>{{ number_format($research->view_count) }} views</span>
-                                    <a href="{{ route('research.show', $research) }}">View Details</a>
-                                </div>
-                            </article>
-                        @empty
-                            <div class="ud-pinned-empty">
-                                <strong>No submissions yet</strong>
-                                <p>Use the Submit Research button to send your first research for review.</p>
-                                <button type="button" class="ud-btn-secondary" data-open-submit data-close-submissions>Submit Research</button>
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-            @endif
 
         </div>
     </div>
 </div>
 
+{{-- ══ SAVED RESEARCHES MODAL ══ --}}
+<div class="ud-modal" id="pinnedPapersModal" aria-hidden="true">
+    <div class="ud-modal-backdrop" data-close-pinned></div>
+    <div class="ud-modal-dialog ud-modal-dialog--wide" role="dialog" aria-modal="true" aria-labelledby="pinnedPapersTitle">
+        <div class="ud-modal-head">
+            <div>
+                <span class="ud-mini-kicker">Saved Researches</span>
+                <h2 id="pinnedPapersTitle">Saved Researches</h2>
+                <p id="pinnedCountSubtitle">{{ $pinnedResearches->count() }} saved research paper{{ $pinnedResearches->count() === 1 ? '' : 's' }} in your account.</p>
+            </div>
+            <button type="button" class="ud-modal-close" data-close-pinned aria-label="Close saved researches modal">×</button>
+        </div>
+
+        @if($pinnedResearches->count() > 10)
+            {{-- Filter Toolbar (Active when saved records exceed 10) --}}
+            <div class="ud-filter-toolbar" id="savedFilterToolbar">
+                <div class="ud-search-box">
+                    <svg class="ud-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="savedSearchInput" class="ud-filter-input" placeholder="Search by title, author, keyword..." autocomplete="off">
+                    <button type="button" id="savedSearchClear" class="ud-search-clear" aria-label="Clear search" style="display: none;">×</button>
+                </div>
+                <div class="ud-filter-controls">
+                    <select id="savedDeptFilter" class="ud-filter-select" aria-label="Filter by department">
+                        <option value="">All Departments</option>
+                        @foreach($pinnedResearches->pluck('department')->filter()->unique()->sort() as $dept)
+                            <option value="{{ strtolower($dept) }}">{{ $dept }}</option>
+                        @endforeach
+                    </select>
+
+                    <select id="savedYearFilter" class="ud-filter-select" aria-label="Filter by year">
+                        <option value="">All Years</option>
+                        @foreach($pinnedResearches->pluck('year_published')->filter()->unique()->sortDesc() as $yr)
+                            <option value="{{ $yr }}">{{ $yr }}</option>
+                        @endforeach
+                    </select>
+
+                    <button type="button" id="savedResetFilters" class="ud-btn-filter-reset" title="Reset all filters">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Filter Match Status --}}
+            <div class="ud-filter-status" id="savedFilterStatus">
+                <span id="savedMatchCount">Showing 1–10 of {{ $pinnedResearches->count() }} researches</span>
+            </div>
+        @endif
+
+        <div class="ud-pinned-modal-body" id="savedItemsContainer">
+            @forelse($pinnedResearches as $research)
+                <article class="ud-pinned-card"
+                    data-saved-card
+                    data-title="{{ strtolower($research->title) }}"
+                    data-author="{{ strtolower($research->author_name) }}"
+                    data-dept="{{ strtolower($research->department ?? '') }}"
+                    data-year="{{ $research->year_published }}"
+                    data-keywords="{{ strtolower($research->keywords ?? '') }}"
+                    data-type="{{ strtolower($research->getTypeLabel() ?? '') }}">
+                    <div class="ud-pinned-badge-row">
+                        <span class="ud-pinned-type">{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</span>
+                        <span class="ud-pinned-year">{{ $research->year_published }}</span>
+                    </div>
+                    <h3>
+                        <a href="{{ route('research.show', $research) }}">{{ $research->title }}</a>
+                    </h3>
+                    <p>{{ Str::limit($research->abstract, 150) }}</p>
+                    <div class="ud-pinned-meta">
+                        <span><strong>Author:</strong> {{ $research->author_name }}</span>
+                        @if($research->department)
+                            <span><strong>Dept:</strong> {{ Str::limit($research->department, 32) }}</span>
+                        @endif
+                    </div>
+                    <div class="ud-pinned-footer">
+                        <span>{{ number_format($research->view_count) }} views</span>
+                        <a href="{{ route('research.show', $research) }}" class="ud-btn-view">View Details →</a>
+                    </div>
+                </article>
+            @empty
+                <div class="ud-pinned-empty">
+                    <div class="ud-pinned-empty-icon">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>
+                    </div>
+                    <strong>No saved researches yet</strong>
+                    <p>Save research papers from the details page to keep them here for quick access.</p>
+                    <a href="{{ route('home') }}" class="ud-btn-primary">Browse Research</a>
+                </div>
+            @endforelse
+
+            {{-- Empty search result state --}}
+            <div class="ud-pinned-empty ud-search-no-results" id="savedNoResultsState" style="display: none;">
+                <div class="ud-pinned-empty-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </div>
+                <strong>No matching researches found</strong>
+                <p>No saved research matches your search criteria or filters.</p>
+                <button type="button" class="ud-btn-secondary" id="savedEmptyResetBtn" style="margin-top: 6px;">
+                    Clear Filters
+                </button>
+            </div>
+        </div>
+
+        {{-- Pagination Container --}}
+        <div class="ud-pagination-wrap" id="savedPaginationWrap" style="display: none;">
+            <div class="ud-pagination-info" id="savedPaginationInfo">Showing 1–10 of {{ $pinnedResearches->count() }}</div>
+            <div class="ud-pagination-nav" id="savedPaginationNav"></div>
+        </div>
+    </div>
+</div>
+
 <style>
-.ud-shell{max-width:1200px;margin:0 auto;padding:34px 24px 44px}
-html{scroll-behavior:smooth}
-.ud-layout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:20px;align-items:start}
-.ud-sidebar{position:sticky;top:88px}
-.ud-sidebar-card{padding:22px;border-radius:24px;background:linear-gradient(145deg,#2b0d4e 0%,#522087 100%);color:#fff;box-shadow:0 20px 40px rgba(59,15,122,.16);margin-bottom:16px}
-.ud-sidebar-kicker{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
-.ud-sidebar-card h2{margin:0 0 6px;font-size:26px;line-height:1.05}
-.ud-sidebar-card p{margin:0 0 14px;color:rgba(255,255,255,.8);line-height:1.55}
-.ud-sidebar-pills{display:flex;flex-wrap:wrap;gap:8px}
-.ud-side-nav{display:grid;gap:10px}
-.ud-side-nav > .ud-side-link{
-    display:flex;
-    align-items:center;
-    width:100%;
-    text-align:left;
-    padding:14px 16px;
-    border-radius:18px;
-    background:#fff;
-    border:1px solid #efe7fb;
-    box-shadow:0 10px 24px rgba(59,15,122,.05);
-    text-decoration:none;
-    font-family:var(--font-body);
-    font-size:14px;
-    line-height:1.4;
-    font-weight:700;
-    color:#36125f !important;
-    letter-spacing:-.01em;
-    cursor:pointer;
+.ud-shell { max-width: 1220px; margin: 0 auto; padding: 34px 24px 54px; }
+html { scroll-behavior: smooth; }
+.ud-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 24px; align-items: start; }
+.ud-sidebar { position: sticky; top: 88px; }
+
+/* SIDEBAR CARD */
+.ud-sidebar-card {
+    padding: 26px 22px;
+    border-radius: 24px;
+    background: linear-gradient(145deg, #2b0d4e 0%, #522087 100%);
+    color: #fff;
+    box-shadow: 0 20px 40px rgba(59,15,122,.16);
+    margin-bottom: 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
-.ud-side-nav > .ud-side-link:hover,
-.ud-side-nav > .ud-side-link.is-active{
-    background:#f7f1ff;
-    border-color:#e7d8fb;
-    color:#36125f !important;
+.ud-sidebar-avatar-wrap {
+    margin-bottom: 14px;
 }
-.ud-main{min-width:0}
-.ud-hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;padding:28px 30px;border-radius:28px;background:linear-gradient(135deg,#2a0d4f 0%,#5c2093 60%,#7c3aed 100%);color:#fff;box-shadow:0 24px 48px rgba(59,15,122,.18);margin-bottom:24px}
-.ud-kicker{display:inline-flex;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
-.ud-hero h1{margin:0 0 10px;font-size:40px;line-height:1.02;letter-spacing:-.04em}
-.ud-hero p{margin:0;max-width:720px;color:rgba(255,255,255,.82);line-height:1.65}
-.ud-status-stack{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
-.ud-pill{display:inline-flex;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.12);font-size:12px;font-weight:700}
-.ud-pill.is-approved{background:#dcfce7;color:#166534}
-.ud-pill.is-pending{background:#fef3c7;color:#92400e}
-.ud-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
-.ud-stat-card{padding:20px;border-radius:22px;background:#fff;border:1px solid #efe7fb;box-shadow:0 10px 26px rgba(59,15,122,.06)}
-.ud-stat-label{display:block;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9586b0;margin-bottom:10px}
-.ud-stat-card strong{display:block;font-size:34px;line-height:1;color:#240a42}
-.ud-stat-card small{display:block;margin-top:10px;color:#85779d;line-height:1.45}
-.ud-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px}
-.ud-card{background:#fff;border:1px solid #efe7fb;border-radius:24px;box-shadow:0 12px 30px rgba(59,15,122,.05);overflow:hidden}
-.ud-card[id]{scroll-margin-top:108px}
-.ud-card-head{padding:22px 24px 16px;border-bottom:1px solid #f2ecfb}
-.ud-card-head h2{margin:0 0 6px;font-size:22px;color:#23093f}
-.ud-card-head p{margin:0;color:#8c7ba8;font-size:13px}
-.ud-apply-form{padding:20px 24px 24px;display:flex;flex-direction:column;gap:14px}
-.ud-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.ud-field{display:flex;flex-direction:column;gap:7px}
-.ud-field label{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#8f80aa}
-.ud-field input,.ud-field select,.ud-field textarea{width:100%;padding:12px 14px;border-radius:14px;border:1.5px solid #e9dff7;background:#fff;font:inherit;color:#210b3d}
-.ud-field input:focus,.ud-field select:focus,.ud-field textarea:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1)}
-.ud-field .password-wrap input{padding-right:46px}
-.ud-field input[readonly]{background:#f7f2fe;color:#6b2fa0;font-weight:700}
-.ud-field textarea{resize:vertical;min-height:160px}
-.ud-field small{color:#9082aa;font-size:12px;line-height:1.4}
-.ud-field-span-2{grid-column:1 / -1}
-.ud-btn-primary{align-self:flex-start;padding:12px 18px;border:none;border-radius:14px;background:#3b0f7a;color:#fff;font-weight:700;cursor:pointer;box-shadow:0 12px 24px rgba(59,15,122,.2)}
-.ud-status-box{margin:20px 24px 24px;padding:18px;border-radius:18px;border:1px solid}
-.ud-status-box strong{display:block;font-size:18px;margin-bottom:8px}
-.ud-status-box p{margin:0;line-height:1.6}
-.ud-status-box.is-pending{background:#fff9eb;border-color:#f7d38c;color:#8a5b00}
-.ud-status-box.is-approved{background:#ecfdf3;border-color:#bbf7d0;color:#166534}
-.ud-status-box.is-error{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
-.ud-access-wrap{padding:20px 24px 24px}
-.ud-access-status{border-radius:18px;padding:16px 18px;margin-bottom:16px;border:1px solid}
-.ud-access-status strong{display:block;margin-bottom:6px}
-.ud-access-status p{margin:0;line-height:1.6}
-.ud-access-status.is-active{background:#ecfdf3;border-color:#bbf7d0;color:#166534}
-.ud-access-status.is-inactive{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
-.ud-profile-grid{padding:20px 24px 24px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.ud-profile-panel{padding:18px;border-radius:20px;background:#fcfaff;border:1px solid #efe7fb}
-.ud-profile-panel--full{grid-column:1 / -1}
-.ud-mini-kicker{display:inline-flex;padding:6px 10px;border-radius:999px;background:#f2eaff;color:#6d28d9;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px}
-.ud-photo-block{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-.ud-profile-photo,.ud-profile-initial{width:74px;height:74px;border-radius:50%;flex-shrink:0}
-.ud-profile-photo{object-fit:cover;border:3px solid #fff;box-shadow:0 10px 22px rgba(59,15,122,.12)}
-.ud-profile-initial{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#4c1d95);color:#fff;font-size:30px;font-weight:800;box-shadow:0 10px 22px rgba(59,15,122,.16)}
-.ud-photo-meta strong{display:block;color:#240a42;margin-bottom:5px}
-.ud-photo-meta span{display:inline-flex;padding:6px 10px;border-radius:999px;background:#f2eaff;color:#6d28d9;font-size:12px;font-weight:700}
-.ud-inline-form{display:flex;flex-direction:column;gap:14px}
-.ud-inline-actions{display:flex;gap:10px;flex-wrap:wrap}
-.ud-lock-note,.ud-security-lock{padding:15px 16px;border-radius:16px;border:1px solid #e9dff7;background:#faf7ff;color:#6b5b87;line-height:1.6}
-.ud-security-lock strong{display:block;color:#240a42;margin-bottom:6px}
-.ud-security-lock p{margin:0}
-.ud-btn-secondary{display:inline-flex;align-items:center;justify-content:center;padding:12px 18px;border-radius:14px;border:1px solid #dac9f4;background:#fff;color:#5b21b6;font-weight:700;text-decoration:none}
-.ud-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:24px;z-index:1200}
-.ud-modal.is-visible{display:flex}
-.ud-modal-backdrop{position:absolute;inset:0;background:rgba(21,8,43,.55);backdrop-filter:blur(4px)}
-.ud-modal-dialog{position:relative;width:min(760px,100%);max-height:calc(100vh - 48px);overflow:auto;border-radius:28px;background:#fff;box-shadow:0 24px 60px rgba(22,6,50,.28)}
-.ud-modal-dialog--wide{width:min(920px,100%)}
-.ud-modal-head{display:flex;justify-content:space-between;gap:16px;padding:24px 26px 18px;border-bottom:1px solid #f0eaf9}
-.ud-modal-head h2{margin:0 0 6px;color:#23093f;font-size:28px}
-.ud-modal-head p{margin:0;color:#8c7ba8}
-.ud-modal-close{width:44px;height:44px;border:none;border-radius:14px;background:#f6f1ff;color:#5b21b6;font-size:28px;line-height:1;cursor:pointer}
-.ud-modal-alert{margin:18px 26px 0;padding:14px 16px;border:1px solid #fecaca;border-radius:16px;background:#fef2f2;color:#b91c1c}
-.ud-modal-alert p{margin:0 0 4px}
-.ud-modal-alert p:last-child{margin-bottom:0}
-.ud-pinned-modal-body{padding:22px 26px 26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.ud-pinned-card{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:20px;background:#fcfbff;border:1px solid #efe7fb;box-shadow:0 8px 22px rgba(59,15,122,.05)}
-.ud-pinned-type{align-self:flex-start;padding:6px 10px;border-radius:999px;background:#f2eaff;color:#6d28d9;font-size:11px;font-weight:800}
-.ud-pinned-card h3{margin:0;font-size:17px;line-height:1.35}
-.ud-pinned-card h3 a{color:#23093f;text-decoration:none}
-.ud-pinned-card h3 a:hover{color:#6d28d9}
-.ud-pinned-card p{margin:0;color:#78698f;font-size:13px;line-height:1.6}
-.ud-pinned-meta{display:flex;flex-wrap:wrap;gap:8px;color:#8b7aaa;font-size:12.5px}
-.ud-pinned-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;padding-top:12px;border-top:1px solid #efe7fb;color:#9b8db6;font-size:12.5px}
-.ud-pinned-footer a{display:inline-flex;padding:8px 12px;border-radius:999px;background:#3b0f7a;color:#fff;text-decoration:none;font-size:12px;font-weight:800}
-.ud-pinned-empty{grid-column:1 / -1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:42px 20px;border-radius:20px;background:#faf7ff;border:1px dashed #dac9f4;color:#6b5b87}
-.ud-pinned-empty strong{font-size:18px;color:#240a42}
-.ud-pinned-empty p{margin:0;max-width:380px;line-height:1.6}
-.ud-submissions-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:20px 26px 0}
-.ud-submissions-summary div{padding:14px;border-radius:18px;background:#faf7ff;border:1px solid #efe7fb}
-.ud-submissions-summary strong{display:block;color:#240a42;font-size:26px;line-height:1}
-.ud-submissions-summary span{display:block;margin-top:7px;color:#8b7aaa;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-.ud-submissions-modal-body{padding:18px 26px 26px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.ud-submission-card{display:flex;flex-direction:column;gap:10px;padding:18px;border-radius:20px;background:#fff;border:1px solid #efe7fb;border-top:4px solid #a78bfa;box-shadow:0 8px 22px rgba(59,15,122,.05)}
-.ud-submission-card.status-approved{border-top-color:#22c55e}
-.ud-submission-card.status-pending{border-top-color:#f59e0b}
-.ud-submission-card.status-rejected{border-top-color:#ef4444}
-.ud-submission-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.ud-submission-status{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800}
-.ud-submission-status.status-approved{background:#dcfce7;color:#166534}
-.ud-submission-status.status-pending{background:#fef3c7;color:#92400e}
-.ud-submission-status.status-rejected{background:#fee2e2;color:#991b1b}
-.ud-submission-card h3{margin:0;font-size:17px;line-height:1.35}
-.ud-submission-card h3 a{color:#23093f;text-decoration:none}
-.ud-submission-card h3 a:hover{color:#6d28d9}
-.ud-submission-note{display:grid;gap:4px;padding:12px 14px;border-radius:14px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12.5px;line-height:1.5}
-.ud-submit-form{padding:22px 26px 26px;display:flex;flex-direction:column;gap:16px}
-.ud-submit-section{display:flex;align-items:center;gap:10px;padding-top:6px}
-.ud-submit-section h3{margin:0;color:#240a42;font-size:16px}
-.ud-submit-step{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:#f2eaff;color:#6d28d9;font-size:12px;font-weight:800}
-.ud-submit-note{padding:14px 16px;border-radius:16px;border:1px solid #fcd34d;background:#fffbeb;color:#92400e;line-height:1.6}
-.ud-list{padding:18px 24px 24px;display:grid;gap:10px}
-.ud-list-item{display:block;padding:14px 16px;border-radius:16px;background:#fcfbff;border:1px solid #efe7fb;text-decoration:none}
-.ud-list-item strong{display:block;color:#240a42;margin-bottom:5px}
-.ud-list-item span{font-size:13px;color:#8b7aaa}
-.ud-empty{padding:16px;border-radius:16px;background:#faf7ff;color:#9b8db6;text-align:center}
-@media (max-width: 1100px){.ud-layout{grid-template-columns:1fr}.ud-sidebar{position:static}}
-@media (max-width: 980px){.ud-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ud-grid{grid-template-columns:1fr}.ud-hero{flex-direction:column}.ud-profile-grid{grid-template-columns:1fr}}
-@media (max-width: 640px){.ud-shell{padding:24px 16px 34px}.ud-hero{padding:22px}.ud-hero h1{font-size:32px}.ud-stats,.ud-submissions-summary{grid-template-columns:1fr}.ud-form-row,.ud-pinned-modal-body,.ud-submissions-modal-body{grid-template-columns:1fr}.ud-photo-block{align-items:flex-start;flex-direction:column}.ud-modal{padding:12px}.ud-modal-head,.ud-submit-form,.ud-pinned-modal-body,.ud-submissions-modal-body,.ud-submissions-summary{padding-left:18px;padding-right:18px}}
+.ud-sidebar-avatar-img,
+.ud-sidebar-avatar-initial {
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+}
+.ud-sidebar-avatar-img {
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,.9);
+    box-shadow: 0 10px 22px rgba(22,6,50,.3);
+}
+.ud-sidebar-avatar-initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: #fff;
+    font-size: 32px;
+    font-weight: 800;
+    border: 3px solid rgba(255,255,255,.9);
+    box-shadow: 0 10px 22px rgba(22,6,50,.3);
+}
+.ud-sidebar-kicker {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.14);
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    color: rgba(255,255,255,.9);
+}
+.ud-sidebar-card h2 { margin: 0 0 6px; font-size: 22px; line-height: 1.15; font-weight: 800; color: #fff; }
+.ud-sidebar-card p { margin: 0 0 14px; color: rgba(255,255,255,.8); font-size: 13px; line-height: 1.5; }
+.ud-sidebar-pills { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+/* SIDEBAR NAV */
+.ud-side-nav { display: grid; gap: 10px; }
+.ud-side-nav > .ud-side-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    padding: 13px 18px;
+    border-radius: 16px;
+    background: #fff;
+    border: 1px solid #efe7fb;
+    box-shadow: 0 6px 18px rgba(59,15,122,.04);
+    text-decoration: none;
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.4;
+    font-weight: 700;
+    color: #36125f !important;
+    cursor: pointer;
+    transition: all .18s ease;
+}
+.ud-side-nav > .ud-side-link svg {
+    flex-shrink: 0;
+    color: #7c3aed;
+    transition: transform .18s ease;
+}
+.ud-side-nav > .ud-side-link:hover {
+    background: #f7f1ff;
+    border-color: #d8c4fa;
+    color: #5b21b6 !important;
+    transform: translateX(3px);
+}
+.ud-side-nav > .ud-side-link.is-active {
+    background: #f3e8ff;
+    border-color: #c4b5fd;
+    color: #4c1d95 !important;
+    box-shadow: 0 8px 20px rgba(109,40,217,.12);
+}
+.ud-side-badge {
+    margin-left: auto;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+/* MAIN BODY */
+.ud-main { min-width: 0; }
+.ud-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+    padding: 32px 36px;
+    border-radius: 26px;
+    background: linear-gradient(135deg, #2a0d4f 0%, #5c2093 60%, #7c3aed 100%);
+    color: #fff;
+    box-shadow: 0 24px 48px rgba(59,15,122,.18);
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+.ud-hero::after {
+    content: '';
+    position: absolute;
+    right: -40px;
+    bottom: -40px;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(255,255,255,.14), transparent 70%);
+    pointer-events: none;
+}
+.ud-kicker {
+    display: inline-flex;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.14);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    color: #f3e8ff;
+}
+.ud-hero h1 { margin: 0 0 10px; font-size: 36px; line-height: 1.05; letter-spacing: -.03em; font-weight: 800; color: #fff; }
+.ud-hero p { margin: 0; max-width: 600px; color: rgba(255,255,255,.84); line-height: 1.6; font-size: 14.5px; }
+.ud-status-stack { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; position: relative; z-index: 1; }
+.ud-pill { display: inline-flex; padding: 7px 14px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: 12px; font-weight: 700; color: #fff; }
+.ud-pill.is-approved { background: #dcfce7; color: #166534; }
+
+/* STAT CARDS */
+.ud-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-bottom: 24px; }
+.ud-stat-card {
+    padding: 24px 26px;
+    border-radius: 22px;
+    background: #fff;
+    border: 1.5px solid #efe7fb;
+    box-shadow: 0 10px 26px rgba(59,15,122,.05);
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+    transition: all .2s ease;
+    position: relative;
+    overflow: hidden;
+}
+.ud-stat-card--clickable {
+    cursor: pointer;
+    user-select: none;
+}
+.ud-stat-card--clickable:hover {
+    transform: translateY(-3px);
+    border-color: #c4b5fd;
+    box-shadow: 0 16px 36px rgba(109,40,217,.14);
+}
+.ud-stat-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.ud-stat-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #8c7aa8;
+}
+.ud-stat-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: #f5effe;
+    color: #7c3aed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .2s ease;
+}
+.ud-stat-card--clickable:hover .ud-stat-icon-wrap {
+    background: #7c3aed;
+    color: #fff;
+    transform: scale(1.08);
+}
+.ud-stat-card strong {
+    display: block;
+    font-size: 38px;
+    line-height: 1;
+    color: #240a42;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    margin-bottom: 12px;
+}
+.ud-stat-action-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid #f6f1fd;
+}
+.ud-stat-action-row small { color: #85779d; font-size: 13px; font-weight: 500; }
+.ud-stat-arrow { font-size: 12.5px; font-weight: 800; color: #7c3aed; }
+
+/* CARD & GRID */
+.ud-card {
+    background: #fff;
+    border: 1px solid #efe7fb;
+    border-radius: 24px;
+    box-shadow: 0 12px 30px rgba(59,15,122,.05);
+    overflow: hidden;
+}
+.ud-card-head { padding: 24px 28px 18px; border-bottom: 1px solid #f2ecfb; }
+.ud-card-head--split { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ud-card-head h2 { margin: 0 0 6px; font-size: 22px; color: #23093f; font-weight: 800; }
+.ud-card-head p { margin: 0; color: #8c7ba8; font-size: 13.5px; }
+.ud-mini-kicker {
+    display: inline-flex;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f2eaff;
+    color: #6d28d9;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+}
+
+/* SAVED RESEARCHES GRID */
+.ud-saved-grid {
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+.ud-pinned-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 20px;
+    border-radius: 20px;
+    background: #fdfbff;
+    border: 1px solid #efe7fb;
+    box-shadow: 0 8px 22px rgba(59,15,122,.04);
+    transition: all .2s ease;
+}
+.ud-pinned-card:hover {
+    border-color: #d4bbf9;
+    box-shadow: 0 12px 28px rgba(109,40,217,.08);
+    transform: translateY(-2px);
+}
+.ud-pinned-badge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.ud-pinned-type {
+    align-self: flex-start;
+    padding: 5px 11px;
+    border-radius: 999px;
+    background: #f2eaff;
+    color: #6d28d9;
+    font-size: 11px;
+    font-weight: 800;
+}
+.ud-pinned-year {
+    font-size: 12px;
+    font-weight: 700;
+    color: #8c7aa8;
+}
+.ud-pinned-card h3 { margin: 0; font-size: 17px; line-height: 1.35; font-weight: 700; }
+.ud-pinned-card h3 a { color: #23093f; text-decoration: none; transition: color .15s; }
+.ud-pinned-card h3 a:hover { color: #6d28d9; }
+.ud-pinned-card p { margin: 0; color: #6e5e85; font-size: 13px; line-height: 1.6; }
+.ud-pinned-meta { display: flex; flex-wrap: wrap; gap: 12px; color: #8b7aaa; font-size: 12.5px; }
+.ud-pinned-meta strong { color: #431f6d; }
+.ud-pinned-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid #efe7fb;
+    color: #9b8db6;
+    font-size: 12.5px;
+}
+.ud-btn-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: #3b0f7a;
+    color: #fff;
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 800;
+    transition: all .18s ease;
+}
+.ud-btn-view:hover {
+    background: #250754;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(59,15,122,.3);
+}
+
+/* EMPTY STATE */
+.ud-pinned-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    padding: 48px 24px;
+    border-radius: 20px;
+    background: #faf7ff;
+    border: 1.5px dashed #d8c7f3;
+    color: #6b5b87;
+}
+.ud-pinned-empty-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #ede4fc;
+    color: #7c3aed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+}
+.ud-pinned-empty strong { font-size: 19px; color: #240a42; }
+.ud-pinned-empty p { margin: 0; max-width: 440px; line-height: 1.6; font-size: 13.5px; }
+
+/* BUTTONS */
+.ud-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 22px;
+    border: none;
+    border-radius: 14px;
+    background: #3b0f7a;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    text-decoration: none;
+    box-shadow: 0 10px 22px rgba(59,15,122,.24);
+    transition: all .18s;
+}
+.ud-btn-primary:hover {
+    background: #250754;
+    transform: translateY(-1px);
+}
+.ud-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    justify-content: center;
+    padding: 10px 18px;
+    border-radius: 14px;
+    border: 1px solid #dac9f4;
+    background: #fff;
+    color: #5b21b6;
+    font-weight: 700;
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all .18s;
+}
+.ud-btn-secondary:hover {
+    background: #f7f1ff;
+    border-color: #c4b5fd;
+}
+
+/* MODAL */
+.ud-modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; z-index: 1200; }
+.ud-modal.is-visible { display: flex; }
+.ud-modal-backdrop { position: absolute; inset: 0; background: rgba(21,8,43,.55); backdrop-filter: blur(4px); }
+.ud-modal-dialog { position: relative; width: min(760px, 100%); max-height: calc(100vh - 48px); overflow: auto; border-radius: 28px; background: #fff; box-shadow: 0 24px 60px rgba(22,6,50,.28); display: flex; flex-direction: column; }
+.ud-modal-dialog--wide { width: min(940px, 100%); }
+.ud-modal-head { display: flex; justify-content: space-between; gap: 16px; padding: 26px 28px 18px; border-bottom: 1px solid #f0eaf9; }
+.ud-modal-head h2 { margin: 0 0 6px; color: #23093f; font-size: 26px; font-weight: 800; }
+.ud-modal-head p { margin: 0; color: #8c7ba8; font-size: 13.5px; }
+.ud-modal-close { width: 42px; height: 42px; border: none; border-radius: 12px; background: #f6f1ff; color: #5b21b6; font-size: 26px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+.ud-modal-close:hover { background: #eddffa; color: #3b0f7a; }
+.ud-pinned-modal-body { padding: 24px 28px 28px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; overflow-y: auto; }
+
+/* FILTER TOOLBAR */
+.ud-filter-toolbar {
+    padding: 14px 28px;
+    background: #fbf9fe;
+    border-bottom: 1px solid #f0eaf9;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.ud-search-box {
+    position: relative;
+    flex: 1 1 240px;
+    min-width: 200px;
+    display: flex;
+    align-items: center;
+}
+.ud-search-icon {
+    position: absolute;
+    left: 14px;
+    color: #8c7aa8;
+    pointer-events: none;
+}
+.ud-filter-input {
+    width: 100%;
+    padding: 10px 36px 10px 38px;
+    border-radius: 12px;
+    border: 1.5px solid #e5d8f6;
+    background: #fff;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: #2b0d4e;
+    transition: all .18s;
+}
+.ud-filter-input:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+}
+.ud-filter-input::placeholder {
+    color: #a395ba;
+}
+.ud-search-clear {
+    position: absolute;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 50%;
+    background: #eee5f8;
+    color: #6d28d9;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.ud-search-clear:hover {
+    background: #e2d1f8;
+}
+.ud-filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.ud-filter-select {
+    padding: 9px 30px 9px 12px;
+    border-radius: 12px;
+    border: 1.5px solid #e5d8f6;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237c3aed' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center;
+    font-size: 13px;
+    font-family: inherit;
+    font-weight: 600;
+    color: #3b1464;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: all .18s;
+}
+.ud-filter-select:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124,58,237,.12);
+}
+.ud-btn-filter-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1.5px solid #e5d8f6;
+    background: #fff;
+    color: #6d28d9;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .18s;
+}
+.ud-btn-filter-reset:hover {
+    background: #f3e8ff;
+    border-color: #c4b5fd;
+    color: #4c1d95;
+}
+.ud-filter-status {
+    padding: 8px 28px 0;
+    color: #8c7aa8;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* PAGINATION */
+.ud-pagination-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 28px 20px;
+    border-top: 1px solid #f0eaf9;
+    background: #fff;
+    margin-top: auto;
+}
+.ud-pagination-info {
+    color: #8b7aa8;
+    font-size: 13px;
+    font-weight: 600;
+}
+.ud-pagination-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ud-pag-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 10px;
+    border: 1.5px solid #e5d8f6;
+    background: #fff;
+    color: #3b0f7a;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s ease;
+}
+.ud-pag-btn:hover:not(:disabled):not(.is-active) {
+    background: #f7f1ff;
+    border-color: #c4b5fd;
+    color: #5b21b6;
+    transform: translateY(-1px);
+}
+.ud-pag-btn.is-active {
+    background: #3b0f7a;
+    border-color: #3b0f7a;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(59,15,122,.24);
+}
+.ud-pag-btn:disabled,
+.ud-pag-btn.is-disabled {
+    opacity: .45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+.ud-pag-nav-btn {
+    padding: 0 12px;
+    font-weight: 700;
+}
+.ud-pag-ellipsis {
+    padding: 0 6px;
+    color: #8c7aa8;
+    font-weight: 700;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1100px) {
+    .ud-layout { grid-template-columns: 1fr; }
+    .ud-sidebar { position: static; }
+}
+@media (max-width: 900px) {
+    .ud-stats { grid-template-columns: 1fr; }
+    .ud-hero { flex-direction: column; }
+    .ud-saved-grid, .ud-pinned-modal-body { grid-template-columns: 1fr; }
+    .ud-filter-toolbar { flex-direction: column; align-items: stretch; }
+    .ud-filter-controls { width: 100%; }
+    .ud-filter-select { flex: 1 1 140px; }
+}
+@media (max-width: 640px) {
+    .ud-shell { padding: 20px 14px 34px; }
+    .ud-hero { padding: 22px 20px; }
+    .ud-hero h1 { font-size: 28px; }
+    .ud-saved-grid, .ud-pinned-modal-body { padding: 18px; }
+    .ud-card-head { padding: 20px 18px 14px; }
+    .ud-pagination-wrap { flex-direction: column; align-items: center; }
+}
 </style>
 
 @push('scripts')
 <script>
-const submitDeptData = {
-    'College of Accountancy and Business Education': {
-        courses: ['Accountancy', 'Business Administration-Marketing Mngt.', 'Hospitality Management', 'Tourism Management'],
-        types: ['Thesis', 'Feasibility Study', 'Descriptive Research', 'Correlational Research', 'Quantitative Research']
-    },
-    'College of Computer Studies': {
-        courses: ['Computer Science', 'Information Technology'],
-        types: ['Capstone 1', 'Capstone 2', 'Thesis', 'Applied Research']
-    },
-    'College of Criminal Justice Education': {
-        courses: ['Criminology'],
-        types: ['Thesis', 'Descriptive Research', 'Qualitative Research', 'Mixed Methods Research']
-    },
-    'College of Education': {
-        courses: ['Elementary Education', 'Secondary Education-General Science'],
-        types: ['Thesis', 'Action Research', 'Descriptive Research', 'Experimental Research']
-    },
-    'College of Engineering and Architecture': {
-        courses: ['Civil Engineering', 'Computer Engineering', 'Electrical Engineering', 'Electronics Engineering', 'Mechanical Engineering'],
-        types: ['Capstone 1', 'Capstone 2', 'Thesis', 'Applied Research', 'Experimental Research']
-    },
-    'College of Maritime Studies': {
-        courses: ['Marine Engineering', 'Transportation'],
-        types: ['Thesis', 'Applied Research', 'Descriptive Research', 'Quantitative Research']
-    }
-};
-const submitJournalTypes = @json($journalTypes);
-
 document.querySelectorAll('[data-dashboard-link]').forEach((link) => {
     link.addEventListener('click', () => {
         document.querySelectorAll('[data-dashboard-link]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-pinned]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-submissions]').forEach((item) => item.classList.remove('is-active'));
         link.classList.add('is-active');
     });
 });
 
-if (window.location.hash) {
-    const activeLink = document.querySelector(`[data-dashboard-link][href="${window.location.hash}"]`);
-    if (activeLink) {
-        document.querySelectorAll('[data-dashboard-link]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-pinned]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-submissions]').forEach((item) => item.classList.remove('is-active'));
-        activeLink.classList.add('is-active');
-    }
-}
-
-const submitResearchModal = document.getElementById('submitResearchModal');
 const pinnedPapersModal = document.getElementById('pinnedPapersModal');
-const mySubmissionsModal = document.getElementById('mySubmissionsModal');
 
 function syncDashboardModalOverflow() {
-    const hasOpenModal = submitResearchModal?.classList.contains('is-visible')
-        || pinnedPapersModal?.classList.contains('is-visible')
-        || mySubmissionsModal?.classList.contains('is-visible');
-
+    const hasOpenModal = pinnedPapersModal?.classList.contains('is-visible');
     document.body.style.overflow = hasOpenModal ? 'hidden' : '';
 }
 
-function toggleSubmitResearchModal(shouldOpen) {
-    if (!submitResearchModal) {
-        return;
-    }
-
-    submitResearchModal.classList.toggle('is-visible', shouldOpen);
-    submitResearchModal.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
-    syncDashboardModalOverflow();
-}
-
 function togglePinnedPapersModal(shouldOpen) {
-    if (!pinnedPapersModal) {
-        return;
-    }
-
+    if (!pinnedPapersModal) return;
     pinnedPapersModal.classList.toggle('is-visible', shouldOpen);
     pinnedPapersModal.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
     syncDashboardModalOverflow();
-}
 
-function toggleMySubmissionsModal(shouldOpen) {
-    if (!mySubmissionsModal) {
-        return;
+    if (shouldOpen && typeof window.applySavedResearchesFilterAndPaginate === 'function') {
+        window.applySavedResearchesFilterAndPaginate(1);
     }
-
-    mySubmissionsModal.classList.toggle('is-visible', shouldOpen);
-    mySubmissionsModal.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
-    syncDashboardModalOverflow();
 }
-
-document.querySelectorAll('[data-open-submit]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-        event.preventDefault();
-        document.querySelectorAll('[data-dashboard-link]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-pinned]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-submissions]').forEach((item) => item.classList.remove('is-active'));
-        button.classList.add('is-active');
-        toggleSubmitResearchModal(true);
-    });
-});
-
-document.querySelectorAll('[data-close-submit]').forEach((button) => {
-    button.addEventListener('click', () => toggleSubmitResearchModal(false));
-});
 
 document.querySelectorAll('[data-open-pinned]').forEach((button) => {
     button.addEventListener('click', (event) => {
         event.preventDefault();
-        document.querySelectorAll('[data-dashboard-link]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-submissions]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-pinned]').forEach((item) => item.classList.add('is-active'));
         togglePinnedPapersModal(true);
     });
 });
@@ -654,90 +940,207 @@ document.querySelectorAll('[data-close-pinned]').forEach((button) => {
     button.addEventListener('click', () => togglePinnedPapersModal(false));
 });
 
-document.querySelectorAll('[data-open-submissions]').forEach((button) => {
-    button.addEventListener('click', (event) => {
-        event.preventDefault();
-        document.querySelectorAll('[data-dashboard-link]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-pinned]').forEach((item) => item.classList.remove('is-active'));
-        document.querySelectorAll('[data-open-submissions]').forEach((item) => item.classList.add('is-active'));
-        toggleMySubmissionsModal(true);
-    });
-});
-
-document.querySelectorAll('[data-close-submissions]').forEach((button) => {
-    button.addEventListener('click', () => toggleMySubmissionsModal(false));
-});
-
 document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && submitResearchModal?.classList.contains('is-visible')) {
-        toggleSubmitResearchModal(false);
-    }
     if (event.key === 'Escape' && pinnedPapersModal?.classList.contains('is-visible')) {
         togglePinnedPapersModal(false);
     }
-    if (event.key === 'Escape' && mySubmissionsModal?.classList.contains('is-visible')) {
-        toggleMySubmissionsModal(false);
-    }
 });
 
-function populateSubmitOptions() {
-    const department = document.getElementById('submit_department')?.value;
-    const category = document.getElementById('submit_submission_category')?.value || 'journal';
-    const courseSelect = document.getElementById('submit_course');
-    const typeSelect = document.getElementById('submit_type');
-    const typeLabel = document.getElementById('submit_type_label');
+// ══ SAVED RESEARCHES FILTERING & PAGINATION ══
+(function initSavedResearchesPaginationAndFilter() {
+    const cards = Array.from(document.querySelectorAll('#savedItemsContainer [data-saved-card]'));
+    const totalCount = cards.length;
+    const PAGE_SIZE = 10;
+    let currentPage = 1;
+    let filteredCards = [];
 
-    if (!courseSelect || !typeSelect || !typeLabel) {
+    // If 10 or fewer records, all are shown directly and pagination is hidden
+    if (totalCount <= 10) {
+        cards.forEach((card) => { card.style.display = ''; });
+        const paginationWrap = document.getElementById('savedPaginationWrap');
+        if (paginationWrap) paginationWrap.style.display = 'none';
         return;
     }
 
-    const currentCourse = @json(old('course'));
-    const currentType = @json(old('type'));
+    const searchInput = document.getElementById('savedSearchInput');
+    const searchClear = document.getElementById('savedSearchClear');
+    const deptFilter = document.getElementById('savedDeptFilter');
+    const yearFilter = document.getElementById('savedYearFilter');
+    const resetBtn = document.getElementById('savedResetFilters');
+    const emptyResetBtn = document.getElementById('savedEmptyResetBtn');
+    const noResultsState = document.getElementById('savedNoResultsState');
+    const matchCountLabel = document.getElementById('savedMatchCount');
+    const paginationWrap = document.getElementById('savedPaginationWrap');
+    const paginationNav = document.getElementById('savedPaginationNav');
+    const paginationInfo = document.getElementById('savedPaginationInfo');
+    const modalBody = document.getElementById('savedItemsContainer');
 
-    courseSelect.innerHTML = '';
-    typeSelect.innerHTML = '';
-    typeLabel.textContent = category === 'journal' ? 'Journal Type' : 'Research Type';
+    function renderPaginationButtons(totalPages, activePage) {
+        if (!paginationNav) return;
+        paginationNav.innerHTML = '';
 
-    if (!department || !submitDeptData[department]) {
-        courseSelect.innerHTML = '<option value="">-- No Department Assigned --</option>';
-        typeSelect.innerHTML = '<option value="">-- No Department Assigned --</option>';
-        courseSelect.disabled = true;
-        typeSelect.disabled = true;
-        return;
+        // Previous button
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = `ud-pag-btn ud-pag-nav-btn ${activePage <= 1 ? 'is-disabled' : ''}`;
+        prevBtn.innerHTML = '‹ Prev';
+        prevBtn.disabled = activePage <= 1;
+        prevBtn.addEventListener('click', () => {
+            if (activePage > 1) {
+                applyFilterAndPaginate(activePage - 1);
+                modalBody?.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+        paginationNav.appendChild(prevBtn);
+
+        // Page number list
+        const pages = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (activePage > 3) pages.push('...');
+            const start = Math.max(2, activePage - 1);
+            const end = Math.min(totalPages - 1, activePage + 1);
+            for (let i = start; i <= end; i++) {
+                if (!pages.includes(i)) pages.push(i);
+            }
+            if (activePage < totalPages - 2) pages.push('...');
+            if (!pages.includes(totalPages)) pages.push(totalPages);
+        }
+
+        pages.forEach((p) => {
+            if (p === '...') {
+                const ellipsis = document.createElement('span');
+                ellipsis.className = 'ud-pag-ellipsis';
+                ellipsis.textContent = '…';
+                paginationNav.appendChild(ellipsis);
+            } else {
+                const pageBtn = document.createElement('button');
+                pageBtn.type = 'button';
+                pageBtn.className = `ud-pag-btn ${p === activePage ? 'is-active' : ''}`;
+                pageBtn.textContent = p;
+                pageBtn.addEventListener('click', () => {
+                    applyFilterAndPaginate(p);
+                    modalBody?.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+                paginationNav.appendChild(pageBtn);
+            }
+        });
+
+        // Next button
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = `ud-pag-btn ud-pag-nav-btn ${activePage >= totalPages ? 'is-disabled' : ''}`;
+        nextBtn.innerHTML = 'Next ›';
+        nextBtn.disabled = activePage >= totalPages;
+        nextBtn.addEventListener('click', () => {
+            if (activePage < totalPages) {
+                applyFilterAndPaginate(activePage + 1);
+                modalBody?.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        });
+        paginationNav.appendChild(nextBtn);
     }
 
-    courseSelect.innerHTML = '<option value="">-- Select Program --</option>';
-    typeSelect.innerHTML = '<option value="">-- Select Type --</option>';
+    function applyFilterAndPaginate(page = 1) {
+        currentPage = page;
+        const query = (searchInput?.value || '').trim().toLowerCase();
+        const selectedDept = (deptFilter?.value || '').trim().toLowerCase();
+        const selectedYear = (yearFilter?.value || '').trim();
 
-    submitDeptData[department].courses.forEach((course) => {
-        const option = document.createElement('option');
-        option.value = course;
-        option.textContent = course;
-        if (currentCourse === course) {
-            option.selected = true;
+        if (searchClear) {
+            searchClear.style.display = query.length > 0 ? 'flex' : 'none';
         }
-        courseSelect.appendChild(option);
-    });
 
-    const types = category === 'journal' ? submitJournalTypes : submitDeptData[department].types;
-    types.forEach((type) => {
-        const option = document.createElement('option');
-        option.value = type;
-        option.textContent = type;
-        if (currentType === type) {
-            option.selected = true;
+        // Filter cards matching criteria
+        filteredCards = cards.filter((card) => {
+            const title = card.getAttribute('data-title') || '';
+            const author = card.getAttribute('data-author') || '';
+            const dept = card.getAttribute('data-dept') || '';
+            const year = card.getAttribute('data-year') || '';
+            const keywords = card.getAttribute('data-keywords') || '';
+            const type = card.getAttribute('data-type') || '';
+
+            const matchesQuery = !query ||
+                title.includes(query) ||
+                author.includes(query) ||
+                dept.includes(query) ||
+                keywords.includes(query) ||
+                type.includes(query);
+
+            const matchesDept = !selectedDept || dept.includes(selectedDept);
+            const matchesYear = !selectedYear || year === selectedYear;
+
+            return matchesQuery && matchesDept && matchesYear;
+        });
+
+        const totalFiltered = filteredCards.length;
+        const totalPages = Math.ceil(totalFiltered / PAGE_SIZE);
+
+        if (currentPage > totalPages && totalPages > 0) {
+            currentPage = totalPages;
         }
-        typeSelect.appendChild(option);
-    });
 
-    courseSelect.disabled = false;
-    typeSelect.disabled = false;
-}
+        // Hide all cards first
+        cards.forEach((card) => { card.style.display = 'none'; });
 
-populateSubmitOptions();
-document.getElementById('submit_submission_category')?.addEventListener('change', populateSubmitOptions);
+        if (totalFiltered === 0) {
+            if (noResultsState) noResultsState.style.display = 'flex';
+            if (paginationWrap) paginationWrap.style.display = 'none';
+            if (matchCountLabel) matchCountLabel.textContent = 'No matching researches found';
+            return;
+        }
 
-syncDashboardModalOverflow();
+        if (noResultsState) noResultsState.style.display = 'none';
+
+        // Show page slice
+        const startIndex = (currentPage - 1) * PAGE_SIZE;
+        const endIndex = Math.min(startIndex + PAGE_SIZE, totalFiltered);
+
+        for (let i = startIndex; i < endIndex; i++) {
+            filteredCards[i].style.display = '';
+        }
+
+        const rangeSummary = `Showing ${startIndex + 1}–${endIndex} of ${totalFiltered} saved ${totalFiltered === 1 ? 'research' : 'researches'}`;
+        if (matchCountLabel) matchCountLabel.textContent = rangeSummary;
+        if (paginationInfo) paginationInfo.textContent = rangeSummary;
+
+        // Show pagination controls only if filtered items exceed PAGE_SIZE (10)
+        if (totalFiltered > PAGE_SIZE) {
+            if (paginationWrap) paginationWrap.style.display = 'flex';
+            renderPaginationButtons(totalPages, currentPage);
+        } else {
+            if (paginationWrap) paginationWrap.style.display = 'none';
+        }
+    }
+
+    function resetFilters() {
+        if (searchInput) searchInput.value = '';
+        if (deptFilter) deptFilter.value = '';
+        if (yearFilter) yearFilter.value = '';
+        applyFilterAndPaginate(1);
+    }
+
+    // Expose for external re-sync if needed
+    window.applySavedResearchesFilterAndPaginate = applyFilterAndPaginate;
+
+    if (searchInput) searchInput.addEventListener('input', () => applyFilterAndPaginate(1));
+    if (searchClear) {
+        searchClear.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            applyFilterAndPaginate(1);
+            searchInput?.focus();
+        });
+    }
+    if (deptFilter) deptFilter.addEventListener('change', () => applyFilterAndPaginate(1));
+    if (yearFilter) yearFilter.addEventListener('change', () => applyFilterAndPaginate(1));
+    if (resetBtn) resetBtn.addEventListener('click', resetFilters);
+    if (emptyResetBtn) emptyResetBtn.addEventListener('click', resetFilters);
+
+    // Initial setup
+    applyFilterAndPaginate(1);
+})();
 </script>
 @endpush
 @endsection

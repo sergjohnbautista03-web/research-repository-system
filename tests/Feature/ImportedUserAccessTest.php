@@ -8,6 +8,7 @@ use App\Models\SemesterEnrollment;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -104,8 +105,35 @@ class ImportedUserAccessTest extends TestCase
         });
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
+
     public function test_dean_imported_users_can_submit_and_view_full_research_files(): void
     {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => 'password',
+            'role' => 'admin',
+            'is_department_dean' => false,
+            'is_active' => true,
+            'is_approved' => true,
+        ]);
+
+        $schoolYear = $this->currentSchoolYear();
+        $semester = Semester::create([
+            'school_year' => $schoolYear,
+            'semester' => Semester::FIRST_SEMESTER,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addMonths(5)->toDateString(),
+            'is_active' => true,
+            'created_by' => $admin->id,
+        ]);
+
         $dean = User::create([
             'name' => 'CCS Dean',
             'email' => 'ccs-dean@example.com',
@@ -127,7 +155,8 @@ class ImportedUserAccessTest extends TestCase
 
         $response = $this->actingAs($dean)->post(route('admin.import-users'), [
             'semester' => Semester::FIRST_SEMESTER,
-            'school_year' => '2026-2027',
+            'school_year' => $schoolYear,
+            'start_date' => now()->toDateString(),
             'end_date' => now()->addMonths(5)->toDateString(),
             'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
         ]);
@@ -137,10 +166,6 @@ class ImportedUserAccessTest extends TestCase
 
         $student = User::query()->where('student_id', '12345678')->firstOrFail();
         $faculty = User::query()->where('student_id', 'FAC-001')->firstOrFail();
-        $semester = Semester::query()
-            ->where('school_year', '2026-2027')
-            ->where('semester', Semester::FIRST_SEMESTER)
-            ->firstOrFail();
 
         $this->assertSame('College of Computer Studies', $student->department);
         $this->assertSame($semester->id, $student->current_semester_id);
@@ -161,8 +186,48 @@ class ImportedUserAccessTest extends TestCase
         $this->assertTrue($faculty->canViewFullDocument());
     }
 
+    public function test_dean_import_fails_with_invalid_school_year(): void
+    {
+        $dean = User::create([
+            'name' => 'CCS Dean',
+            'email' => 'ccs-dean-no-sem@example.com',
+            'password' => 'password',
+            'role' => 'admin',
+            'department' => 'College of Computer Studies',
+            'is_department_dean' => true,
+            'is_active' => true,
+            'is_approved' => true,
+            'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+
+        $csv = implode("\n", [
+            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password',
+            'Ana,Santos,Dela Cruz,College of Computer Studies,student,12345678,,2,,',
+        ]);
+
+        $response = $this->actingAs($dean)->from(route('admin.users'))->post(route('admin.import-users'), [
+            'semester' => Semester::FIRST_SEMESTER,
+            'school_year' => 'invalid-year',
+            'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
+        ]);
+
+        $response->assertRedirect(route('admin.users'));
+        $response->assertSessionHasErrors(['school_year'], errorBag: 'importUsers');
+        $this->assertNull(User::query()->where('student_id', '12345678')->first());
+    }
+
     public function test_import_skips_existing_approved_users_and_imports_only_new_rows(): void
     {
+        $schoolYear = $this->currentSchoolYear();
+        $semester = Semester::create([
+            'school_year' => $schoolYear,
+            'semester' => Semester::FIRST_SEMESTER,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addMonths(5)->toDateString(),
+            'is_active' => true,
+        ]);
+
         $dean = User::create([
             'name' => 'CCS Dean',
             'email' => 'ccs-dean-duplicates@example.com',
@@ -199,8 +264,7 @@ class ImportedUserAccessTest extends TestCase
 
         $response = $this->actingAs($dean)->post(route('admin.import-users'), [
             'semester' => Semester::FIRST_SEMESTER,
-            'school_year' => '2026-2027',
-            'end_date' => now()->addMonths(5)->toDateString(),
+            'school_year' => $schoolYear,
             'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
         ]);
 
@@ -210,11 +274,6 @@ class ImportedUserAccessTest extends TestCase
             return collect($preview)->contains(fn ($row) => $row['login_id'] === '12345678' && $row['action'] === 'Updated');
         });
 
-        $semester = Semester::query()
-            ->where('school_year', '2026-2027')
-            ->where('semester', Semester::FIRST_SEMESTER)
-            ->firstOrFail();
-
         $this->assertSame(1, User::query()->where('student_id', '12345678')->count());
         $this->assertSame($existing->id, User::query()->where('student_id', '12345678')->value('id'));
         $this->assertDatabaseHas('semester_enrollments', [
@@ -223,14 +282,13 @@ class ImportedUserAccessTest extends TestCase
             'status' => SemesterEnrollment::STATUS_ACTIVE,
         ]);
         $this->assertSame(3, User::query()->whereIn('student_id', ['87654321', '87654322', '87654323'])->count());
-        $this->assertSame(5, User::query()->count());
     }
 
-    public function test_import_updates_only_the_matching_semester_record(): void
+    public function test_dean_cannot_add_research_directly(): void
     {
         $dean = User::create([
             'name' => 'CCS Dean',
-            'email' => 'ccs-dean-independent-semesters@example.com',
+            'email' => 'ccs-dean-add-research@example.com',
             'password' => 'password',
             'role' => 'admin',
             'department' => 'College of Computer Studies',
@@ -241,49 +299,15 @@ class ImportedUserAccessTest extends TestCase
             'policy_version' => config('repository_policy.version', '2026-04-29'),
         ]);
 
-        $secondSemesterEndDate = now()->addMonths(8)->toDateString();
-
-        $firstSemester = Semester::create([
-            'school_year' => '2026-2027',
-            'semester' => Semester::FIRST_SEMESTER,
-            'end_date' => now()->subDay()->toDateString(),
-            'is_active' => true,
-        ]);
-        $secondSemester = Semester::create([
-            'school_year' => '2026-2027',
-            'semester' => Semester::SECOND_SEMESTER,
-            'end_date' => $secondSemesterEndDate,
-            'is_active' => true,
-        ]);
-
-        $csv = implode("\n", [
-            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password',
-            'Ana,Santos,Dela Cruz,College of Computer Studies,student,87654324,,1,ana24@example.com,',
-        ]);
-
-        $newFirstSemesterEndDate = now()->addMonths(4)->toDateString();
-
-        $response = $this->actingAs($dean)->post(route('admin.import-users'), [
-            'semester' => Semester::FIRST_SEMESTER,
-            'school_year' => '2026-2027',
-            'end_date' => $newFirstSemesterEndDate,
-            'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
-        ]);
-
-        $response->assertRedirect(route('admin.users', ['imported' => 1]));
-        $response->assertSessionHas('success');
-
-        $this->assertTrue($firstSemester->refresh()->is_active);
-        $this->assertSame($newFirstSemesterEndDate, $firstSemester->end_date->toDateString());
-        $this->assertTrue($secondSemester->refresh()->is_active);
-        $this->assertSame($secondSemesterEndDate, $secondSemester->end_date->toDateString());
+        $this->actingAs($dean)->get(route('admin.add-research'))->assertForbidden();
+        $this->actingAs($dean)->post(route('admin.store-research'), [])->assertForbidden();
     }
 
-    public function test_dean_can_correct_an_existing_semester_without_creating_a_duplicate(): void
+    public function test_dean_cannot_approve_reject_archive_publish_or_delete_research(): void
     {
         $dean = User::create([
             'name' => 'CCS Dean',
-            'email' => 'ccs-dean-correct-semester@example.com',
+            'email' => 'ccs-dean-research-actions@example.com',
             'password' => 'password',
             'role' => 'admin',
             'department' => 'College of Computer Studies',
@@ -292,199 +316,64 @@ class ImportedUserAccessTest extends TestCase
             'is_approved' => true,
             'policy_accepted_at' => now(),
             'policy_version' => config('repository_policy.version', '2026-04-29'),
-        ]);
-
-        $semester = Semester::create([
-            'school_year' => '2026-2027',
-            'semester' => Semester::FIRST_SEMESTER,
-            'end_date' => now()->subDay()->toDateString(),
-            'is_active' => false,
-            'closed_at' => now()->subDay(),
-            'closed_by' => $dean->id,
-        ]);
-
-        $student = User::create([
-            'name' => 'Imported Student',
-            'email' => 'imported-student@example.com',
-            'password' => 'password',
-            'role' => 'user',
-            'department' => 'College of Computer Studies',
-            'current_semester_id' => $semester->id,
-            'student_id' => '87654325',
-            'is_active' => true,
-            'is_approved' => true,
-        ]);
-
-        SemesterEnrollment::create([
-            'user_id' => $student->id,
-            'semester_id' => $semester->id,
-            'status' => SemesterEnrollment::STATUS_ARCHIVED,
-            'enrolled_at' => now()->subMonth(),
-            'enrolled_by' => $dean->id,
-        ]);
-
-        $newEndDate = now()->addMonths(6)->toDateString();
-
-        $response = $this->actingAs($dean)->from(route('admin.semesters'))->patch(route('admin.semesters.update', $semester), [
-            'school_year' => '2027 / 2028',
-            'semester' => Semester::SECOND_SEMESTER,
-            'start_date' => now()->toDateString(),
-            'end_date' => $newEndDate,
-            'is_active' => '1',
-        ]);
-
-        $response->assertRedirect(route('admin.semesters'));
-        $response->assertSessionHas('success');
-
-        $semester->refresh();
-
-        $this->assertSame(1, Semester::query()->count());
-        $this->assertSame('2027-2028', $semester->school_year);
-        $this->assertSame(Semester::SECOND_SEMESTER, $semester->semester);
-        $this->assertSame(now()->toDateString(), $semester->start_date->toDateString());
-        $this->assertSame($newEndDate, $semester->end_date->toDateString());
-        $this->assertTrue($semester->is_active);
-        $this->assertNull($semester->closed_at);
-        $this->assertDatabaseHas('semester_enrollments', [
-            'user_id' => $student->id,
-            'semester_id' => $semester->id,
-            'status' => SemesterEnrollment::STATUS_ACTIVE,
-        ]);
-    }
-
-    public function test_semester_correction_rejects_duplicate_school_year_and_semester(): void
-    {
-        $dean = User::create([
-            'name' => 'CCS Dean',
-            'email' => 'ccs-dean-duplicate-semester@example.com',
-            'password' => 'password',
-            'role' => 'admin',
-            'department' => 'College of Computer Studies',
-            'is_department_dean' => true,
-            'is_active' => true,
-            'is_approved' => true,
-            'policy_accepted_at' => now(),
-            'policy_version' => config('repository_policy.version', '2026-04-29'),
-        ]);
-
-        $firstSemester = Semester::create([
-            'school_year' => '2026-2027',
-            'semester' => Semester::FIRST_SEMESTER,
-            'end_date' => now()->addMonths(4)->toDateString(),
-            'is_active' => true,
-        ]);
-
-        Semester::create([
-            'school_year' => '2027-2028',
-            'semester' => Semester::SECOND_SEMESTER,
-            'end_date' => now()->addMonths(8)->toDateString(),
-            'is_active' => true,
-        ]);
-
-        $response = $this->actingAs($dean)->patch(route('admin.semesters.update', $firstSemester), [
-            'school_year' => '2027-2028',
-            'semester' => Semester::SECOND_SEMESTER,
-            'start_date' => now()->toDateString(),
-            'end_date' => now()->addMonths(6)->toDateString(),
-            'is_active' => '1',
-        ]);
-
-        $response->assertSessionHasErrors(['school_year'], null, 'semesterUpdate');
-        $this->assertSame('2026-2027', $firstSemester->refresh()->school_year);
-        $this->assertSame(Semester::FIRST_SEMESTER, $firstSemester->semester);
-        $this->assertSame(2, Semester::query()->count());
-    }
-
-    public function test_dean_can_delete_a_semester_when_no_research_records_are_linked(): void
-    {
-        $dean = User::create([
-            'name' => 'CCS Dean',
-            'email' => 'ccs-dean-delete-semester@example.com',
-            'password' => 'password',
-            'role' => 'admin',
-            'department' => 'College of Computer Studies',
-            'is_department_dean' => true,
-            'is_active' => true,
-            'is_approved' => true,
-            'policy_accepted_at' => now(),
-            'policy_version' => config('repository_policy.version', '2026-04-29'),
-        ]);
-
-        $semester = Semester::create([
-            'school_year' => '2026-2027',
-            'semester' => Semester::FIRST_SEMESTER,
-            'end_date' => now()->addMonths(4)->toDateString(),
-            'is_active' => true,
-        ]);
-
-        $student = User::create([
-            'name' => 'Imported Student',
-            'email' => 'imported-delete@example.com',
-            'password' => 'password',
-            'role' => 'user',
-            'department' => 'College of Computer Studies',
-            'current_semester_id' => $semester->id,
-            'student_id' => '87654326',
-            'is_active' => true,
-            'is_approved' => true,
-        ]);
-
-        SemesterEnrollment::create([
-            'user_id' => $student->id,
-            'semester_id' => $semester->id,
-            'status' => SemesterEnrollment::STATUS_ACTIVE,
-            'enrolled_at' => now(),
-            'enrolled_by' => $dean->id,
-        ]);
-
-        $response = $this->actingAs($dean)->delete(route('admin.semesters.destroy', $semester));
-
-        $response->assertRedirect(route('admin.semesters'));
-        $response->assertSessionHas('success');
-        $this->assertDatabaseMissing('semesters', ['id' => $semester->id]);
-        $this->assertDatabaseMissing('semester_enrollments', ['semester_id' => $semester->id]);
-        $this->assertNull($student->refresh()->current_semester_id);
-    }
-
-    public function test_semester_delete_is_blocked_when_research_records_are_linked(): void
-    {
-        $dean = User::create([
-            'name' => 'CCS Dean',
-            'email' => 'ccs-dean-block-delete-semester@example.com',
-            'password' => 'password',
-            'role' => 'admin',
-            'department' => 'College of Computer Studies',
-            'is_department_dean' => true,
-            'is_active' => true,
-            'is_approved' => true,
-            'policy_accepted_at' => now(),
-            'policy_version' => config('repository_policy.version', '2026-04-29'),
-        ]);
-
-        $semester = Semester::create([
-            'school_year' => '2026-2027',
-            'semester' => Semester::FIRST_SEMESTER,
-            'end_date' => now()->addMonths(4)->toDateString(),
-            'is_active' => true,
         ]);
 
         $research = Research::create([
-            'title' => 'Linked Research',
-            'abstract' => 'A linked research record.',
-            'author_name' => 'Research Author',
-            'semester_id' => $semester->id,
+            'title' => 'Sample Research',
+            'abstract' => 'Sample abstract.',
+            'author_name' => 'John Doe',
             'department' => 'College of Computer Studies',
             'type' => 'Thesis',
             'year_published' => 2026,
-            'status' => 'approved',
+            'status' => 'pending',
         ]);
 
-        $response = $this->actingAs($dean)->delete(route('admin.semesters.destroy', $semester));
+        $this->actingAs($dean)->post(route('admin.research.approve', $research))->assertForbidden();
+        $this->actingAs($dean)->post(route('admin.research.reject', $research), ['reason' => 'Testing'])->assertForbidden();
+        $this->actingAs($dean)->post(route('admin.research.archive', $research))->assertForbidden();
+        $this->actingAs($dean)->post(route('admin.research.publish', $research))->assertForbidden();
+        $this->actingAs($dean)->delete(route('admin.research.delete', $research))->assertForbidden();
+    }
 
-        $response->assertRedirect();
-        $response->assertSessionHas('error');
-        $this->assertDatabaseHas('semesters', ['id' => $semester->id]);
-        $this->assertDatabaseHas('researches', ['id' => $research->id, 'semester_id' => $semester->id]);
+    public function test_dean_cannot_create_update_archive_or_delete_semesters(): void
+    {
+        $dean = User::create([
+            'name' => 'CCS Dean',
+            'email' => 'ccs-dean-semester-block@example.com',
+            'password' => 'password',
+            'role' => 'admin',
+            'department' => 'College of Computer Studies',
+            'is_department_dean' => true,
+            'is_active' => true,
+            'is_approved' => true,
+            'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+
+        $semester = Semester::create([
+            'school_year' => '2026-2027',
+            'semester' => Semester::FIRST_SEMESTER,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addMonths(5)->toDateString(),
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($dean)->post(route('admin.semesters.store'), [
+            'school_year' => '2027-2028',
+            'semester' => Semester::FIRST_SEMESTER,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addMonths(5)->toDateString(),
+        ])->assertForbidden();
+
+        $this->actingAs($dean)->patch(route('admin.semesters.update', $semester), [
+            'school_year' => '2026-2027',
+            'semester' => Semester::FIRST_SEMESTER,
+            'start_date' => now()->toDateString(),
+            'end_date' => now()->addMonths(6)->toDateString(),
+        ])->assertForbidden();
+
+        $this->actingAs($dean)->post(route('admin.semesters.archive', $semester))->assertForbidden();
+        $this->actingAs($dean)->delete(route('admin.semesters.destroy', $semester))->assertForbidden();
     }
 
     public function test_global_admin_cannot_import_users(): void
@@ -506,9 +395,6 @@ class ImportedUserAccessTest extends TestCase
         ]);
 
         $response = $this->actingAs($admin)->post(route('admin.import-users'), [
-            'semester' => Semester::FIRST_SEMESTER,
-            'school_year' => '2026-2027',
-            'end_date' => now()->addMonths(5)->toDateString(),
             'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
         ]);
 
@@ -546,5 +432,12 @@ class ImportedUserAccessTest extends TestCase
             $this->actingAs($actor)->get(route('admin.create-user'))->assertForbidden();
             $this->actingAs($actor)->post(route('admin.store-user'), [])->assertForbidden();
         }
+    }
+
+    private function currentSchoolYear(): string
+    {
+        $startYear = now()->month >= 6 ? now()->year : now()->year - 1;
+
+        return sprintf('%04d-%04d', $startYear, $startYear + 1);
     }
 }

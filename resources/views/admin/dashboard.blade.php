@@ -38,17 +38,6 @@
             'action_label' => 'Open Citation Reports',
             'action_url' => route('admin.reports'),
         ],
-        [
-            'key' => 'researchers',
-            'label' => 'Total Researchers',
-            'value' => $analyticsSummary['total_researchers'],
-            'note' => 'Researcher accounts',
-            'class' => 'is-researcher',
-            'icon' => 'researcher',
-            'description' => 'Manage faculty and student researcher accounts that can submit and maintain scholarly work in the repository.',
-            'action_label' => 'Manage Researchers',
-            'action_url' => route('admin.users', ['role' => 'researcher']),
-        ],
     ];
 
     $summaryCardDetails = collect($summaryCards)->mapWithKeys(fn ($card) => [
@@ -296,7 +285,7 @@
 .ra-print-btn svg,.ra-link-btn svg{width:16px;height:16px}
 .ra-link-btn{height:34px;padding:0 13px}
 .ra-link-btn:hover{background:#f5f1fb;border-color:#bda6df;color:#3b0f63}
-.ra-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.ra-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px}
 .ra-summary-card{appearance:none;width:100%;position:relative;min-height:142px;display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px;border-radius:16px;background:#fff;border:1px solid rgba(109,40,217,.1);box-shadow:0 10px 26px rgba(46,16,101,.07);overflow:hidden;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,background .18s ease}
 .ra-summary-card::before{content:"";position:absolute;inset:0 0 auto;height:4px;background:var(--accent,#6d28d9)}
 .ra-summary-card:hover,.ra-summary-card:focus-visible{transform:translateY(-4px);border-color:color-mix(in srgb,var(--accent,#6d28d9) 34%,#fff);box-shadow:0 18px 40px rgba(46,16,101,.12)}
@@ -384,7 +373,8 @@
 .ra-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 @keyframes ra-modal-fade{from{opacity:0}to{opacity:1}}
 @keyframes ra-modal-rise{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-@media (max-width:1200px){.ra-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-dashboard-grid{grid-template-columns:1fr}.ra-side-panel{order:2}.ra-wide-panel{order:3}.ra-chart-wrap{min-height:360px}.ra-year-groups{overflow-x:auto}}
+@media (max-width:1200px){.ra-dashboard-grid{grid-template-columns:1fr}.ra-side-panel{order:2}.ra-wide-panel{order:3}.ra-chart-wrap{min-height:360px}.ra-year-groups{overflow-x:auto}}
+@media (max-width:960px){.ra-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:760px){.ra-toolbar{align-items:stretch;flex-direction:column}.ra-print-btn{width:100%}.ra-summary-grid{grid-template-columns:1fr}.ra-chart-wrap{grid-template-columns:18px 44px minmax(0,1fr);padding:18px 14px 6px;min-height:330px}.ra-year-groups{grid-template-columns:repeat({{ max(1, $analyticsChartData->count()) }},minmax(76px,1fr));gap:8px;padding:0 8px}.ra-bar{width:10px}.ra-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-modal{padding:10px}.ra-modal-header,.ra-modal-body,.ra-summary-modal-body{padding:18px}.ra-modal-header h3{font-size:19px}.ra-summary-modal-actions{flex-direction:column}.ra-modal-primary-btn,.ra-modal-secondary-btn{width:100%}}
 @media (max-width:520px){.ra-summary-card{min-height:112px}.ra-summary-copy strong{font-size:30px}.ra-panel-header{align-items:flex-start;flex-direction:column}.ra-detail-metrics{grid-template-columns:1fr}.ra-legend-row{grid-template-columns:14px 42px minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.ra-summary-card,.ra-summary-action svg,.ra-bar,.ra-print-btn,.ra-link-btn,.ra-modal-primary-btn,.ra-modal-secondary-btn{transition:none}.ra-modal.is-open,.ra-modal.is-open .ra-modal-dialog{animation:none}}
@@ -652,7 +642,6 @@ function printAnalyticsReport() {
         ['Total Research Papers', analyticsSummary.total_research_papers],
         ['Total Views', analyticsSummary.total_views],
         ['Total Copy Citations', analyticsSummary.total_copy_citations],
-        ['Total Researchers', analyticsSummary.total_researchers],
     ].map(row => `<tr><td>${escapeHtml(row[0])}</td><td>${formatNumber(row[1])}</td></tr>`).join('');
 
     const analyticsRows = flattenAnalyticsRows().map(row => `

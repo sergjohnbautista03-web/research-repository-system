@@ -59,6 +59,26 @@
         </div>
     @endif
 
+    @if(!empty($departmentBreakdown))
+        <section class="sd-card" style="padding: 20px 24px;">
+            <div class="sd-card-head" style="padding:0 0 16px; border-bottom: 1px solid #f0e9fb;">
+                <div>
+                    <span>Departments</span>
+                    <h3 style="margin:2px 0 0; color:#2f144f;">Imported Users by Department</h3>
+                </div>
+                <span class="sd-count-pill">{{ count($departmentBreakdown) }} Department{{ count($departmentBreakdown) === 1 ? '' : 's' }}</span>
+            </div>
+            <div class="sd-dept-grid">
+                @foreach($departmentBreakdown as $deptName => $count)
+                    <div class="sd-dept-card">
+                        <span>{{ $deptName }}</span>
+                        <strong>{{ number_format($count) }} user{{ $count === 1 ? '' : 's' }}</strong>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
     <section class="sd-card">
         <div class="sd-card-head">
             <div>
@@ -200,6 +220,11 @@
 .sd-main-link:hover{text-decoration:underline}
 .sd-empty{padding:34px 16px!important;text-align:center;color:#837596}
 .sd-pagination{padding:16px 20px;border-top:1px solid #f0e9fb}
+.sd-count-pill{padding:5px 12px;background:#f3ecff;color:#6a35a1;border:1px solid #dfcff8;border-radius:999px;font-size:12px;font-weight:800}
+.sd-dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px}
+.sd-dept-card{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;background:#faf8fe;border:1.5px solid #ebdff8;border-radius:14px}
+.sd-dept-card span{color:#5a2b8e;font-size:13px;font-weight:700}
+.sd-dept-card strong{color:#2a0f4e;font-size:16px;font-weight:900}
 @media (max-width: 980px){.sd-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sd-hero{flex-direction:column}.sd-hero-actions{width:100%}}
 @media (max-width: 720px){.sd-stat-grid{grid-template-columns:1fr}.sd-card-head{flex-direction:column}.sd-table th{display:none}.sd-table,.sd-table tbody,.sd-table tr,.sd-table td{display:block;width:100%}.sd-table tr{border-top:1px solid #f0e9fb}.sd-table td{display:flex;justify-content:space-between;gap:16px;border-top:0;padding:11px 16px}.sd-table td::before{content:attr(data-label);color:#86789a;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.sd-table td[data-label="Name"],.sd-table td[data-label="Title"]{display:block}.sd-table td[data-label="Name"]::before,.sd-table td[data-label="Title"]::before{display:block;margin-bottom:6px}}
 </style>
