@@ -1,15 +1,19 @@
 @extends('layouts.admin')
-@section('title', 'Create Dean Account')
-@section('page-title', 'Create Dean Account')
+@section('title', 'Create Department Account')
+@section('page-title', 'Create Department Account')
 
 @section('content')
+@php
+    $selectedAccountType = old('account_type', 'dean');
+    $passwordSuffix = $selectedAccountType === 'coordinator' ? 'Coordinator' : 'Dean';
+@endphp
 <div class="dean-shell">
     <section class="dean-form-card">
             <div class="dean-form-header">
-                <div class="dean-form-icon">D</div>
+                <div class="dean-form-icon" id="accountTypeIcon">{{ $selectedAccountType === 'coordinator' ? 'C' : 'D' }}</div>
                 <div>
-                    <h3>New Department Dean</h3>
-                    <p>Enter the dean's profile and assigned department.</p>
+                    <h3 id="accountTypeTitle">New {{ $selectedAccountType === 'coordinator' ? 'Research Coordinator' : 'Department Dean' }}</h3>
+                    <p id="accountTypeSubtitle">Enter the account profile and assigned department.</p>
                 </div>
                 <a href="{{ route('admin.users') }}" class="dean-back-btn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -38,7 +42,15 @@
             <form method="POST" action="{{ route('admin.store-admin') }}" class="dean-form">
                 @csrf
 
-                <div class="dean-section-label"><span>1</span> Department Assignment</div>
+                <div class="dean-section-label"><span>1</span> Account Assignment</div>
+                <div class="dean-field">
+                    <label for="account_type">Account Type <span>*</span></label>
+                    <select id="account_type" name="account_type" required>
+                        <option value="dean" {{ $selectedAccountType === 'dean' ? 'selected' : '' }}>Department Dean</option>
+                        <option value="coordinator" {{ $selectedAccountType === 'coordinator' ? 'selected' : '' }}>Research Coordinator</option>
+                    </select>
+                </div>
+
                 <div class="dean-field">
                     <label for="department">Assigned Department <span>*</span></label>
                     <select id="department" name="department" required>
@@ -80,9 +92,9 @@
                     </div>
 
                     <div class="dean-field">
-                        <label for="dean_id">Dean ID <span>*</span></label>
+                        <label for="dean_id" id="accountIdLabel">Dean ID <span>*</span></label>
                         <input type="text" id="dean_id" name="dean_id" value="{{ old('dean_id') }}"
-                            placeholder="e.g. DEAN-2026-001" required autocomplete="off"
+                            placeholder="{{ $selectedAccountType === 'coordinator' ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001' }}" required autocomplete="off"
                             oninput="validateDeanId(this)"
                             style="{{ $errors->has('dean_id') ? 'border-color:#ef4444;' : '' }}">
                         @error('dean_id')<small class="dean-field-error">{{ $message }}</small>@enderror
@@ -100,7 +112,7 @@
                         </div>
                         <div class="dean-generated-item">
                             <span>Default Password</span>
-                            <input type="text" id="dean_generated_password" value="{{ old('dean_id') ? old('dean_id') . '_Dean@1' : '' }}" readonly>
+                            <input type="text" id="dean_generated_password" value="{{ old('dean_id') ? old('dean_id') . '_' . $passwordSuffix . '@1' : '' }}" readonly>
                         </div>
                     </div>
                 </div>
@@ -113,7 +125,7 @@
                             <line x1="12" y1="16" x2="12.01" y2="16"/>
                         </svg>
                     </div>
-                    <p>This account will be created as a <strong>Department Dean</strong> with access limited to the selected department.</p>
+                    <p id="accountTypeNotice">This account will be created as a <strong>{{ $selectedAccountType === 'coordinator' ? 'Research Coordinator' : 'Department Dean' }}</strong> with access limited to the selected department.</p>
                 </div>
 
                 <div class="dean-actions">
@@ -123,7 +135,7 @@
                             <path d="M22 10v6M2 10l10-5 10 5-10 5-10-5z"/>
                             <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>
                         </svg>
-                        Create Dean Account
+                        <span id="submitAccountLabel">Create {{ $selectedAccountType === 'coordinator' ? 'Coordinator' : 'Dean' }} Account</span>
                     </button>
                 </div>
             </form>
@@ -505,26 +517,62 @@ function validateDeanId(input) {
 
     if (!input.value.length) { clearDeanFieldError(input); return; }
     if (!/^[A-Za-z0-9\-]+$/.test(input.value)) {
-        setDeanFieldError(input, 'Dean ID may only contain letters, numbers, and hyphens.');
+        setDeanFieldError(input, 'Account ID may only contain letters, numbers, and hyphens.');
     } else {
         clearDeanFieldError(input);
         input.style.borderColor = '#10b981';
     }
 }
 
+function selectedAccountMeta() {
+    const accountType = document.getElementById('account_type');
+    const isCoordinator = accountType && accountType.value === 'coordinator';
+
+    return {
+        isCoordinator,
+        label: isCoordinator ? 'Research Coordinator' : 'Department Dean',
+        shortLabel: isCoordinator ? 'Coordinator' : 'Dean',
+        icon: isCoordinator ? 'C' : 'D',
+        placeholder: isCoordinator ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001',
+    };
+}
+
+function syncAccountTypeText() {
+    const meta = selectedAccountMeta();
+    const icon = document.getElementById('accountTypeIcon');
+    const title = document.getElementById('accountTypeTitle');
+    const idLabel = document.getElementById('accountIdLabel');
+    const idInput = document.getElementById('dean_id');
+    const notice = document.getElementById('accountTypeNotice');
+    const submitLabel = document.getElementById('submitAccountLabel');
+
+    if (icon) icon.textContent = meta.icon;
+    if (title) title.textContent = 'New ' + meta.label;
+    if (idLabel) idLabel.innerHTML = meta.shortLabel + ' ID <span>*</span>';
+    if (idInput) idInput.placeholder = meta.placeholder;
+    if (notice) notice.innerHTML = 'This account will be created as a <strong>' + meta.label + '</strong> with access limited to the selected department.';
+    if (submitLabel) submitLabel.textContent = 'Create ' + meta.shortLabel + ' Account';
+
+    updateDeanGeneratedAccess(idInput ? idInput.value : '');
+}
+
 function updateDeanGeneratedAccess(deanId) {
     const login = document.getElementById('dean_generated_login');
     const password = document.getElementById('dean_generated_password');
+    const meta = selectedAccountMeta();
     const cleanDeanId = deanId.trim();
 
     if (!login || !password) return;
 
     login.value = cleanDeanId;
-    password.value = cleanDeanId ? cleanDeanId + '_Dean@1' : '';
+    password.value = cleanDeanId ? cleanDeanId + '_' + meta.shortLabel + '@1' : '';
 }
 
 document.addEventListener('DOMContentLoaded', function () {
     const deanId = document.getElementById('dean_id');
+    const accountType = document.getElementById('account_type');
+    if (accountType) accountType.addEventListener('change', syncAccountTypeText);
+    syncAccountTypeText();
     if (deanId) updateDeanGeneratedAccess(deanId.value);
 });
 

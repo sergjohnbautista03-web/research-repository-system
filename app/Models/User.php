@@ -16,7 +16,7 @@ class User extends Authenticatable implements CanResetPassword
         'name', 'middle_name', 'verification_documents', 'research_documents', 'email', 'password', 'role',
         'department', 'current_semester_id', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
         'is_active', 'is_approved', 'student_approved_by', 'student_approved_at', 'researcher_approved_by', 'researcher_approved_at',
-        'is_department_dean', 'last_seen_at', 'capture_logs_seen_log_id',
+        'is_department_dean', 'is_research_coordinator', 'last_seen_at', 'capture_logs_seen_log_id',
         'policy_accepted_at', 'policy_version', 'policy_accepted_ip', 'policy_accepted_user_agent',
         'year_level', 'course_duration', 'graduation_year', 'researcher_end_date',
         'researcher_rejection_reason', 'researcher_rejected_at', 'researcher_applied_at',
@@ -34,6 +34,7 @@ class User extends Authenticatable implements CanResetPassword
         'student_approved_at' => 'datetime',
         'researcher_approved_at' => 'datetime',
         'is_department_dean'=> 'boolean',
+        'is_research_coordinator' => 'boolean',
         'current_semester_id' => 'integer',
         'current_academic_semester_id' => 'integer',
         'last_seen_at'      => 'datetime',
@@ -101,6 +102,16 @@ class User extends Authenticatable implements CanResetPassword
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function submittedResearchHandoffs()
+    {
+        return $this->hasMany(ResearchHandoff::class, 'dean_id');
+    }
+
+    public function assignedResearchHandoffs()
+    {
+        return $this->hasMany(ResearchHandoff::class, 'coordinator_id');
+    }
+
     // ── Role Checks ──────────────────────────────────────────────────────────
 
     public function isAdmin(): bool
@@ -113,6 +124,16 @@ class User extends Authenticatable implements CanResetPassword
         return $this->isAdmin() && $this->is_department_dean === true;
     }
 
+    public function isResearchCoordinator(): bool
+    {
+        return $this->isAdmin() && $this->is_research_coordinator === true;
+    }
+
+    public function isDepartmentScopedAdmin(): bool
+    {
+        return $this->isDepartmentDean() || $this->isResearchCoordinator();
+    }
+
     public function isResearcher(): bool
     {
         return $this->role === 'researcher';
@@ -120,7 +141,26 @@ class User extends Authenticatable implements CanResetPassword
 
     public function isGlobalAdmin(): bool
     {
-        return $this->isAdmin() && ! $this->isDepartmentDean();
+        return $this->isAdmin()
+            && ! $this->isDepartmentDean()
+            && ! $this->isResearchCoordinator();
+    }
+
+    public function isDeanImportedMember(): bool
+    {
+        if ($this->isAdmin() || ! in_array($this->role, ['user', 'researcher'], true) || ! $this->created_by) {
+            return false;
+        }
+
+        if ($this->relationLoaded('createdBy')) {
+            return $this->createdBy?->isDepartmentDean() === true;
+        }
+
+        return self::query()
+            ->whereKey($this->created_by)
+            ->where('role', 'admin')
+            ->where('is_department_dean', true)
+            ->exists();
     }
 
     public function canManageDepartmentKeys(): bool

@@ -23,14 +23,21 @@ class ResearchController extends Controller
     private const PDF_WATERMARK_TEXT = 'PROPERTY OF PHILCST';
     private const PDF_WATERMARK_STYLE_VERSION = 4;
 
+    private function ensureAdminDocumentAccess(?User $user, Research $research): void
+    {
+        abort_unless($user?->isAdmin(), 403, 'Admins only.');
+        if ($user->isDepartmentScopedAdmin()) {
+            abort_if(empty($user->department) || $user->department !== $research->department,
+                403, 'You can only view researches from your assigned department.');
+        }
+    }
+
     private function renderProtectedViewer(Request $request, Research $research, bool $adminMode = false)
     {
         $user = auth()->user();
 
         if ($adminMode) {
-            if (! $user || ! $user->isAdmin()) {
-                abort(403, 'Admins only.');
-            }
+            $this->ensureAdminDocumentAccess($user, $research);
         } else {
             if (! $user) {
                 return redirect()->route('login')->with('error', 'Login required.');
@@ -273,6 +280,18 @@ class ResearchController extends Controller
     {
         $user = auth()->user();
 
+        if ($user->isDepartmentDean()) {
+            return redirect()->route('admin.research-handoffs.create');
+        }
+
+        if ($user->isResearchCoordinator()) {
+            return redirect()->route('admin.research-handoffs');
+        }
+
+        if ($user->isGlobalAdmin()) {
+            return redirect()->route('admin.add-research');
+        }
+
         if (! $user->isAdmin() && ! $user->canSubmitResearch()) {
             return redirect()->route('user.dashboard')
                 ->with('error', 'Only active approved accounts can submit research.');
@@ -284,6 +303,20 @@ class ResearchController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
+
+        if ($user->isDepartmentDean()) {
+            return redirect()->route('admin.research-handoffs.create')
+                ->with('error', 'Department Deans must submit final defended research files through the handoff workflow.');
+        }
+
+        if ($user->isResearchCoordinator()) {
+            return redirect()->route('admin.research-handoffs')
+                ->with('error', 'Research Coordinators can add research only from assigned dean handoffs.');
+        }
+
+        if ($user->isGlobalAdmin()) {
+            return redirect()->route('admin.add-research');
+        }
 
         if (! $user->isAdmin() && ! $user->canSubmitResearch()) {
             return redirect()->route('user.dashboard')->with('error', 'Only active approved accounts can submit research.');
@@ -338,7 +371,12 @@ class ResearchController extends Controller
             'status'         => 'pending',
         ]);
 
-        return redirect()->route('home')->with('success', ucfirst($data['submission_category']) . ' submitted successfully!');
+        $redirectUrl = $user->isAdmin()
+            ? route('home')
+            : route('user.dashboard') . '#submissions';
+
+        return redirect()->to($redirectUrl)
+            ->with('success', ucfirst($data['submission_category']) . ' submitted successfully!');
     }
 
     public function viewFile(Research $research)
@@ -379,9 +417,7 @@ class ResearchController extends Controller
         $scope = $request->input('scope') === 'admin' ? 'admin' : 'standard';
 
         if ($scope === 'admin') {
-            if (! $user || ! $user->isAdmin()) {
-                abort(403, 'Admins only.');
-            }
+            $this->ensureAdminDocumentAccess($user, $research);
         } else {
             if ($research->status !== 'approved') {
                 if (! $user || (! $user->isAdmin() && auth()->id() !== $research->user_id)) {
@@ -420,9 +456,7 @@ class ResearchController extends Controller
         $user = auth()->user();
 
         if ($scope === 'admin') {
-            if (! $user || ! $user->isAdmin()) {
-                abort(403, 'Admins only.');
-            }
+            $this->ensureAdminDocumentAccess($user, $research);
         } else {
             if ($research->status !== 'approved') {
                 abort(404);
@@ -453,6 +487,10 @@ class ResearchController extends Controller
 
     public function adminViewFile(Request $request, Research $research)
     {
+        $user = $request->user();
+
+        $this->ensureAdminDocumentAccess($user, $research);
+
         return $this->renderProtectedViewer($request, $research, true);
     }
 

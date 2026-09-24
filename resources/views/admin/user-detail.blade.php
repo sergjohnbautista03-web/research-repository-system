@@ -7,12 +7,13 @@
     $isFacultyAccount = $user->role === 'researcher' && is_null($user->graduation_year);
     $isStudentApplicant = $user->role === 'researcher' && ! is_null($user->graduation_year);
     $isStudentResearcher = $isStudentApplicant && $user->is_approved;
+    $isCoordinatorAccount = $user->role === 'admin' && $user->is_research_coordinator;
     $detailRoleLabel = $user->is_department_dean
         ? 'Dean'
-        : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ($isStudentApplicant ? 'Student' : ucfirst($user->role))));
+        : ($isCoordinatorAccount ? 'Research Coordinator' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ($isStudentApplicant ? 'Student' : ucfirst($user->role)))));
     $detailRoleClass = $user->is_department_dean
         ? 'admin'
-        : ($isFacultyAccount ? 'faculty' : (($isStudentResearcher || $isStudentApplicant) ? 'student' : $user->role));
+        : ($isCoordinatorAccount ? 'coordinator' : ($isFacultyAccount ? 'faculty' : (($isStudentResearcher || $isStudentApplicant) ? 'student' : $user->role)));
 @endphp
 <div style="max-width:960px;">
 
@@ -296,6 +297,7 @@
 .up-role-researcher{background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;}
 .up-role-user{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;}
 .up-role-admin{background:#fef9c3;color:#92400e;border:1px solid #fde68a;}
+.up-role-coordinator{background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;}
 .up-role-faculty{background:#ede9fe;color:#5b21b6;border:1px solid #ddd6fe;}
 .up-role-student{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;}
 .up-status{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:600;}

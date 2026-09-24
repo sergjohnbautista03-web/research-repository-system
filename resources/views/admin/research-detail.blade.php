@@ -20,7 +20,7 @@
             <div class="rd-header-top">
                 <div class="rd-badges">
                     <span class="rd-type-badge">{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</span>
-                    <span class="rd-status-badge rd-status-{{ $research->status }}">{{ ucfirst($research->status) }}</span>
+                    <span class="rd-status-badge rd-status-{{ $research->status }}">{{ $research->coordinatorStageLabel() }}</span>
                 </div>
                 <a href="{{ route('admin.researches') }}" class="rd-back-btn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -133,28 +133,28 @@
             <div class="rd-section rd-rejection">
                 <div class="rd-section-title">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Rejection Reason
+                    Correction Remarks
                 </div>
                 <p class="rd-rejection-text">{{ $research->rejection_reason }}</p>
             </div>
         @endif
 
         {{-- ACTIONS --}}
-        @if(! $adminUser->isDepartmentDean() && $research->status == 'pending')
+        @if($adminUser->isGlobalAdmin() && $research->status == 'pending')
             <div class="rd-actions">
                 <form method="POST" action="{{ route('admin.research.approve', $research) }}" style="display:inline">
                     @csrf
                     <button type="submit" class="rd-btn rd-btn-approve">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                        Approve
+                        Publish
                     </button>
                 </form>
                 <button class="rd-btn rd-btn-reject" onclick="openRejectModal({{ $research->id }})">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    Reject
+                    Return for Correction
                 </button>
             </div>
-        @elseif(! $adminUser->isDepartmentDean() && $research->status == 'approved')
+        @elseif($adminUser->isGlobalAdmin() && $research->status == 'approved')
             <div class="rd-actions">
                 <form method="POST" action="{{ route('admin.research.archive', $research) }}" style="display:inline" onsubmit="return confirm('Archive and unpublish this research?')">
                     @csrf
@@ -163,7 +163,7 @@
                     </button>
                 </form>
             </div>
-        @elseif(! $adminUser->isDepartmentDean() && $research->status == 'archived')
+        @elseif($adminUser->isGlobalAdmin() && $research->status == 'archived')
             <div class="rd-actions">
                 <form method="POST" action="{{ route('admin.research.publish', $research) }}" style="display:inline" onsubmit="return confirm('Publish this archived research again?')">
                     @csrf
@@ -185,19 +185,19 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
             <div>
-                <h3 class="rd-modal-title">Reject Research</h3>
-                <p class="rd-modal-sub">Provide a reason so the author can improve their submission.</p>
+                <h3 class="rd-modal-title">Return for Correction</h3>
+                <p class="rd-modal-sub">Provide remarks so the Coordinator can correct and resubmit the research.</p>
             </div>
         </div>
         <form id="rejectForm" method="POST">
             @csrf
             <div class="rd-modal-body">
                 <label class="rd-modal-label">Reason <span style="color:#e53e3e">*</span></label>
-                <textarea name="reason" rows="4" required placeholder="Explain why this research is being rejected..."></textarea>
+                <textarea name="reason" rows="4" required placeholder="Explain what needs correction, e.g. incorrect author name or abstract."></textarea>
             </div>
             <div class="rd-modal-actions">
                 <button type="button" class="rd-btn rd-btn-ghost" onclick="closeRejectModal()">Cancel</button>
-                <button type="submit" class="rd-btn rd-btn-reject">Reject Research</button>
+                <button type="submit" class="rd-btn rd-btn-reject">Return for Correction</button>
             </div>
         </form>
     </div>

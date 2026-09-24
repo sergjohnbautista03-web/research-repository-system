@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaptureAttemptLog;
+use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -82,6 +83,17 @@ class AuthController extends Controller
         if ($user && Auth::attempt(['email' => $user->email, 'password' => $credentials['password']], $request->boolean('remember'))) {
             $request->session()->regenerate();
             $authenticatedUser = Auth::user();
+
+            if ($authenticatedUser->isDeanImportedMember() && ! Semester::open()->exists()) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()
+                    ->route('login')
+                    ->withErrors(['login' => 'Your account is not available yet because there is no active semester. Please wait for the administrator to activate a semester.']);
+            }
+
             $this->recordLoginActivity($request, $authenticatedUser);
 
             if (! $authenticatedUser->policy_accepted_at || $authenticatedUser->policy_version !== config('repository_policy.version', '2026-04-29')) {

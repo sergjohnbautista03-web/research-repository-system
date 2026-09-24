@@ -59,9 +59,9 @@
                 </div>
 
                 <div class="dk-filter-group">
-                    <label for="filter_school_year">School Year</label>
+                    <label for="filter_school_year">Academic Year</label>
                     <select id="filter_school_year" name="school_year">
-                        <option value="">All School Years</option>
+                        <option value="">All Academic Years</option>
                         @foreach($schoolYears as $schoolYear)
                             <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
                         @endforeach
@@ -92,7 +92,7 @@
                     <tr>
                         <th>Department</th>
                         <th>Semester</th>
-                        <th>School Year</th>
+                        <th>Academic Year</th>
                         <th>Access Key</th>
                         <th>Expires</th>
                         <th>Status</th>
@@ -169,7 +169,7 @@
                     <tr>
                         <th>Department</th>
                         <th>Semester</th>
-                        <th>School Year</th>
+                        <th>Academic Year</th>
                         <th>Access Key</th>
                         <th>Expires</th>
                         <th>Status</th>
@@ -253,7 +253,7 @@
                         </select>
                     </div>
                     <div class="dk-field">
-                        <label for="school_year">School Year</label>
+                        <label for="school_year">Academic Year</label>
                         <input type="text" id="school_year" name="school_year" value="{{ old('school_year') }}" placeholder="2026-2027" required>
                     </div>
                 </div>
@@ -374,3 +374,4 @@ document.addEventListener('keydown', function(event) {
 </script>
 @endpush
 @endsection
+

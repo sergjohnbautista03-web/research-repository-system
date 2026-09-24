@@ -5,11 +5,10 @@
 @section('content')
 @php
     $adminUser = auth()->user();
-    $assignedDepartment = $adminUser->isDepartmentDean() ? $adminUser->department : null;
+    $assignedDepartment = $adminUser->isDepartmentScopedAdmin() ? $adminUser->department : null;
     $activeFilters = collect([
         request('search') ? 'Search: "' . request('search') . '"' : null,
         request('status') ? 'Status: ' . ucfirst(request('status')) : null,
-        ($assignedDepartment ?: request('department')) ? 'Department: ' . Str::limit($assignedDepartment ?: request('department'), 36) : null,
         request('year') ? 'Year: ' . request('year') : null,
     ])->filter();
     $shownStart = $researches->firstItem() ?? 0;
@@ -44,7 +43,7 @@
 @endphp
 
 <form method="GET" class="mr-filter-card">
-    @if(! $adminUser->isDepartmentDean())
+    @if($adminUser->isGlobalAdmin())
         <div class="mr-filter-top">
             <a href="{{ route('admin.add-research') }}" class="mr-add-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -66,16 +65,16 @@
             <label for="mr-status">Status</label>
             <select id="mr-status" name="status">
                 <option value="">All Status</option>
-                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Approved</option>
+                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Submitted to Admin</option>
+                <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Published</option>
                 <option value="archived" {{ request('status') == 'archived' ? 'selected' : '' }}>Archived</option>
-                <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected</option>
+                <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Needs Correction</option>
             </select>
         </div>
 
         <div class="mr-filter-field mr-filter-department">
             <label for="mr-department">Department</label>
-            @if($adminUser->isDepartmentDean())
+            @if($adminUser->isDepartmentScopedAdmin())
                 <div id="mr-department" class="mr-fixed-department">{{ $assignedDepartment ?: 'Assigned Department' }}</div>
             @else
                 <select id="mr-department" name="department">
@@ -164,7 +163,7 @@
                                 'department' => $r->department,
                                 'type' => $r->getSubmissionCategoryLabel() . ': ' . $r->getTypeLabel(),
                                 'year' => $r->year_published,
-                                'status' => ucfirst($r->status),
+                                'status' => $r->coordinatorStageLabel(),
                                 'views' => number_format($r->view_count),
                                 'submitted' => optional($r->created_at)->format('F d, Y'),
                                 'abstract' => $r->abstract,
@@ -177,17 +176,18 @@
                                 View
                             </button>
 
-                            @if($r->status == 'pending' && ! $adminUser->isDepartmentDean())
+                            @if($r->status == 'pending' && $adminUser->isGlobalAdmin())
+                                <button type="button" class="btn-action-approve" onclick="openRejectModal({{ $r->id }})">Return for Correction</button>
                                 <form method="POST" action="{{ route('admin.research.approve', $r) }}">
                                     @csrf
                                     <button type="submit" class="btn-action-approve">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                                        Approve
+                                        Publish
                                     </button>
                                 </form>
                             @endif
 
-                            @if($r->status == 'pending' || (! $adminUser->isDepartmentDean() && in_array($r->status, ['approved', 'archived'], true)))
+                            @if($r->status == 'pending' || ($adminUser->isGlobalAdmin() && in_array($r->status, ['approved', 'archived'], true)))
                                 <div class="action-menu-wrap">
                                     <button
                                         type="button"
@@ -200,15 +200,11 @@
                                     </button>
 
                                     <div id="researchActionMenu-{{ $r->id }}" class="research-action-menu">
-                                        @if($r->status == 'pending' && ! $adminUser->isDepartmentDean())
-                                            <button type="button" class="research-action-menu-item research-action-menu-reject" onclick="openRejectModal({{ $r->id }}); closeResearchActionMenus();">
-                                                Reject
-                                            </button>
-                                        @elseif($r->status == 'pending')
+                                        @if($r->status == 'pending' && ! $adminUser->isGlobalAdmin())
                                             <span class="research-action-note">Admin approval only</span>
                                         @endif
 
-                                        @if(! $adminUser->isDepartmentDean())
+                                        @if($adminUser->isGlobalAdmin())
                                             @if($r->status === 'approved')
                                                 <form method="POST" action="{{ route('admin.research.archive', $r) }}"
                                                     onsubmit="return confirm('Archive and unpublish this research?')">
@@ -1157,16 +1153,16 @@
 <!-- Reject Modal -->
 <div id="rejectModal" class="modal-overlay" style="display:none">
     <div class="modal-box">
-        <h3>Reject Submission</h3>
+        <h3>Return for Correction</h3>
         <form id="rejectForm" method="POST">
             @csrf
             <div class="form-group">
-                <label>Reason for Rejection</label>
+                <label>Correction Remarks</label>
                 <textarea name="reason" rows="4" placeholder="Explain why..." required style="width:100%;padding:10px;border:2px solid #e8dff5;border-radius:6px;margin-top:8px;"></textarea>
             </div>
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px">
                 <button type="button" class="btn btn-ghost" onclick="closeRejectModal()">Cancel</button>
-                <button type="submit" class="btn btn-red">Reject</button>
+                <button type="submit" class="btn btn-red">Return for Correction</button>
             </div>
         </form>
     </div>

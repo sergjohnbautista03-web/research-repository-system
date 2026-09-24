@@ -5,7 +5,7 @@
 @section('content')
 @php
     $activeFilters = collect([
-        $selectedSchoolYear ? 'School Year: ' . $selectedSchoolYear : null,
+        $selectedSchoolYear ? 'Academic Year: ' . $selectedSchoolYear : null,
         $selectedSemester ? 'Semester: ' . $selectedSemester : null,
         $selectedStatus ? 'Status: ' . ucfirst($selectedStatus) : null,
     ])->filter();
@@ -75,38 +75,40 @@
     </div>
 @endif
 
-<div class="sem-page-head">
-    <div>
-        <span>Academic Terms & Periods</span>
-        <h2>Semester Management</h2>
-        <p class="sem-page-sub">Manage School Years, 1st Semester, and 2nd Semester. Expired semesters are automatically finished and locked for historical integrity. Only one semester in the same School Year is active at a time.</p>
+@if(! auth()->user()?->isDepartmentDean())
+    <div class="sem-page-head">
+        <div>
+            <span>Academic Terms & Periods</span>
+            <h2>Semester Management</h2>
+            <p class="sem-page-sub">Manage Academic Years, 1st Semester, and 2nd Semester. Expired semesters are automatically finished and locked for historical integrity. Only one semester in the same Academic Year is active at a time.</p>
+        </div>
+        @if($canManageSemesters)
+            <button type="button" class="sem-btn sem-btn-primary" id="openAddSemesterBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Academic Year / Semester
+            </button>
+        @endif
     </div>
-    @if($canManageSemesters)
-        <button type="button" class="sem-btn sem-btn-primary" id="openAddSemesterBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add School Year / Semester
-        </button>
-    @endif
-</div>
+@endif
 
-{{-- ── Primary School Years & Semesters Section ─────────────────────────────── --}}
+{{-- ── Primary Academic Years & Semesters Section ─────────────────────────────── --}}
 <section class="sem-sy-section">
     <div class="sem-section-head">
         <div>
             <span class="sem-badge-label">Active Term Control</span>
-            <h3>School Year Management</h3>
+            <h3>Academic Year Management</h3>
         </div>
-        <span class="sem-count-pill">{{ count($schoolYearGroups) }} School Year{{ count($schoolYearGroups) === 1 ? '' : 's' }}</span>
+        <span class="sem-count-pill">{{ count($schoolYearGroups) }} Academic Year{{ count($schoolYearGroups) === 1 ? '' : 's' }}</span>
     </div>
 
     @if($schoolYearGroups->isEmpty())
         <div class="sem-empty-card">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
-            <strong>No School Years Found</strong>
-            <p>Get started by creating a School Year and configuring 1st & 2nd Semesters.</p>
+            <strong>No Academic Years Found</strong>
+            <p>Get started by creating a Academic Year and configuring 1st & 2nd Semesters.</p>
             @if($canManageSemesters)
                 <button type="button" class="sem-btn sem-btn-primary" style="margin-top:12px;" onclick="document.getElementById('openAddSemesterBtn').click()">
-                    + Create First School Year
+                    + Create First Academic Year
                 </button>
             @endif
         </div>
@@ -127,7 +129,7 @@
                 <div class="sem-sy-card {{ $activeSem ? 'has-active' : '' }}">
                     <div class="sem-sy-card-head">
                         <div class="sem-sy-title-wrap">
-                            <span class="sem-sy-label">School Year</span>
+                            <span class="sem-sy-label">Academic Year</span>
                             <h4 class="sem-sy-title">{{ $group['school_year'] }}</h4>
                         </div>
                         <div class="sem-sy-status-badge {{ $activeSem ? 'is-active-sy' : 'is-inactive-sy' }}">
@@ -392,9 +394,9 @@
 <form method="GET" class="sem-filter-card">
     <div class="sem-filter-grid">
         <div class="sem-filter-field">
-            <label for="sem-school-year">School Year</label>
+            <label for="sem-school-year">Academic Year</label>
             <select id="sem-school-year" name="school_year">
-                <option value="">All School Years</option>
+                <option value="">All Academic Years</option>
                 @foreach($schoolYears as $schoolYear)
                     <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
                 @endforeach
@@ -452,7 +454,7 @@
             <thead>
                 <tr>
                     <th>Semester</th>
-                    <th>School Year</th>
+                    <th>Academic Year</th>
                     <th>Dates</th>
                     <th>Status</th>
                     <th>Users</th>
@@ -467,7 +469,7 @@
                         <td data-label="Semester">
                             <button type="button" class="sem-title-link sem-modal-trigger" data-semester-id="{{ $academicSemester->id }}">{{ $academicSemester->semester_label }}</button>
                         </td>
-                        <td data-label="School Year"><span class="sem-year">{{ $academicSemester->school_year }}</span></td>
+                        <td data-label="Academic Year"><span class="sem-year">{{ $academicSemester->school_year }}</span></td>
                         <td data-label="Dates">
                             @if($academicSemester->start_date && $academicSemester->end_date)
                                 {{ $academicSemester->start_date->format('M d, Y') }} – {{ $academicSemester->end_date->format('M d, Y') }}
@@ -536,7 +538,7 @@
                             <div class="sem-empty-state">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
                                 <strong>No semester records found</strong>
-                                <p>Click the "Add School Year / Semester" button above to add new academic terms.</p>
+                                <p>Click the "Add Academic Year / Semester" button above to add new academic terms.</p>
                             </div>
                         </td>
                     </tr>
@@ -589,7 +591,7 @@
 
             <div class="sem-confirm-note">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Only one semester for the same school year can be active at a time. Active user enrollments will be linked to the newly activated semester.</span>
+                <span>Only one semester for the same academic year can be active at a time. Active user enrollments will be linked to the newly activated semester.</span>
             </div>
         </div>
 
@@ -604,15 +606,15 @@
     </section>
 </div>
 
-{{-- ── Add Semester / School Year Modal ──────────────────────────────────────── --}}
+{{-- ── Add Semester / Academic Year Modal ──────────────────────────────────────── --}}
 @if($canManageSemesters)
 <div class="sem-modal-backdrop" id="addSemesterModal" aria-hidden="true">
     <section class="sem-modal" role="dialog" aria-modal="true" aria-labelledby="addSemesterTitle">
         <div class="sem-modal-head">
             <div>
                 <span>Academic Setup</span>
-                <h3 id="addSemesterTitle">Add School Year / Semester</h3>
-                <p>Create a semester term for a school year.</p>
+                <h3 id="addSemesterTitle">Add Academic Year / Semester</h3>
+                <p>Create a semester term for a academic year.</p>
             </div>
             <button type="button" class="sem-modal-close" data-modal-close="addSemesterModal" aria-label="Close modal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -623,7 +625,7 @@
             @csrf
             <div class="sem-form-body">
                 <div class="sem-form-group">
-                    <label for="add_school_year">School Year <span class="req">*</span></label>
+                    <label for="add_school_year">Academic Year <span class="req">*</span></label>
                     <input type="text" id="add_school_year" name="school_year" placeholder="e.g. 2026-2027" required class="sem-input" pattern="\d{4}-\d{4}">
                     <small class="sem-help">Format: YYYY-YYYY (e.g. 2026-2027)</small>
                 </div>
@@ -650,9 +652,9 @@
                 <div class="sem-checkbox-wrap">
                     <label class="sem-checkbox-label">
                         <input type="checkbox" name="is_active" value="1" checked>
-                        <span>Set as ACTIVE semester for this school year</span>
+                        <span>Set as ACTIVE semester for this academic year</span>
                     </label>
-                    <small class="sem-help" style="margin-left:24px;">If checked, any other semester in this school year will automatically become Inactive.</small>
+                    <small class="sem-help" style="margin-left:24px;">If checked, any other semester in this academic year will automatically become Inactive.</small>
                 </div>
             </div>
 
@@ -684,7 +686,7 @@
             <div class="sem-form-body">
                 <div class="sem-edit-term-summary">
                     <div class="sem-edit-term-pill">
-                        <span class="sem-edit-term-label">School Year (Locked)</span>
+                        <span class="sem-edit-term-label">Academic Year (Locked)</span>
                         <strong id="edit_school_year_display">-</strong>
                     </div>
                     <div class="sem-edit-term-pill">
@@ -740,7 +742,7 @@
 
         <div class="sem-modal-info-grid">
             <div class="sem-modal-info">
-                <span>School Year</span>
+                <span>Academic Year</span>
                 <strong id="semesterModalSchoolYear">-</strong>
             </div>
             <div class="sem-modal-info">
@@ -802,7 +804,7 @@
 .sem-page-head h2{margin:4px 0 0;color:#2f144f;font-size:28px;font-weight:900}
 .sem-page-sub{margin:4px 0 0;color:#6f5f84;font-size:14px;max-width:720px;line-height:1.45}
 
-/* ── Primary School Year Management Section ── */
+/* ── Primary Academic Year Management Section ── */
 .sem-sy-section{margin-bottom:34px}
 .sem-section-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
 .sem-section-head h3{margin:4px 0 0;color:#2f144f;font-size:20px;font-weight:900}
@@ -1213,3 +1215,4 @@ body.sem-modal-open{overflow:hidden}
 })();
 </script>
 @endpush
+

@@ -4,10 +4,12 @@
 @section('content')
 @php
     $profileUser = auth()->user();
-    $profileRoleLabel = $profileUser->isDepartmentDean() ? 'Dean' : ucfirst($profileUser->role);
+    $profileRoleLabel = $profileUser->isDepartmentDean()
+        ? 'Dean'
+        : ($profileUser->isResearchCoordinator() ? 'Research Coordinator' : ucfirst($profileUser->role));
     $profileIdLabel = $profileUser->isDepartmentDean()
         ? 'Dean ID'
-        : ($profileUser->isAdmin() ? 'Admin ID' : 'Student / Employee ID');
+        : ($profileUser->isResearchCoordinator() ? 'Coordinator ID' : ($profileUser->isAdmin() ? 'Admin ID' : 'Student / Employee ID'));
 @endphp
 
 <div class="prof-root">

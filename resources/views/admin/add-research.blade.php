@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', 'Add Research')
-@section('page-title', 'Add Research')
+@section('title', isset($handoff) ? 'Add Research from Handoff' : 'Add Research')
+@section('page-title', isset($handoff) ? 'Add Research from Handoff' : 'Add Research')
 
 @section('content')
 @php
@@ -10,7 +10,14 @@
     $programOptions = \App\Models\Research::programsByDepartment();
     $journalTypes = \App\Models\Research::journalTypeOptions();
     $yearOptions = range(2026, 2022);
+    $semesterOptions = \App\Models\Semester::semesterOptions();
+    $schoolYears = \App\Models\Semester::query()->distinct()->orderByDesc('school_year')->pluck('school_year');
     $oldAuthors = old('authors', ['']);
+    $handoff = $handoff ?? null;
+    $isCoordinatorSubmission = auth()->user()?->isResearchCoordinator() && $handoff;
+    $defaultDepartment = old('department', $handoff?->department);
+    $selectedSchoolYear = old('school_year');
+    $selectedSemester = old('semester');
 
     if (! is_array($oldAuthors) || $oldAuthors === []) {
         $oldAuthors = [''];
@@ -25,11 +32,13 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 </div>
                 <div>
-                    <h3 class="ar-header-title">Add New Research</h3>
-                    <p class="ar-header-sub">Publish a faculty or student research journal entry.</p>
+                    <h3 class="ar-header-title">{{ $isCoordinatorSubmission ? 'Add Research from Dean Handoff' : 'Add New Research' }}</h3>
+                    <p class="ar-header-sub">
+                        {{ $isCoordinatorSubmission ? 'Complete the metadata and forward it to the Research Office/Admin for review.' : 'Publish a faculty or student research journal entry.' }}
+                    </p>
                 </div>
             </div>
-            <a href="{{ route('admin.researches') }}" class="ar-back-btn">
+            <a href="{{ $isCoordinatorSubmission ? route('admin.coordinator.dean-submissions') : route('admin.researches') }}" class="ar-back-btn">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                 Back
             </a>
@@ -48,6 +57,10 @@
 
         <form method="POST" action="{{ route('admin.store-research') }}" enctype="multipart/form-data" class="ar-form" id="adminResearchForm">
             @csrf
+            <input type="hidden" name="workflow_action" id="workflowAction" value="submit">
+            @if($isCoordinatorSubmission)
+                <input type="hidden" name="handoff_id" value="{{ $handoff->id }}">
+            @endif
 
             <div class="ar-stepper" aria-label="Add research steps">
                 <span class="ar-step is-active" data-step-indicator="1"><strong>1</strong> Basic</span>
@@ -65,7 +78,7 @@
                 <div class="ar-form-row">
                     <div class="ar-form-group ar-span-2">
                         <label for="title">Title <span class="ar-required">*</span></label>
-                        <input type="text" id="title" name="title" value="{{ old('title') }}" placeholder="Enter the full research title" required maxlength="500">
+                        <input type="text" id="title" name="title" value="{{ old('title', $handoff?->title) }}" placeholder="Enter the full research title" required maxlength="500">
                     </div>
                 </div>
 
@@ -85,6 +98,30 @@
                             <option value="">Select year</option>
                             @foreach($yearOptions as $year)
                                 <option value="{{ $year }}" {{ (string) old('year_published', 2026) === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ar-form-row">
+                    <div class="ar-form-group">
+                        <label for="school_year">School Year</label>
+                        <select name="school_year" id="school_year">
+                            <option value="">Not set</option>
+                            @foreach($schoolYears as $schoolYear)
+                                <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="ar-form-group">
+                        <label for="semester">Semester</label>
+                        <select name="semester" id="semester">
+                            <option value="">Not set</option>
+                            @foreach($semesterOptions as $semester)
+                                <option value="{{ $semester }}" {{ $selectedSemester === $semester ? 'selected' : '' }}>
+                                    {{ \App\Models\Semester::semesterLabels()[$semester] ?? $semester }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -117,12 +154,17 @@
                 <div class="ar-form-row">
                     <div class="ar-form-group">
                         <label for="department">Department <span class="ar-required">*</span></label>
-                        <select name="department" id="department" required>
-                            <option value="">Select department</option>
-                            @foreach($departmentOptions as $department)
-                                <option value="{{ $department }}" {{ old('department') === $department ? 'selected' : '' }}>{{ $department }}</option>
-                            @endforeach
-                        </select>
+                        @if($isCoordinatorSubmission)
+                            <input type="hidden" name="department" id="department" value="{{ $defaultDepartment }}">
+                            <div class="ar-fixed-value">{{ $defaultDepartment }}</div>
+                        @else
+                            <select name="department" id="department" required>
+                                <option value="">Select department</option>
+                                @foreach($departmentOptions as $department)
+                                    <option value="{{ $department }}" {{ $defaultDepartment === $department ? 'selected' : '' }}>{{ $department }}</option>
+                                @endforeach
+                            </select>
+                        @endif
                     </div>
 
                     <div class="ar-form-group" id="programGroup">
@@ -171,18 +213,32 @@
                 </div>
 
                 <div class="ar-form-group">
-                    <label for="fileInput">Full Paper File <span class="ar-required">*</span></label>
-                    <div class="ar-file-zone" id="fileUploadArea">
-                        <input type="file" name="file" id="fileInput" accept="application/pdf,.pdf" required>
-                        <div class="ar-file-zone-inner">
+                    @if($isCoordinatorSubmission)
+                        <label>Received Full Paper File</label>
+                        <div class="ar-handoff-file">
                             <div class="ar-file-icon" aria-hidden="true">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                             </div>
-                            <p class="ar-file-label" id="fileName">Click to browse or drag and drop PDF here</p>
-                            <p class="ar-file-sub">PDF only - max 30MB</p>
+                            <div>
+                                <strong>{{ $handoff->file_name }}</strong>
+                                <span>Submitted by {{ $handoff->dean?->name ?? 'Department Dean' }}</span>
+                            </div>
+                            <a href="{{ route('admin.research-handoffs.file', $handoff) }}" target="_blank" rel="noopener">View PDF</a>
                         </div>
-                    </div>
-                    <p class="ar-file-error" id="fileError" aria-live="polite"></p>
+                    @else
+                        <label for="fileInput">Full Paper File <span class="ar-required">*</span></label>
+                        <div class="ar-file-zone" id="fileUploadArea">
+                            <input type="file" name="file" id="fileInput" accept="application/pdf,.pdf" required>
+                            <div class="ar-file-zone-inner">
+                                <div class="ar-file-icon" aria-hidden="true">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                </div>
+                                <p class="ar-file-label" id="fileName">Click to browse or drag and drop PDF here</p>
+                                <p class="ar-file-sub">PDF only - max 30MB</p>
+                            </div>
+                        </div>
+                        <p class="ar-file-error" id="fileError" aria-live="polite"></p>
+                    @endif
                 </div>
             </section>
 
@@ -211,23 +267,32 @@
                     <div class="ar-notice-icon" aria-hidden="true">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
-                    <p>Research added by admin will be <strong>automatically approved</strong> and visible on the site immediately.</p>
+                    @if($isCoordinatorSubmission)
+                        <p>This record will be sent to the <strong>Research Office/Admin for review</strong> before publishing.</p>
+                    @else
+                        <p>Research added by admin will be <strong>automatically approved</strong> and visible on the site immediately.</p>
+                    @endif
                 </div>
             </section>
 
             <div class="ar-form-actions">
-                <a href="{{ route('admin.researches') }}" class="ar-btn ar-btn-ghost" id="cancelBtn">Cancel</a>
-                <button type="button" class="ar-btn ar-btn-ghost" id="prevStepBtn" hidden>
+                <a href="{{ $isCoordinatorSubmission ? route('admin.coordinator.dean-submissions') : route('admin.researches') }}" class="ar-btn ar-btn-ghost" id="cancelBtn">Cancel</a>
+                <button type="button" class="ar-btn ar-btn-ghost ar-step-tooltip" id="prevStepBtn" data-tooltip="Go to the previous step" aria-label="Back to the previous step" hidden>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                     Back
                 </button>
-                <button type="button" class="ar-btn ar-btn-primary" id="nextStepBtn">
+                <button type="button" class="ar-btn ar-btn-primary ar-step-tooltip" id="nextStepBtn" data-tooltip="Continue to Department" aria-label="Next: Department">
                     Next
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
+                @if($isCoordinatorSubmission)
+                    <button type="submit" class="ar-btn ar-btn-ghost" id="saveDraftBtn" hidden data-workflow-action="draft">
+                        Save Draft
+                    </button>
+                @endif
                 <button type="submit" class="ar-btn ar-btn-primary" id="submitResearchBtn" hidden>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Publish Research
+                    {{ $isCoordinatorSubmission ? 'Submit to Admin' : 'Publish Research' }}
                 </button>
             </div>
         </form>
@@ -486,6 +551,20 @@
     cursor: not-allowed;
 }
 
+.ar-fixed-value {
+    display: flex;
+    align-items: center;
+    min-height: 43px;
+    padding: 10px 14px;
+    border: 1.5px solid #e8dff5;
+    border-radius: 10px;
+    background: #f4f0fc;
+    color: #1a0638;
+    font-size: 14px;
+    font-weight: 700;
+    box-sizing: border-box;
+}
+
 .ar-input-hint-wrap {
     position: relative;
 }
@@ -573,6 +652,47 @@
 
 .ar-file-zone-inner {
     pointer-events: none;
+}
+
+.ar-handoff-file {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border: 1.5px solid #e2d5f4;
+    border-radius: 14px;
+    background: #faf8ff;
+    padding: 16px;
+}
+
+.ar-handoff-file .ar-file-icon {
+    flex-shrink: 0;
+    margin: 0;
+}
+
+.ar-handoff-file div:nth-child(2) {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.ar-handoff-file strong {
+    color: #25104d;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+
+.ar-handoff-file span {
+    color: #8a78a8;
+    font-size: 12.5px;
+}
+
+.ar-handoff-file a {
+    margin-left: auto;
+    color: #5b21b6;
+    font-size: 12.5px;
+    font-weight: 800;
+    text-decoration: none;
+    white-space: nowrap;
 }
 
 .ar-file-icon {
@@ -748,6 +868,31 @@
     transition: all .16s ease;
 }
 
+.ar-form-actions [hidden] { display: none !important; }
+.ar-step-tooltip { position: relative; }
+.ar-step-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 200px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #2e1065;
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(46,16,101,.18);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 10;
+}
+.ar-step-tooltip:not(.tooltip-dismissed):hover::after,
+.ar-step-tooltip:not(.tooltip-dismissed):focus-visible::after { opacity: 1; }
 .ar-btn-primary {
     background: #3b0f7a;
     color: #fff;
@@ -802,6 +947,8 @@
 const researchPrograms = @json($programOptions);
 const facultyCategory = @json(\App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL);
 const studentCategory = @json(\App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL);
+const isCoordinatorSubmission = @json((bool) $isCoordinatorSubmission);
+const handoffFileName = @json($handoff?->file_name);
 const maxPdfBytes = 30 * 1024 * 1024;
 
 const form = document.getElementById('adminResearchForm');
@@ -810,7 +957,9 @@ const indicators = Array.from(document.querySelectorAll('[data-step-indicator]')
 const prevStepBtn = document.getElementById('prevStepBtn');
 const nextStepBtn = document.getElementById('nextStepBtn');
 const submitResearchBtn = document.getElementById('submitResearchBtn');
+const saveDraftBtn = document.getElementById('saveDraftBtn');
 const cancelBtn = document.getElementById('cancelBtn');
+const workflowAction = document.getElementById('workflowAction');
 const categorySelect = document.getElementById('submission_category');
 const departmentSelect = document.getElementById('department');
 const programGroup = document.getElementById('programGroup');
@@ -831,6 +980,11 @@ function isStudentJournal() {
 
 function setStep(step, shouldScroll = true) {
     currentStep = Math.max(1, Math.min(5, step));
+    const stepNames = ['Basic Information', 'Department', 'Content', 'File', 'Review'];
+    prevStepBtn.dataset.tooltip = `Back to ${stepNames[currentStep - 2] || 'Basic Information'}`;
+    nextStepBtn.dataset.tooltip = `Continue to ${stepNames[currentStep] || 'Review'}`;
+    prevStepBtn.setAttribute('aria-label', prevStepBtn.dataset.tooltip);
+    nextStepBtn.setAttribute('aria-label', nextStepBtn.dataset.tooltip);
 
     panels.forEach((panel) => {
         panel.hidden = Number(panel.dataset.stepPanel) !== currentStep;
@@ -846,6 +1000,9 @@ function setStep(step, shouldScroll = true) {
     cancelBtn.hidden = currentStep !== 1;
     nextStepBtn.hidden = currentStep === 5;
     submitResearchBtn.hidden = currentStep !== 5;
+    if (saveDraftBtn) {
+        saveDraftBtn.hidden = currentStep !== 5;
+    }
 
     if (currentStep === 5) {
         updatePreview();
@@ -940,6 +1097,10 @@ function getAuthorNames() {
 }
 
 function validateFileInput() {
+    if (isCoordinatorSubmission || !fileInput) {
+        return true;
+    }
+
     const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
     fileError.textContent = '';
     fileInput.setCustomValidity('');
@@ -985,6 +1146,10 @@ function validateStep(step) {
 }
 
 function updateFileName() {
+    if (!fileInput || !fileName) {
+        return;
+    }
+
     const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
 
     if (!file) {
@@ -1006,7 +1171,9 @@ function updatePreview() {
     const program = programSelect.value.trim();
     const year = document.getElementById('year_published').value.trim();
     const abstract = document.getElementById('abstract').value.trim();
-    const file = fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
+    const file = isCoordinatorSubmission
+        ? (handoffFileName || 'Received PDF file')
+        : (fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '');
 
     document.getElementById('previewType').textContent = `Research: ${type || 'Journal Type'}`;
     document.getElementById('previewViews').textContent = 'Views 0';
@@ -1031,6 +1198,15 @@ nextStepBtn.addEventListener('click', () => {
 });
 
 prevStepBtn.addEventListener('click', () => setStep(currentStep - 1));
+[prevStepBtn, nextStepBtn].forEach(button => {
+    button.addEventListener('mouseenter', () => button.classList.remove('tooltip-dismissed'));
+    button.addEventListener('focus', () => button.classList.remove('tooltip-dismissed'));
+});
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+        [prevStepBtn, nextStepBtn].forEach(button => button.classList.add('tooltip-dismissed'));
+    }
+});
 
 categorySelect.addEventListener('change', syncCategoryState);
 departmentSelect.addEventListener('change', () => {
@@ -1042,7 +1218,17 @@ document.getElementById('type').addEventListener('change', updatePreview);
 document.getElementById('title').addEventListener('input', updatePreview);
 document.getElementById('year_published').addEventListener('change', updatePreview);
 document.getElementById('abstract').addEventListener('input', updatePreview);
-fileInput.addEventListener('change', updateFileName);
+if (fileInput) {
+    fileInput.addEventListener('change', updateFileName);
+}
+
+submitResearchBtn.addEventListener('click', () => {
+    workflowAction.value = 'submit';
+});
+
+saveDraftBtn?.addEventListener('click', () => {
+    workflowAction.value = 'draft';
+});
 
 authorRepeater.addEventListener('input', (event) => {
     if (event.target.classList.contains('ar-author-input')) {
@@ -1064,30 +1250,32 @@ authorRepeater.addEventListener('click', (event) => {
 
 addAuthorBtn.addEventListener('click', createAuthorRow);
 
-fileUploadArea.addEventListener('dragover', (event) => {
-    event.preventDefault();
-    fileUploadArea.classList.add('dragging');
-});
+if (fileUploadArea && fileInput) {
+    fileUploadArea.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        fileUploadArea.classList.add('dragging');
+    });
 
-fileUploadArea.addEventListener('dragleave', () => {
-    fileUploadArea.classList.remove('dragging');
-});
+    fileUploadArea.addEventListener('dragleave', () => {
+        fileUploadArea.classList.remove('dragging');
+    });
 
-fileUploadArea.addEventListener('drop', (event) => {
-    event.preventDefault();
-    fileUploadArea.classList.remove('dragging');
+    fileUploadArea.addEventListener('drop', (event) => {
+        event.preventDefault();
+        fileUploadArea.classList.remove('dragging');
 
-    const file = event.dataTransfer.files && event.dataTransfer.files[0] ? event.dataTransfer.files[0] : null;
+        const file = event.dataTransfer.files && event.dataTransfer.files[0] ? event.dataTransfer.files[0] : null;
 
-    if (!file) {
-        return;
-    }
+        if (!file) {
+            return;
+        }
 
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(file);
-    fileInput.files = dataTransfer.files;
-    updateFileName();
-});
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        updateFileName();
+    });
+}
 
 form.addEventListener('submit', (event) => {
     for (let step = 1; step <= 4; step += 1) {

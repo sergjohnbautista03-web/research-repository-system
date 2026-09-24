@@ -40,7 +40,7 @@
                                             <td style="font-size:13px; color:#1a0638; padding:4px 0;">{{ $semester }}</td>
                                         </tr>
                                         <tr>
-                                            <td style="font-size:13px; color:#5b3d8a; padding:4px 0;"><strong>School Year:</strong></td>
+                                            <td style="font-size:13px; color:#5b3d8a; padding:4px 0;"><strong>Academic Year:</strong></td>
                                             <td style="font-size:13px; color:#1a0638; padding:4px 0;">{{ $schoolYear }}</td>
                                         </tr>
                                         <tr>
@@ -74,3 +74,4 @@
 </table>
 </body>
 </html>
+

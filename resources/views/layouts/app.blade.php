@@ -23,7 +23,7 @@
         'College of Teacher Education' => 'CTE',
     ];
     $adminPortalLabel = auth()->check() && $authUser->isAdmin()
-        ? ($authUser->isDepartmentDean() ? 'Dean' : 'Admin')
+        ? ($authUser->isDepartmentDean() ? 'Dean' : ($authUser->isResearchCoordinator() ? 'Research Coordinator' : 'Admin'))
         : null;
     $isFacultyAccount = auth()->check()
         && $authUser->role === 'researcher'
@@ -32,7 +32,7 @@
         && $authUser->role === 'researcher'
         && ! is_null($authUser->graduation_year);
     $userRoleLabel = auth()->check()
-        ? ($authUser->isDepartmentDean() ? 'Dean' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ucfirst($authUser->role))))
+        ? ($authUser->isDepartmentDean() ? 'Dean' : ($authUser->isResearchCoordinator() ? 'Research Coordinator' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ucfirst($authUser->role)))))
         : null;
 @endphp
 
@@ -74,39 +74,7 @@
         <span class="caret">▾</span>
     </button>
     <div class="user-dropdown">
-    <div class="dropdown-header">
-        <div class="dd-avatar-row">
-            @if(auth()->user()->profile_photo)
-                <img src="{{ asset('storage/' . auth()->user()->profile_photo) }}" alt="avatar" class="dd-avatar-img">
-            @else
-                <div class="dd-avatar-big">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</div>
-            @endif
-            <div class="dd-user-meta">
-                <strong>{{ auth()->user()->name }}</strong>
-                <small>{{ auth()->user()->email }}</small>
-            </div>
-        </div>
-        <div class="dd-badge-row">
-            <span class="role-badge {{ auth()->user()->role }}">
-                <span class="dd-role-dot"></span>{{ $userRoleLabel }}
-            </span>
-            @if(auth()->user()->student_id)
-                <span class="dd-user-id">ID: {{ auth()->user()->student_id }}</span>
-            @endif
-        </div>
-    </div>
-
     <div class="dd-actions">
-        <a href="{{ route('profile.edit') }}" class="dropdown-item">
-            <div class="dd-item-icon dd-icon-profile">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </div>
-            <div class="dd-item-copy">
-                <span class="dd-item-label">My Profile</span>
-                <span class="dd-item-sub">Manage your account</span>
-            </div>
-        </a>
-
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="dropdown-item dd-signout">
@@ -120,6 +88,7 @@
             </button>
         </form>
     </div>
+   </div>
 </div>
             </div>
         @else

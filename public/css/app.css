@@ -1362,12 +1362,14 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .login-modal-backdrop {
     position: absolute;
     inset: 0;
+    z-index: 0;
     background: rgba(28,15,43,.62);
     backdrop-filter: blur(6px);
 }
 
 .login-modal-panel {
     position: relative;
+    z-index: 1;
     width: min(440px, 100%);
     padding: 34px 28px 28px;
     border: 1px solid #e4d6f2;
@@ -1387,6 +1389,10 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     background: #f6effd;
     color: #7a668b;
     cursor: pointer;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .login-modal-header {

@@ -12,6 +12,12 @@ class Research extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const STATUS_DRAFT = 'draft';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_ARCHIVED = 'archived';
+
     public const SUBMISSION_CATEGORY_RESEARCH = 'research';
     public const SUBMISSION_CATEGORY_JOURNAL = 'journal';
     public const SUBMISSION_CATEGORY_FACULTY_JOURNAL = 'faculty_research_journal';
@@ -57,7 +63,8 @@ class Research extends Model
     protected $table = 'researches';
 
     protected $fillable = [
-        'title', 'abstract', 'author_name', 'authors', 'user_id', 'submission_category', 'issn', 'type',
+        'title', 'abstract', 'author_name', 'authors', 'user_id', 'submitted_by_dean_id', 'coordinator_id',
+        'research_handoff_id', 'submission_category', 'issn', 'type',
         'semester_id', 'academic_semester_id',
         'department', 'course', 'program', 'year_published', 'keywords',
         'file_path', 'file_name', 'status', 'rejection_reason',
@@ -90,6 +97,21 @@ class Research extends Model
         return $this->belongsTo(User::class, 'approved_by');
     }
 
+    public function submittedByDean()
+    {
+        return $this->belongsTo(User::class, 'submitted_by_dean_id');
+    }
+
+    public function coordinator()
+    {
+        return $this->belongsTo(User::class, 'coordinator_id');
+    }
+
+    public function handoff()
+    {
+        return $this->belongsTo(ResearchHandoff::class, 'research_handoff_id');
+    }
+
     public function pinnedByUsers()
     {
         return $this->belongsToMany(User::class, 'research_pins')->withTimestamps();
@@ -97,12 +119,12 @@ class Research extends Model
 
     public function scopeApproved($query)
     {
-        return $query->where('status', 'approved');
+        return $query->where('status', self::STATUS_APPROVED);
     }
 
     public function scopePending($query)
     {
-        return $query->where('status', 'pending');
+        return $query->where('status', self::STATUS_PENDING);
     }
 
     public function scopeSearch($query, $term)
@@ -319,5 +341,28 @@ class Research extends Model
         }
 
         return count($authors) > 1 ? $authors[0] . ' et al.' : $authors[0];
+    }
+
+    public function coordinatorStageLabel(): string
+    {
+        return match ($this->status) {
+            self::STATUS_DRAFT => 'Preparing',
+            self::STATUS_PENDING => 'Submitted to Admin',
+            self::STATUS_REJECTED => 'Needs Correction',
+            self::STATUS_APPROVED => 'Published',
+            self::STATUS_ARCHIVED => 'Archived',
+            default => ucfirst((string) $this->status),
+        };
+    }
+
+    public static function statusLabels(): array
+    {
+        return [
+            self::STATUS_DRAFT => 'Preparing',
+            self::STATUS_PENDING => 'Submitted to Admin',
+            self::STATUS_APPROVED => 'Published',
+            self::STATUS_REJECTED => 'Needs Correction',
+            self::STATUS_ARCHIVED => 'Archived',
+        ];
     }
 }

@@ -15,6 +15,61 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ── Toggle password visibility ──────────────────────────
+// Login modal
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.querySelector('[data-login-modal]');
+    if (!modal) return;
+
+    const loginInput = modal.querySelector('#modal-login');
+
+    function openLoginModal(event) {
+        if (event) {
+            event.preventDefault();
+        }
+
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+
+        window.setTimeout(() => {
+            if (loginInput) {
+                loginInput.focus();
+            }
+        }, 50);
+    }
+
+    function closeLoginModal(event) {
+        if (event) {
+            event.preventDefault();
+        }
+
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    }
+
+    document.querySelectorAll('[data-login-modal-trigger]').forEach(trigger => {
+        trigger.addEventListener('click', openLoginModal);
+    });
+
+    modal.querySelectorAll('[data-login-modal-close]').forEach(closeButton => {
+        closeButton.addEventListener('click', closeLoginModal);
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && modal.classList.contains('is-open')) {
+            closeLoginModal(event);
+        }
+    });
+
+    if (modal.dataset.openOnLoad === 'true' || modal.classList.contains('is-open')) {
+        document.body.classList.add('modal-open');
+        modal.setAttribute('aria-hidden', 'false');
+    } else {
+        modal.setAttribute('aria-hidden', 'true');
+    }
+});
+
 function togglePassword(fieldId, btn) {
     const input = document.getElementById(fieldId);
     if (!input) return;
@@ -120,6 +175,50 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!btn) return;
         input.addEventListener('input', function () {
             btn.style.display = this.value.length > 0 ? 'flex' : 'none';
+        });
+    });
+});
+
+// ── Sidebar account popup (upward menu) ─────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-sidebar-account]').forEach(function (account) {
+        var toggle = account.querySelector('.sidebar-account-toggle');
+        if (!toggle) return;
+
+        function openMenu() {
+            account.classList.add('is-open');
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeMenu() {
+            account.classList.remove('is-open');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleMenu(e) {
+            e.stopPropagation();
+            if (account.classList.contains('is-open')) {
+                closeMenu();
+            } else {
+                openMenu();
+            }
+        }
+
+        toggle.addEventListener('click', toggleMenu);
+
+        // Close when clicking outside
+        document.addEventListener('click', function (e) {
+            if (!account.contains(e.target)) {
+                closeMenu();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && account.classList.contains('is-open')) {
+                closeMenu();
+                toggle.focus();
+            }
         });
     });
 });

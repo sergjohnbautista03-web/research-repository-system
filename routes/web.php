@@ -80,6 +80,26 @@ Route::middleware(['auth', 'policy.accepted'])->group(function () {
 // ── Admin routes ───────────────────────────────────────────────────────────
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', 'admin'])->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/review-notifications', [AdminController::class, 'reviewNotifications'])->name('review-notifications');
+
+    // Research Coordinator workflow
+    Route::prefix('coordinator')->name('coordinator.')->group(function () {
+        Route::get('/dashboard', [AdminController::class, 'coordinatorDashboard'])->name('dashboard');
+        Route::get('/research-monitoring', [AdminController::class, 'coordinatorResearchMonitoring'])->name('research-monitoring');
+        Route::get('/dean-submissions', [AdminController::class, 'coordinatorDeanSubmissions'])->name('dean-submissions');
+        Route::post('/dean-submissions/{handoff}/receive', [AdminController::class, 'confirmResearchHandoffReceived'])->name('dean-submissions.receive');
+        Route::get('/summaries', [AdminController::class, 'coordinatorSummaries'])->name('summaries');
+        Route::get('/summaries/{research}/edit', [AdminController::class, 'editCoordinatorSummary'])->name('summaries.edit');
+        Route::patch('/summaries/{research}', [AdminController::class, 'updateCoordinatorSummary'])->name('summaries.update');
+        Route::post('/summaries/{research}/submit', [AdminController::class, 'submitCoordinatorSummary'])->name('summaries.submit');
+        Route::get('/submissions', [AdminController::class, 'coordinatorSubmissions'])->name('submissions');
+        Route::get('/returned', [AdminController::class, 'coordinatorReturnedResearches'])->name('returned');
+        Route::get('/archive', [AdminController::class, 'coordinatorArchive'])->name('archive');
+        Route::get('/departments', [AdminController::class, 'coordinatorDepartmentMonitoring'])->name('departments');
+        Route::get('/reports', [AdminController::class, 'coordinatorReports'])->name('reports');
+        Route::get('/reports/export', [AdminController::class, 'exportCoordinatorReport'])->name('reports.export');
+        Route::get('/notifications', [AdminController::class, 'coordinatorNotifications'])->name('notifications');
+    });
 
     // Semester management
     Route::get('/semesters', [AdminController::class, 'semesters'])->name('semesters');
@@ -91,6 +111,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
     Route::delete('/semesters/{semester}', [AdminController::class, 'destroySemester'])->name('semesters.destroy');
 
     // Research management
+    Route::get('/research-handoffs', [AdminController::class, 'researchHandoffs'])->name('research-handoffs');
+    Route::get('/research-handoffs/create', [AdminController::class, 'createResearchHandoff'])->name('research-handoffs.create');
+    Route::post('/research-handoffs', [AdminController::class, 'storeResearchHandoff'])->name('research-handoffs.store');
+    Route::get('/research-handoffs/{handoff}/file', [AdminController::class, 'viewResearchHandoffFile'])->name('research-handoffs.file');
+    Route::get('/research-handoffs/{handoff}/add-research', [AdminController::class, 'addResearchFromHandoff'])->name('research-handoffs.add-research');
     Route::get('/researches', [AdminController::class, 'researches'])->name('researches');
     Route::get('/researches/{research}', [AdminController::class, 'showResearch'])->name('research.show');
     Route::get('/researches/{research}/view-file', [ResearchController::class, 'adminViewFile'])->name('research.view-file');
@@ -118,6 +143,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
 
     // Reports
     Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
+    Route::get('/reports/export/pdf', [AdminController::class, 'exportReportPdf'])->name('reports.export.pdf');
+    Route::get('/reports/export/excel', [AdminController::class, 'exportReportExcel'])->name('reports.export.excel');
 
     // Capture logs
     Route::get('/capture-attempt-logs', [AdminController::class, 'captureAttemptLogs'])->name('capture-attempt-logs');

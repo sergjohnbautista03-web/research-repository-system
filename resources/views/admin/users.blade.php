@@ -9,16 +9,9 @@
     $allResearchers = $users->getCollection()->filter(fn($u) => $u->role === 'researcher');
     $approvedStudents = $users->getCollection()->filter(fn($u) => $u->role === 'user' && !empty($u->student_id));
     $deans = $users->getCollection()->filter(fn($u) => $u->role === 'admin' && $u->is_department_dean);
+    $coordinators = $users->getCollection()->filter(fn($u) => $u->role === 'admin' && $u->is_research_coordinator);
     $currentYear = (int) date('Y');
 @endphp
-
-<div class="mu-page-intro">
-    <div>
-        <span class="mu-page-kicker">User Directory</span>
-        <h2 class="mu-page-title">Oversee users, deans, and researcher accounts from one control panel</h2>
-        <p class="mu-page-sub">Track account roles, review engagement, and manage institution-wide access with clearer visibility.</p>
-    </div>
-</div>
 
 <div class="summary-grid">
     <div class="summary-card sc-total">
@@ -119,6 +112,7 @@
                 @else
                     <option value="">All Roles</option>
                     <option value="dean"       {{ request('role') == 'dean'       ? 'selected' : '' }}>Dean</option>
+                    <option value="coordinator" {{ request('role') == 'coordinator' ? 'selected' : '' }}>Research Coordinator</option>
                     <option value="faculty"    {{ request('role') == 'faculty'    ? 'selected' : '' }}>Faculty</option>
                     <option value="student"    {{ request('role') == 'student'    ? 'selected' : '' }}>Student</option>
                 @endif
@@ -138,7 +132,7 @@
 
         <div class="mu-select-wrap">
             <select name="school_year">
-                <option value="">All School Years</option>
+                <option value="">All Academic Years</option>
                 @foreach($schoolYears as $schoolYear)
                     <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
                 @endforeach
@@ -169,10 +163,10 @@
             </button>
         @endif
         @if(auth()->user() && auth()->user()->canManageDepartmentKeys())
-            <a href="{{ route('admin.create-admin') }}" class="mu-btn mu-btn-outline">
+            <button type="button" class="mu-btn mu-btn-outline" onclick="openDeptAccountModal()">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Dean
-            </a>
+                Add Dept Account
+            </button>
         @endif
     </div>
 </form>
@@ -214,6 +208,7 @@
                     $isApprovedStudentResearcher = $isStudent && $user->is_approved;
                     $isApprovedStudentAccount = $user->role === 'user' && !empty($user->student_id);
                     $isDean = $user->role === 'admin' && $user->is_department_dean;
+                    $isCoordinator = $user->role === 'admin' && $user->is_research_coordinator;
                     $grad         = $user->graduation_year;
                     $years        = $grad ? ($grad - $currentYear) : null;
 
@@ -243,6 +238,8 @@
                     <td data-label="Role">
                         @if($isDean)
                             <span class="mu-role-badge mu-role-dean">Dean</span>
+                        @elseif($isCoordinator)
+                            <span class="mu-role-badge mu-role-coordinator">Research Coordinator</span>
                         @elseif($isApprovedStudentResearcher)
                             <span class="mu-role-badge mu-role-student">Student Researcher</span>
                         @elseif($isStudent)
@@ -335,34 +332,8 @@
                 </div>
             @endif
 
-            <div class="mu-import-term">
-                <div class="mu-create-field">
-                    <label>Semester</label>
-                    <div class="mu-semester-choice-row">
-                        @foreach($semesterOptions as $semesterOption)
-                            <label class="mu-semester-choice">
-                                <input type="radio" name="semester" value="{{ $semesterOption }}" {{ old('semester', $semesterOptions[0]) === $semesterOption ? 'checked' : '' }} required>
-                                <span>{{ $semesterOption }} Sem</span>
-                            </label>
-                        @endforeach
-                    </div>
-                </div>
-                <div class="mu-create-field">
-                    <label for="iu_school_year">School Year</label>
-                    <input type="text" id="iu_school_year" name="school_year" value="{{ old('school_year', $selectedSchoolYear ?? '') }}" placeholder="2026-2027" pattern="\d{4}-\d{4}" required>
-                </div>
-            </div>
-
-            <div class="mu-import-term">
-                <div class="mu-create-field">
-                    <label for="iu_start_date">Semester Start Date</label>
-                    <input type="date" id="iu_start_date" name="start_date" value="{{ old('start_date') }}">
-                </div>
-                <div class="mu-create-field">
-                    <label for="iu_end_date">Semester End Date</label>
-                    <input type="date" id="iu_end_date" name="end_date" value="{{ old('end_date') }}">
-                </div>
-            </div>
+            <input type="hidden" name="semester" value="{{ old('semester', $activeSemester?->semester ?? $selectedSemester ?? '') }}">
+            <input type="hidden" name="school_year" value="{{ old('school_year', $activeSemester?->school_year ?? $selectedSchoolYear ?? '') }}">
 
             <div id="iu_guide_section" class="mu-import-guide">
                 <strong>Accepted columns</strong>
@@ -382,17 +353,105 @@
 </div>
 @endif
 
-<style>
-.mu-page-intro{margin-bottom:18px;padding:28px 30px;border-radius:28px;background:radial-gradient(circle at top right, rgba(124,58,237,.16), transparent 28%),radial-gradient(circle at left bottom, rgba(14,165,233,.1), transparent 24%),linear-gradient(135deg,#ffffff 0%,#f8f4ff 58%,#f1ecff 100%);border:1px solid rgba(122,90,189,.14);box-shadow:0 18px 44px rgba(59,15,122,.08);}
-.mu-page-kicker{display:inline-flex;align-items:center;gap:8px;margin-bottom:12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:#8d78bb;}
-.mu-page-kicker::before{content:"";width:30px;height:1px;background:linear-gradient(90deg,#6d28d9,transparent);}
-.mu-page-title{max-width:760px;margin:0 0 8px;font-size:31px;line-height:1.08;letter-spacing:-.05em;color:#1f123e;}
-.mu-page-sub{max-width:720px;margin:0;color:#7e72a6;font-size:14px;line-height:1.75;}
+@if(auth()->user() && auth()->user()->canManageDepartmentKeys())
+@php
+    $deptAccountType = old('account_type', 'dean');
+    $deptAccountSuffix = $deptAccountType === 'coordinator' ? 'Coordinator' : 'Dean';
+@endphp
+<div id="deptAccountModal" class="mu-modal-overlay" style="display:none;" onclick="closeDeptAccountModal(event)">
+    <div class="mu-modal-card mu-create-modal-card" onclick="event.stopPropagation()">
+        <div class="mu-modal-head">
+            <div class="mu-modal-title-wrap">
+                <span class="mu-modal-kicker">Department Account</span>
+                <h3 class="mu-modal-title" id="deptAccountModalTitle">Create Department Account</h3>
+            </div>
+            <button type="button" class="mu-modal-close" onclick="closeDeptAccountModal()">&times;</button>
+        </div>
 
-.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:18px;}
-.summary-card{background:#fff;border-radius:22px;padding:18px 20px;display:grid;grid-template-columns:50px minmax(0,1fr);align-items:center;gap:14px;border:1px solid rgba(124,58,237,.1);box-shadow:0 12px 28px rgba(57,26,101,.05);position:relative;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease;}
+        <form method="POST" action="{{ route('admin.store-admin') }}" class="mu-create-form">
+            @csrf
+
+            @if($errors->any() && ! $errors->importUsers->any())
+                <div class="mu-alert mu-alert-error">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    {{ $errors->first() }}
+                </div>
+            @endif
+
+            <div class="mu-create-block">
+                <div class="mu-create-preview-head">
+                    <strong id="deptAccountPreviewTitle">New {{ $deptAccountType === 'coordinator' ? 'Research Coordinator' : 'Department Dean' }}</strong>
+                    <span id="deptAccountPreviewText">Create a department-scoped account. Deans submit files; coordinators receive files and add research metadata.</span>
+                </div>
+                <div class="mu-create-grid">
+                    <div class="mu-create-field">
+                        <label for="dept_account_type">Account Type</label>
+                        <select id="dept_account_type" name="account_type" required>
+                            <option value="dean" {{ $deptAccountType === 'dean' ? 'selected' : '' }}>Department Dean</option>
+                            <option value="coordinator" {{ $deptAccountType === 'coordinator' ? 'selected' : '' }}>Research Coordinator</option>
+                        </select>
+                    </div>
+                    <div class="mu-create-field">
+                        <label for="dept_account_department">Assigned Department</label>
+                        <select id="dept_account_department" name="department" required>
+                            <option value="">Select department</option>
+                            @foreach($departments as $department)
+                                <option value="{{ $department }}" {{ old('department') === $department ? 'selected' : '' }}>{{ $department }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mu-create-block">
+                <div class="mu-create-grid">
+                    <div class="mu-create-field">
+                        <label for="dept_account_firstname">First Name</label>
+                        <input type="text" id="dept_account_firstname" name="firstname" value="{{ old('firstname') }}" required autocomplete="off" oninput="validateDeptAccountName(this)">
+                    </div>
+                    <div class="mu-create-field">
+                        <label for="dept_account_lastname">Last Name</label>
+                        <input type="text" id="dept_account_lastname" name="lastname" value="{{ old('lastname') }}" required autocomplete="off" oninput="validateDeptAccountName(this)">
+                    </div>
+                    <div class="mu-create-field">
+                        <label for="dept_account_middlename">Middle Name</label>
+                        <input type="text" id="dept_account_middlename" name="middlename" value="{{ old('middlename') }}" autocomplete="off" oninput="validateDeptAccountName(this)">
+                    </div>
+                    <div class="mu-create-field">
+                        <label for="dept_account_id" id="deptAccountIdLabel">Dean ID</label>
+                        <input type="text" id="dept_account_id" name="dean_id" value="{{ old('dean_id') }}" required autocomplete="off" placeholder="{{ $deptAccountType === 'coordinator' ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001' }}" oninput="validateDeptAccountId(this)">
+                        <small class="mu-field-error" id="deptAccountIdError"></small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mu-create-block">
+                <div class="mu-create-grid">
+                    <div class="mu-create-field">
+                        <label for="dept_account_login">Login ID</label>
+                        <input type="text" id="dept_account_login" value="{{ old('dean_id') }}" readonly>
+                    </div>
+                    <div class="mu-create-field">
+                        <label for="dept_account_password">Default Password</label>
+                        <input type="text" id="dept_account_password" value="{{ old('dean_id') ? old('dean_id') . '_' . $deptAccountSuffix . '@1' : '' }}" readonly>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mu-create-actions">
+                <button type="button" class="mu-btn mu-btn-ghost" onclick="closeDeptAccountModal()">Cancel</button>
+                <button type="submit" class="mu-btn mu-btn-primary" id="deptAccountSubmitLabel">Create {{ $deptAccountType === 'coordinator' ? 'Coordinator' : 'Dean' }} Account</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
+
+<style>
+.summary-grid{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px;align-items:flex-start;}
+.summary-card{width:min(260px,100%);background:#fff;border-radius:18px;padding:14px 18px;min-height:78px;display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:12px;border:1px solid rgba(124,58,237,.1);box-shadow:0 12px 28px rgba(57,26,101,.05);position:relative;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease;}
 .summary-card:hover{transform:translateY(-2px);box-shadow:0 18px 34px rgba(57,26,101,.08);}
-.sc-icon{width:46px;height:46px;border-radius:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.sc-icon{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .sc-i-total{background:#f0eaf9;color:#6b2fa0;border-top:3px solid #e2d5f4;}
 .sc-i-researcher{background:#ede9fe;color:#7c3aed;}
 .sc-i-student{background:#dbeafe;color:#1d4ed8;}
@@ -402,7 +461,7 @@
 .sc-student{border-top:3px solid #1d4ed8;}
 .sc-dean{border-top:3px solid #6b21a8;}
 .sc-info{min-width:0;}
-.sc-val{font-size:2rem;font-weight:800;line-height:1;color:#1a0638;letter-spacing:-1px;}
+.sc-val{font-size:1.75rem;font-weight:800;line-height:1;color:#1a0638;letter-spacing:-1px;}
 .sc-lbl{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#a090bc;margin-top:5px;}
 
 .mu-alert{display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:10px;margin-bottom:1rem;font-size:.875rem;font-weight:500;}
@@ -494,6 +553,7 @@
 .mu-role-badge{display:inline-flex;align-items:center;padding:5px 11px;border-radius:999px;font-size:.72rem;font-weight:800;}
 .mu-role-user{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;}
 .mu-role-dean{background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;}
+.mu-role-coordinator{background:#ccfbf1;color:#0f766e;border:1px solid #99f6e4;}
 .mu-role-researcher{background:#ede9fe;color:#6b2fa0;border:1px solid #ddd6fe;}
 .mu-role-student{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe;}
 .mu-role-faculty{background:#ede9fe;color:#6b2fa0;border:1px solid #ddd6fe;}
@@ -582,8 +642,7 @@
 .mu-pagination{padding:12px 18px;border-top:1px solid #f0eaf9;}
 
 @media(max-width:700px){
-    .mu-page-intro{padding:22px 20px;}
-    .mu-page-title{font-size:25px;}
+    .summary-card{width:100%;}
     .mu-filter-card{flex-direction:column;align-items:stretch;}
     .mu-filter-main,.mu-filter-actions{width:100%;}
     .mu-select-wrap,.mu-search-wrap{width:100%;min-width:0;}
@@ -619,9 +678,12 @@
         $isApprovedStudentResearcher = $isStudentResearcher && $user->is_approved;
         $isApprovedStudentAccount = $user->role === 'user' && ! empty($user->student_id);
         $isDean = $user->role === 'admin' && $user->is_department_dean;
+        $isCoordinator = $user->role === 'admin' && $user->is_research_coordinator;
 
         if ($isDean) {
             $roleLabel = 'Dean';
+        } elseif ($isCoordinator) {
+            $roleLabel = 'Research Coordinator';
         } elseif ($isFaculty) {
             $roleLabel = 'Faculty';
         } elseif ($isApprovedStudentResearcher) {
@@ -788,15 +850,115 @@ function closeImportUserModal(event) {
     document.body.style.overflow = '';
 }
 
+function openDeptAccountModal() {
+    const modal = document.getElementById('deptAccountModal');
+    if (!modal) return;
+
+    syncDeptAccountTypeText();
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeptAccountModal(event) {
+    const modal = document.getElementById('deptAccountModal');
+    if (!modal) return;
+
+    if (event && event.target && event.target !== modal) {
+        return;
+    }
+
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function deptAccountMeta() {
+    const accountType = document.getElementById('dept_account_type');
+    const isCoordinator = accountType && accountType.value === 'coordinator';
+
+    return {
+        isCoordinator,
+        label: isCoordinator ? 'Research Coordinator' : 'Department Dean',
+        shortLabel: isCoordinator ? 'Coordinator' : 'Dean',
+        idPlaceholder: isCoordinator ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001',
+        preview: isCoordinator
+            ? 'Coordinator accounts receive dean-submitted files and add complete research metadata for their assigned department.'
+            : 'Dean accounts submit final defended research files to the assigned department Research Coordinator.',
+    };
+}
+
+function syncDeptAccountTypeText() {
+    const meta = deptAccountMeta();
+    const previewTitle = document.getElementById('deptAccountPreviewTitle');
+    const previewText = document.getElementById('deptAccountPreviewText');
+    const idLabel = document.getElementById('deptAccountIdLabel');
+    const idInput = document.getElementById('dept_account_id');
+    const submitLabel = document.getElementById('deptAccountSubmitLabel');
+
+    if (previewTitle) previewTitle.textContent = 'New ' + meta.label;
+    if (previewText) previewText.textContent = meta.preview;
+    if (idLabel) idLabel.textContent = meta.shortLabel + ' ID';
+    if (idInput) idInput.placeholder = meta.idPlaceholder;
+    if (submitLabel) submitLabel.textContent = 'Create ' + meta.shortLabel + ' Account';
+
+    updateDeptAccountGeneratedAccess(idInput ? idInput.value : '');
+}
+
+function updateDeptAccountGeneratedAccess(accountId) {
+    const login = document.getElementById('dept_account_login');
+    const password = document.getElementById('dept_account_password');
+    const cleanAccountId = (accountId || '').trim();
+    const meta = deptAccountMeta();
+
+    if (!login || !password) return;
+
+    login.value = cleanAccountId;
+    password.value = cleanAccountId ? cleanAccountId + '_' + meta.shortLabel + '@1' : '';
+}
+
+function validateDeptAccountName(input) {
+    if (!input.value.length) {
+        input.classList.remove('is-invalid');
+        return;
+    }
+
+    input.classList.toggle('is-invalid', /[0-9]/.test(input.value) || /[^a-zA-Z\s\-\.]/.test(input.value));
+}
+
+function validateDeptAccountId(input) {
+    const error = document.getElementById('deptAccountIdError');
+    updateDeptAccountGeneratedAccess(input.value);
+
+    if (!input.value.length) {
+        input.classList.remove('is-invalid');
+        if (error) error.textContent = '';
+        return;
+    }
+
+    const isValid = /^[A-Za-z0-9\-]+$/.test(input.value);
+    input.classList.toggle('is-invalid', !isValid);
+    if (error) error.textContent = isValid ? '' : 'Account ID may only contain letters, numbers, and hyphens.';
+}
+
+const deptAccountType = document.getElementById('dept_account_type');
+if (deptAccountType) {
+    deptAccountType.addEventListener('change', syncDeptAccountTypeText);
+    syncDeptAccountTypeText();
+}
+
 document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
         closeUserModal();
         closeImportUserModal();
+        closeDeptAccountModal();
     }
 });
 
 @if($errors->importUsers->any())
 openImportUserModal();
 @endif
+@if($errors->any() && ! $errors->importUsers->any())
+openDeptAccountModal();
+@endif
 </script>
 @endsection
+
