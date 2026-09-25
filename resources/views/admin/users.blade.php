@@ -641,6 +641,11 @@
 
 .mu-pagination{padding:12px 18px;border-top:1px solid #f0eaf9;}
 
+@media(max-width:1100px){
+    .mu-filter-card{flex-wrap:wrap;}
+    .mu-filter-main{flex-basis:100%;}
+    .mu-filter-actions{max-width:100%;}
+}
 @media(max-width:700px){
     .summary-card{width:100%;}
     .mu-filter-card{flex-direction:column;align-items:stretch;}
@@ -654,6 +659,7 @@
     .mu-table tbody{display:grid;gap:12px;}
     .mu-table tbody tr{border:1px solid #efe7fb;border-radius:16px;background:#fff;box-shadow:0 8px 24px rgba(59,15,122,.05);padding:8px 0;}
     .mu-table td{padding:10px 14px;border:none;}
+    .mu-table td{overflow-wrap:anywhere;}
     .mu-table td::before{content:attr(data-label);display:block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#a090bc;margin-bottom:6px;}
     .mu-table td:first-child::before{display:none;}
     .mu-dept{max-width:none;}

@@ -25,6 +25,8 @@ body.admin-body {
     position: sticky;
     top: 0;
     height: 100vh;
+    height: 100dvh;
+    min-height: 0;
     overflow-y: auto;
     box-shadow: 4px 0 24px rgba(0,0,0,.25);
     background-image:
@@ -240,6 +242,7 @@ body.admin-body {
 .sidebar-account-toggle svg {
     width: 16px;
     height: 16px;
+    flex: 0 0 16px;
     transition: transform .24s cubic-bezier(.34,1.56,.64,1);
 }
 .sidebar-account-toggle:hover {
@@ -341,6 +344,7 @@ body.admin-body {
 .sidebar-account-item-icon svg {
     width: 16px;
     height: 16px;
+    flex: 0 0 16px;
 }
 .sidebar-account-menu form {
     margin: 0;
@@ -495,6 +499,8 @@ body.admin-body {
 
 .admin-topbar {
     display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 28px;
@@ -502,6 +508,8 @@ body.admin-body {
     border-bottom: 1px solid rgba(109,40,217,.1);
 }
 .page-title {
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-family: var(--font-head);
     font-size: 28px;
     color: #2e1065;
@@ -1095,6 +1103,7 @@ body.notifications-open { overflow: hidden; }
         bottom: 0;
         width: min(84vw, 290px);
         height: 100vh;
+        height: 100dvh;
         z-index: 440;
         transform: translateX(-100%);
         transition: transform .24s ease;

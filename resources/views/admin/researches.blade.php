@@ -170,6 +170,8 @@
                                 'keywords' => $r->keywords,
                                 'adviser' => $r->adviser ?? '',
                                 'fileName' => $r->file_name,
+                                'feedback' => $r->rejection_reason,
+                                'returnUrl' => $r->status === 'pending' && $adminUser->isGlobalAdmin() ? route('admin.research.reject', $r) : null,
                                 'fileUrl' => $r->file_path ? route('admin.research.view-file', $r) : null,
                             ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -177,7 +179,6 @@
                             </button>
 
                             @if($r->status == 'pending' && $adminUser->isGlobalAdmin())
-                                <button type="button" class="btn-action-approve" onclick="openRejectModal({{ $r->id }})">Return for Correction</button>
                                 <form method="POST" action="{{ route('admin.research.approve', $r) }}">
                                     @csrf
                                     <button type="submit" class="btn-action-approve">
@@ -207,9 +208,9 @@
                                         @if($adminUser->isGlobalAdmin())
                                             @if($r->status === 'approved')
                                                 <form method="POST" action="{{ route('admin.research.archive', $r) }}"
-                                                    onsubmit="return confirm('Archive and unpublish this research?')">
+                                                    onsubmit="return confirm('Unpublish this research?')">
                                                     @csrf
-                                                    <button type="submit" class="research-action-menu-item research-action-menu-archive">Archive / Unpublish</button>
+                                                    <button type="submit" class="research-action-menu-item research-action-menu-archive">Unpublish</button>
                                                 </form>
                                             @elseif($r->status === 'archived')
                                                 <form method="POST" action="{{ route('admin.research.publish', $r) }}"
@@ -1150,24 +1151,6 @@
 }
 </style>
 
-<!-- Reject Modal -->
-<div id="rejectModal" class="modal-overlay" style="display:none">
-    <div class="modal-box">
-        <h3>Return for Correction</h3>
-        <form id="rejectForm" method="POST">
-            @csrf
-            <div class="form-group">
-                <label>Correction Remarks</label>
-                <textarea name="reason" rows="4" placeholder="Explain why..." required style="width:100%;padding:10px;border:2px solid #e8dff5;border-radius:6px;margin-top:8px;"></textarea>
-            </div>
-            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px">
-                <button type="button" class="btn btn-ghost" onclick="closeRejectModal()">Cancel</button>
-                <button type="submit" class="btn btn-red">Return for Correction</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- Research Detail Modal -->
 <div id="researchDetailModal" class="ra-modal" aria-hidden="true">
     <div class="ra-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="researchDetailTitle">
@@ -1181,6 +1164,10 @@
         <div class="ra-modal-body">
             <div class="ra-modal-body-inner">
                 <div class="ra-detail-meta" id="researchDetailMeta"></div>
+                <div class="ra-detail-section" id="researchFeedbackSection" hidden>
+                    <span class="ra-detail-section-title">Correction Feedback</span>
+                    <p class="ra-detail-text" id="researchFeedback" style="white-space:pre-wrap"></p>
+                </div>
 
                 <div class="ra-detail-section">
                     <span class="ra-detail-section-title">Abstract</span>
@@ -1215,6 +1202,15 @@
                         </div>
                     </div>
                 </div>
+                <form id="researchReturnForm" method="POST" class="ra-detail-section" hidden>
+                    @csrf
+                    <input type="hidden" name="return_research_id" id="returnResearchId">
+                    <label for="correctionFeedback" class="ra-detail-section-title">Feedback for Correction (required)</label>
+                    <p class="ra-detail-text">Describe what is incorrect and what the coordinator needs to change before resubmitting.</p>
+                    <textarea id="correctionFeedback" name="reason" rows="4" required maxlength="1000" placeholder="Example: Correct the author's name and update the abstract to match the final document." style="box-sizing:border-box;width:100%;padding:12px;border:2px solid #e8dff5;border-radius:8px;margin:10px 0;resize:vertical;"></textarea>
+                    @error('reason')<p role="alert" style="color:#b91c1c">{{ $message }}</p>@enderror
+                    <button type="submit" class="btn btn-red">Return for Correction</button>
+                </form>
             </div>
         </div>
     </div>
@@ -1223,14 +1219,6 @@
 
 @push('scripts')
 <script>
-function openRejectModal(id) {
-    closeResearchActionMenus();
-    document.getElementById('rejectForm').action = '/admin/researches/' + id + '/reject';
-    document.getElementById('rejectModal').style.display = 'flex';
-}
-function closeRejectModal() {
-    document.getElementById('rejectModal').style.display = 'none';
-}
 
 function closeResearchActionMenus() {
     document.querySelectorAll('.research-action-menu.is-open').forEach(function(menu) {
@@ -1291,6 +1279,13 @@ function openResearchDetailModal(research) {
     const fileName = document.getElementById('researchDetailFileName');
     const fileNote = document.getElementById('researchDetailFileNote');
     const fileActions = document.getElementById('researchDetailFileActions');
+    const returnForm = document.getElementById('researchReturnForm');
+    returnForm.hidden = !research.returnUrl;
+    returnForm.action = research.returnUrl || '';
+    document.getElementById('returnResearchId').value = research.id;
+    document.getElementById('correctionFeedback').value = '';
+    document.getElementById('researchFeedbackSection').hidden = !research.feedback;
+    document.getElementById('researchFeedback').textContent = research.feedback || '';
 
     title.textContent = research.title || 'Untitled research';
     subtitle.textContent = (research.author ? 'By ' + research.author : 'Unknown author')
@@ -1369,6 +1364,16 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const closeButton = document.querySelector('[data-close-research-modal]');
+    @if($errors->has('reason') && old('return_research_id'))
+    const returnedId = @json(old('return_research_id'));
+    const returnedButton = Array.from(document.querySelectorAll('.js-open-research-modal')).find(function(button) {
+        return String(JSON.parse(button.dataset.research).id) === String(returnedId);
+    });
+    if (returnedButton) {
+        openResearchDetailModal(JSON.parse(returnedButton.dataset.research));
+        document.getElementById('correctionFeedback').value = @json(old('reason'));
+    }
+    @endif
     if (closeButton) {
         closeButton.addEventListener('click', closeResearchDetailModal);
     }

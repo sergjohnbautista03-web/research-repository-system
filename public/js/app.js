@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Toggle password visibility ──────────────────────────
 // Login modal
-document.addEventListener('DOMContentLoaded', function () {
+function initializeLoginModal() {
     const modal = document.querySelector('[data-login-modal]');
     if (!modal) return;
 
@@ -68,7 +68,13 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
         modal.setAttribute('aria-hidden', 'true');
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeLoginModal, { once: true });
+} else {
+    initializeLoginModal();
+}
 
 function togglePassword(fieldId, btn) {
     const input = document.getElementById(fieldId);

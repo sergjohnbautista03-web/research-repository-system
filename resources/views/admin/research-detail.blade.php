@@ -156,10 +156,10 @@
             </div>
         @elseif($adminUser->isGlobalAdmin() && $research->status == 'approved')
             <div class="rd-actions">
-                <form method="POST" action="{{ route('admin.research.archive', $research) }}" style="display:inline" onsubmit="return confirm('Archive and unpublish this research?')">
+                <form method="POST" action="{{ route('admin.research.archive', $research) }}" style="display:inline" onsubmit="return confirm('Unpublish this research?')">
                     @csrf
                     <button type="submit" class="rd-btn rd-btn-archive">
-                        Archive / Unpublish
+                        Unpublish
                     </button>
                 </form>
             </div>
