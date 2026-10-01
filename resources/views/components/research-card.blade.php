@@ -1,4 +1,4 @@
-<div class="research-card">
+<div class="research-card" data-search-label="{{ $research->title }}" data-search-detail="{{ $research->cardAuthorName() }}" data-search-url="{{ route('research.show', $research) }}">
     <div class="card-top-row">
         <div class="card-type-badge type-{{ Str::slug($research->getTypeLabel()) }}">Research: {{ $research->getTypeLabel() }}</div>
         <span class="card-view-counter" title="Views">Views {{ number_format($research->view_count) }}</span>

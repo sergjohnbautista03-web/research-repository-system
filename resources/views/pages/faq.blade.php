@@ -104,7 +104,7 @@
                         </span>
                     </button>
                     <div class="faq-answer" hidden>
-                        <p>You must be using an active approved PhilCST account. Once logged in, open <strong>Submit Research</strong>, complete the required metadata such as title, abstract, department, course, and year, then upload the PDF file.</p>
+                        <p>Students and faculty cannot submit research directly through the portal. Please contact your department dean. Research is processed through the dean, research coordinator, and administrator workflow before publication.</p>
                     </div>
                 </div>
 

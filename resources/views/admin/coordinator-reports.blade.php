@@ -75,20 +75,7 @@ function printCoordinatorReport() {
         </html>
     `;
 
-    const blob = new Blob([html], {type: 'text/html'});
-    const url = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;visibility:hidden;';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    iframe.onload = function() {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        iframe.contentWindow.onafterprint = function() {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(url);
-        };
-    };
+    window.ReportPrint.printHtml(html);
 }
 </script>
 @endpush

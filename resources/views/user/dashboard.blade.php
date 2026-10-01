@@ -99,8 +99,45 @@
         </section>
 </section>
 
+<section class="student-dashboard-section" data-dashboard-section="recent" hidden>
+    <section class="ra-panel sr-panel">
+        <div class="ra-panel-header">
+            <div>
+                <h3>Recently Viewed</h3>
+            </div>
+        </div>
+        <div class="student-card-grid">
+            @forelse($recentlyViewedResearches as $research)
+                <article class="ud-pinned-card">
+                    <div class="ud-pinned-badge-row">
+                        <span class="ud-pinned-type">{{ $research->getTypeLabel() }}</span>
+                        <span class="ud-pinned-year">{{ $research->year_published ?: 'N/A' }}</span>
+                    </div>
+                    <h3><a href="{{ route('research.show', $research) }}">{{ $research->title }}</a></h3>
+                    <p>{{ Str::limit($research->abstract, 155) }}</p>
+                    <div class="ud-pinned-meta">
+                        <span><strong>Author:</strong> {{ $research->author_name }}</span>
+                        <span>{{ $research->department }}</span>
+                    </div>
+                    <div class="ud-pinned-footer">
+                        <time datetime="{{ \Illuminate\Support\Carbon::parse($research->pivot->last_viewed_at)->toIso8601String() }}">Viewed {{ \Illuminate\Support\Carbon::parse($research->pivot->last_viewed_at)->diffForHumans() }}</time>
+                        <a href="{{ route('research.show', $research) }}" class="ud-btn-view">View Again</a>
+                    </div>
+                </article>
+            @empty
+                <div class="student-empty">
+                    <span class="sr-empty-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+                    <strong>No recently viewed research yet</strong>
+                    <p>Research papers you open will appear here, ready for you to revisit.</p>
+                    <a href="{{ $departmentUrl }}" class="ra-link-btn sr-browse-btn">Browse Repository</a>
+                </div>
+            @endforelse
+        </div>
+    </section>
+</section>
+
 <section class="student-dashboard-section" data-dashboard-section="saved" hidden>
-    <section class="ra-panel">
+    <section class="ra-panel sr-panel">
         <div class="ra-panel-header">
             <div>
                 <h3>Saved Researches</h3>
@@ -112,7 +149,7 @@
         <div class="sr-search-toolbar" id="srSearchToolbar">
             <div class="sr-search-box">
                 <svg class="sr-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="srSearchInput" class="sr-search-input" placeholder="Search by title, author, or keyword..." autocomplete="off">
+                <input type="text" id="srSearchInput" class="sr-search-input" aria-label="Search saved researches" placeholder="Search by title, author, or keyword..." autocomplete="off">
                 <button type="button" id="srSearchClear" class="sr-search-clear" aria-label="Clear search" style="display:none;">&times;</button>
             </div>
             <div class="sr-filter-status" id="srFilterStatus" style="display:none;">
@@ -149,9 +186,9 @@
                 </article>
             @empty
                 <div class="student-empty" id="srEmptyState">
-                    <strong>No saved research yet.</strong>
-                    <p>Open a research detail page and click Save to keep it here.</p>
-                    <a href="{{ $departmentUrl }}" class="ra-link-btn">Browse Repository</a>
+                    <span class="sr-empty-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17l-6-4-6 4V4Z"/><path d="M9 8h6M9 11h4"/></svg></span>
+                    <strong>Your reading list starts here</strong>
+                    <p>Find a paper that interests you and click Save.<br>It will be waiting here when you need it.</p>
                 </div>
             @endforelse
 
@@ -392,6 +429,25 @@
 @media(prefers-reduced-motion:reduce){.ra-summary-card,.ra-summary-action svg,.student-row-action,.ra-link-btn{transition:none}}
 
 /* Saved Research - inline search bar */
+.sr-panel .ra-panel-header{padding:22px 26px;background:#fff}
+.sr-panel .ra-panel-header h3{font-size:19px;letter-spacing:-.3px}
+.sr-panel #savedCountLabel{display:inline-block;margin-top:6px;color:#746584;font-size:13px}
+.sr-panel .sr-search-toolbar{padding:20px 26px 22px;border-bottom:1px solid #eee8f4}
+.sr-panel .sr-search-box{gap:12px;min-height:48px;padding:0 14px;border:1px solid #ded5e9;border-radius:12px;background:#faf8fc;transition:border-color .18s ease,box-shadow .18s ease}
+.sr-panel .sr-search-box:focus-within{border-color:#8b5ac5;box-shadow:0 0 0 3px rgba(109,40,217,.09);background:#fff}
+.sr-panel .sr-search-icon{position:static;flex:0 0 18px;width:18px;height:18px;color:#887499}
+.sr-panel input.sr-search-input{flex:1;min-width:0;width:100%;height:46px;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;outline:none;font:inherit;font-size:14px;color:#30213f}
+.sr-panel input.sr-search-input::placeholder{color:#8b7c99;font-weight:400}
+.sr-panel .sr-search-clear{position:static;flex:0 0 28px;width:28px;height:28px}
+.sr-panel .student-card-grid{padding:24px 26px}
+.sr-panel .student-empty{grid-column:1/-1;min-height:300px;align-content:center;gap:12px;padding:34px 20px;border:1px dashed #e4d9ee;border-radius:14px;background:linear-gradient(180deg,#fcfaff,#fff)}
+.sr-panel .student-empty strong{font-size:20px;font-weight:700;letter-spacing:-.3px;color:#30213f}
+.sr-panel .student-empty p{max-width:400px;font-size:14px;line-height:1.7;color:#7b6c89}
+.sr-empty-icon{display:grid;place-items:center;width:62px;height:62px;margin-bottom:6px;border:1px solid #e6daf5;border-radius:18px;background:#f1eafa;color:#7540ac}
+.sr-panel .sr-browse-btn{min-height:42px;margin-top:8px;padding:0 18px;border-color:#633095;background:#633095;color:#fff;font-weight:600;box-shadow:0 4px 10px rgba(83,35,130,.12)}
+.sr-panel .sr-browse-btn:hover{background:#502477;border-color:#502477;color:#fff}
+.sr-panel .ra-link-btn:focus-visible,.sr-panel .sr-search-clear:focus-visible{outline:3px solid #bfa0e2;outline-offset:3px}
+@media(max-width:600px){.sr-panel .ra-panel-header{padding:20px 18px}.sr-panel .sr-search-toolbar{padding:18px}.sr-panel .student-card-grid{padding:18px}.sr-panel .student-empty{min-height:280px;padding:28px 16px}.sr-panel .student-empty strong{font-size:18px}.sr-panel input.sr-search-input{font-size:16px}}
 .sr-search-toolbar{padding:14px 20px;background:#fff;border-bottom:1px solid #f0eaf9}
 .sr-search-box{position:relative;display:flex;align-items:center}
 .sr-search-icon{position:absolute;left:14px;color:#8c7aa8;pointer-events:none}
@@ -419,6 +475,7 @@
 const dashboardSectionTitles = {
     overview: 'My Dashboard',
     saved: 'Saved Research',
+    recent: 'Recently Viewed',
 };
 
 function showStudentDashboardSection(sectionKey, updateHash = true) {

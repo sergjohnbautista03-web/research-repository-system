@@ -1,0 +1,32 @@
+/* Letterhead extracted from header-and-footer (1) - Copy.docx.
+   A4; source image is 241.423 x 295.522 mm, centered, 0.681 mm from page top. */
+.report-print-letterhead{display:none}
+@media print {
+    @page{size:A4 portrait;margin:0}
+    .report-print-document,body.dean-reports-page{margin:0!important;padding:0!important;background:white!important}
+    .report-print-document .report-print-letterhead{display:block!important;position:fixed;top:.681mm;left:calc(50% - 120.712mm);width:241.423mm;height:295.522mm;max-width:none!important;z-index:0;pointer-events:none}
+    .report-page-layout{position:relative;z-index:1;width:100%;border:0!important;border-collapse:collapse;margin:0!important}
+    .report-page-layout > thead{display:table-header-group}
+    .report-page-layout > tfoot{display:table-footer-group}
+    .report-page-layout > :is(thead,tbody,tfoot) > tr{break-inside:auto!important}
+    .report-page-layout > :is(thead,tbody,tfoot) > tr > td{padding:0 14mm!important;border:0!important;background:transparent!important}
+    .report-header-space{height:48mm}.report-footer-space{height:34mm}
+    .report-print-content,.dean-reports-page .dr-print-report > :not(.report-print-letterhead){position:relative;z-index:1}
+    .report-print-content{font-family:Arial,sans-serif;color:#241336;font-size:11pt;line-height:1.4;overflow-wrap:anywhere}
+    .report-print-content table{width:100%;border-collapse:collapse;table-layout:fixed}
+    .report-print-content th,.report-print-content td{padding:8px 5px;overflow-wrap:break-word;font-size:10pt;line-height:1.35;text-align:left;vertical-align:top;border-bottom:1px solid #e7dcf1}
+    .report-print-content a{color:inherit;text-decoration:none}
+    .report-print-content .dr-table th:nth-child(1){width:4%}
+    .report-print-content .dr-table th:nth-child(2){width:25%}
+    .report-print-content .dr-table th:nth-child(3){width:20%}
+    .report-print-content .dr-table th:nth-child(4){width:10%}
+    .report-print-content .dr-table th:nth-child(5){width:13%}
+    .report-print-content .dr-table th:nth-child(6){width:12%}
+    .report-print-content .dr-table th:nth-child(7){width:6%}
+    .report-print-content .dr-table th:nth-child(8){width:10%}
+    .report-print-content th{white-space:normal}
+    .report-print-content thead{display:table-header-group}
+    .report-print-content tr{break-inside:avoid}
+    .report-print-content h1{font-size:20px}
+    .report-print-content h2{font-size:16px}
+}

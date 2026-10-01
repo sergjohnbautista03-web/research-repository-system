@@ -51,6 +51,25 @@
                 <input type="text" id="title" name="title" value="{{ old('title') }}" required maxlength="500" placeholder="Enter the defended research title">
             </div>
 
+            <div class="rhf-grid">
+                <div class="rhf-field">
+                    <label for="submission_category">Submission Category <span>*</span></label>
+                    <select id="submission_category" name="submission_category" required>
+                        @foreach(\App\Models\Research::adminSubmissionCategories() as $value => $label)
+                            <option value="{{ $value }}" @selected(old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="rhf-field">
+                    <label for="year_published">Year <span>*</span></label>
+                    <select id="year_published" name="year_published" required>
+                        @foreach(range(max(2026, now('Asia/Manila')->year), 2022) as $year)
+                            <option value="{{ $year }}" @selected((string) old('year_published', max(2026, now('Asia/Manila')->year)) === (string) $year)>{{ $year }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
             <div class="rhf-field">
                 <label for="file">Final Defended PDF <span>*</span></label>
                 <label class="rhf-file">
@@ -95,6 +114,7 @@
 .rhf-field label span{color:#dc2626;}
 .rhf-field input,.rhf-field textarea{width:100%;border:1.5px solid #e7ddf9;border-radius:14px;background:#fff;color:#211143;font:inherit;box-sizing:border-box;}
 .rhf-field input{height:48px;padding:0 14px;}
+.rhf-field select{height:48px;padding:0 14px;border:1.5px solid #e7ddf9;border-radius:14px;background:#f8f4fe;color:#211143;font:inherit;width:100%;}
 .rhf-field textarea{padding:14px;resize:vertical;line-height:1.6;}
 .rhf-field input:focus,.rhf-field textarea:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 4px rgba(124,58,237,.11);}
 .rhf-readonly{display:flex;align-items:center;min-height:48px;padding:0 14px;border-radius:14px;background:#f8f4fe;border:1.5px solid #e7ddf9;color:#211143;font-weight:700;}

@@ -19,6 +19,13 @@
     $dashboardRoleLabel = $isFacultyAccount
         ? 'Faculty'
         : ($isStudentResearcher ? 'Student Researcher' : 'Student');
+    $dashboardNameParts = preg_split('/\s+/', trim($dashboardUser->name), 2);
+    $dashboardFirstName = $dashboardNameParts[0] ?? '';
+    $dashboardNameRemainder = $dashboardNameParts[1] ?? '';
+    if ($dashboardUser->middle_name && str_starts_with($dashboardNameRemainder, $dashboardUser->middle_name . ' ')) {
+        $dashboardNameRemainder = trim(substr($dashboardNameRemainder, strlen($dashboardUser->middle_name)));
+    }
+    $dashboardLastName = $dashboardNameRemainder;
     $savedResearchCount = isset($pinnedResearches)
         ? $pinnedResearches->count()
         : $dashboardUser->pinnedResearches()->count();
@@ -55,6 +62,11 @@
         Saved Research
     </button>
 
+    <button type="button" class="sidelink" data-dashboard-nav="recent">
+        <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        Recently Viewed
+    </button>
+
     <div class="sidebar-user sidebar-account" data-sidebar-account>
         @if($dashboardUser->profile_photo)
             <img src="{{ asset('storage/' . $dashboardUser->profile_photo) }}" alt="{{ $dashboardUser->name }}" class="user-avatar-sm" style="object-fit:cover;">
@@ -62,8 +74,12 @@
             <span class="user-avatar-sm">{{ strtoupper(substr($dashboardUser->name, 0, 1)) }}</span>
         @endif
         <div style="flex:1; min-width:0;">
-            <strong>{{ Str::limit($dashboardUser->name, 18) }}</strong>
-            <small>{{ $dashboardRoleLabel }}</small>
+            @if($isFacultyAccount)
+                <strong>{{ Str::limit($dashboardUser->name, 18) }}</strong>
+                <small>{{ $dashboardRoleLabel }}</small>
+            @else
+                <strong>Student</strong>
+            @endif
         </div>
         <button type="button" class="sidebar-account-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Open account menu">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m18 15-6-6-6 6"/></svg>
@@ -106,15 +122,15 @@
     @yield('content')
 </main>
 
-{{-- Student Profile Modal (In-page popup) --}}
+{{-- Student / Faculty Profile Modal --}}
 <div class="ud-modal" id="userProfileModal" aria-hidden="true">
     <div class="ud-modal-backdrop" onclick="toggleUserProfileModal(false)"></div>
     <div class="ud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="userProfileTitle">
         <div class="ud-modal-head">
             <div>
-                <span class="ra-eyebrow">Student Account</span>
+                <span class="ra-eyebrow">{{ $dashboardRoleLabel }} Account</span>
                 <h2 id="userProfileTitle">My Profile</h2>
-                <p>View your student profile details and manage your account photo</p>
+                <p>Manage your profile photo and account security</p>
             </div>
             <button type="button" class="ud-modal-close" onclick="toggleUserProfileModal(false)" aria-label="Close profile modal">&times;</button>
         </div>
@@ -151,35 +167,22 @@
                 </div>
             </div>
 
-            <div class="ud-profile-grid">
-                <div class="ud-profile-item">
-                    <span>Full Name</span>
-                    <strong>{{ $dashboardUser->name }}</strong>
+            <form method="POST" action="{{ route('profile.update') }}" class="ud-profile-edit-form">
+                @csrf
+                @method('PATCH')
+                <div class="ud-profile-edit-grid">
+                    <div class="ud-profile-readonly"><span>First Name</span><strong>{{ $dashboardFirstName ?: 'N/A' }}</strong></div>
+                    <div class="ud-profile-readonly"><span>Middle Name</span><strong>{{ $dashboardUser->middle_name ?: 'N/A' }}</strong></div>
+                    <div class="ud-profile-readonly"><span>Last Name</span><strong>{{ $dashboardLastName ?: 'N/A' }}</strong></div>
+                    <label><span>Email Address</span><input type="email" name="email" value="{{ old('email', $dashboardUser->email) }}" required></label>
+                    <div class="ud-profile-readonly"><span>{{ $isFacultyAccount ? 'Faculty ID' : 'Student ID' }}</span><strong>{{ $dashboardUser->student_id ?: 'N/A' }}</strong></div>
                 </div>
-                <div class="ud-profile-item">
-                    <span>Email Address</span>
-                    <strong>{{ $dashboardUser->email }}</strong>
-                </div>
-                <div class="ud-profile-item">
-                    <span>Student / Employee ID</span>
-                    <strong>{{ $dashboardUser->student_id ?: 'N/A' }}</strong>
-                </div>
-                <div class="ud-profile-item">
-                    <span>Department</span>
-                    <strong>{{ $dashboardUser->department ?: 'N/A' }}</strong>
-                </div>
-                <div class="ud-profile-item">
-                    <span>Year Level / Role</span>
-                    <strong>{{ $dashboardUser->year_level_label ?: $dashboardRoleLabel }}</strong>
-                </div>
-                <div class="ud-profile-item">
-                    <span>Account Status</span>
-                    <strong class="ud-status-badge {{ $dashboardUser->is_active ? 'is-active' : 'is-inactive' }}">
-                        {{ $dashboardUser->is_active ? 'Active' : 'Inactive' }}
-                    </strong>
-                </div>
-            </div>
+                @error('email')<p class="ud-profile-form-error" role="alert">{{ $message }}</p>@enderror
+                @if(session('profile_updated'))<p class="ud-password-notice" role="status">{{ session('success') }}</p>@endif
+                <div class="ud-profile-save-row"><button type="submit">Save Changes</button></div>
+            </form>
         </div>
+        @include('profile.partials.modal-password')
         <div class="ud-modal-footer">
             <button type="button" class="ra-link-btn" onclick="toggleUserProfileModal(false)">Close</button>
         </div>
@@ -204,6 +207,16 @@
         modal.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
         document.body.style.overflow = shouldOpen ? 'hidden' : '';
         document.querySelectorAll('[data-sidebar-account]').forEach(el => el.classList.remove('is-open'));
+        if (shouldOpen) {
+            window.setTimeout(() => modal.querySelector('.ud-modal-close')?.focus(), 0);
+        }
+    }
+
+    @php
+        $reopenProfile = (bool) (session('profile_updated') || session('password_change_pending') || session('password_code_sent') || session('info') === 'Password change request cancelled.' || session('success') === 'Your password has been changed successfully!' || $errors->hasAny(['email', 'current_password', 'password', 'password_confirmation', 'verification_code']));
+    @endphp
+    if (window.location.hash === '#profile' || @json($reopenProfile)) {
+        toggleUserProfileModal(true);
     }
 
     document.addEventListener('keydown', function(event) {
@@ -231,5 +244,6 @@
     });
 </script>
 @stack('scripts')
+@include('components.live-search')
 </body>
 </html>

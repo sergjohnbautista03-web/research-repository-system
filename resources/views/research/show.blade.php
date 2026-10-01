@@ -101,7 +101,7 @@
                                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                 <circle cx="12" cy="12" r="3"/>
                             </svg>
-                            View Full Paper
+                            View Full Document
                         </button>
 
                     @endif
@@ -113,7 +113,7 @@
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                                     <circle cx="12" cy="12" r="3"/>
                                 </svg>
-                                View Full Paper
+                                View Full Document
                             </button>
                         @endif
 
@@ -141,13 +141,13 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="{{ $isPinned ? 'currentColor' : 'none' }}" stroke="currentColor" stroke-width="2">
                         <path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                     </svg>
-                    {{ $isPinned ? 'Saved' : 'Save' }}
+                    <span data-save-label>{{ $isPinned ? 'Saved' : 'Save' }}</span>
                 </button>
             @endif
         </div>
 
         @if($canViewFullPaper && $research->file_path)
-        <div id="fileViewer" style="display:none; border-top:1px solid var(--border);">
+        <div id="fileViewer" data-protected-document style="display:none; border-top:1px solid var(--border);">
             <div class="rd-viewer-bar">
                 <span class="rd-viewer-name">{{ $research->file_name }}</span>
                 <div style="display:flex; gap:8px;">
@@ -155,9 +155,9 @@
                 </div>
             </div>
             <iframe
-                id="pdfFrame"
-                src="{{ $isAdmin ? route('admin.research.view-file', $research) : route('research.view-file', $research) }}"
-                style="width:100%; height:80vh; border:none; display:block;"
+                id="pdfFrame" title="Protected full research document"
+                data-src="{{ $isAdmin ? route('admin.research.view-file', $research) : route('research.view-file', $research) }}"
+                style="width:100%; height:80vh; height:80dvh; border:none; display:block;"
                 allowfullscreen>
             </iframe>
         </div>
@@ -260,17 +260,23 @@
 .rd-header-back { padding: 7px 14px; font-size: 12.5px; }
 .rd-btn-ghost { background: transparent; color: #8b7aaa; border: 1.5px solid #e8dff5; }
 .rd-btn-ghost:hover { background: #f4f0fc; color: #3b0f7a; }
-.rd-btn-save { background: #fff; color: #6b2fa0; border: 1.5px solid #d4c5ed; }
-.rd-btn-save:hover { background: #f4f0fc; border-color: #7c3aed; }
+.rd-btn-save { background: #ede0ff; color: #54208b; border: 1.5px solid #9155cd; font-weight: 700; }
+.rd-btn-save:hover { background: #dfc8fa; border-color: #6b2fa0; }
 .rd-btn-save.pinned { background: #3b0f7a; color: #fff; border-color: #3b0f7a; box-shadow: 0 3px 14px rgba(59,15,122,.28); }
+.rd-btn-save.pinned:hover { background: #522297; border-color: #522297; }
+.rd-btn-save:focus-visible { outline: 3px solid #b998e1; outline-offset: 3px; }
+.rd-btn-save:disabled { cursor: wait; opacity: .7; }
 .rd-btn-citation.copied { background: #ecfdf5; color: #166534; border-color: #86efac; }
 .rd-btn-disabled { background: #f4f0fc; color: #b09ad4; border: 1.5px solid #e8dff5; cursor: not-allowed; opacity: .75; }
 
 .rd-viewer-bar {
     display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
     padding: 12px 24px; background: #faf8ff; border-bottom: 1px solid #f0eaf9;
 }
-.rd-viewer-name { font-size: 13px; font-weight: 600; color: #5b3d8a; }
+.rd-viewer-name { min-width: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 600; color: #5b3d8a; }
+.rd-viewer-bar > div { flex-shrink: 0; }
+.rd-viewer-bar button { min-height: 44px; }
 
 .rd-login-notice {
     display: flex; align-items: center; gap: 14px;
@@ -287,6 +293,7 @@
 .rd-login-notice a:hover { text-decoration: underline; }
 
 @media (max-width: 640px) {
+    .rd-viewer-bar { padding: 10px 12px; }
     .rd-header, .rd-body, .rd-actions { padding-left: 20px; padding-right: 20px; }
     .rd-title { font-size: 20px; }
     .rd-meta { gap: 4px; }
@@ -298,22 +305,9 @@
 </style>
 
 @push('scripts')
+<script src="{{ asset('js/document-protection.js') }}?v={{ filemtime(public_path('js/document-protection.js')) }}"></script>
 <script>
-function toggleViewer() {
-    const viewer = document.getElementById('fileViewer');
-    const btn = document.getElementById('viewerBtn');
-
-    if (!viewer || !btn) return;
-
-    if (viewer.style.display === 'none' || viewer.style.display === '') {
-        viewer.style.display = 'block';
-        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Close Paper';
-        viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-        viewer.style.display = 'none';
-        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View Full Paper';
-    }
-}
+function toggleViewer() { window.toggleProtectedDocument?.(); }
 
 async function copyCitation(button) {
     const citation = button.getAttribute('data-citation') || '';

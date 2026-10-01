@@ -10,34 +10,26 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
     @stack('styles')
+    <link rel="stylesheet" href="{{ asset('css/report-print.css') }}?v={{ filemtime(public_path('css/report-print.css')) }}">
+    <script src="{{ asset('js/report-print.js') }}?v={{ filemtime(public_path('js/report-print.js')) }}" data-stylesheet="{{ asset('css/report-print.css') }}?v={{ filemtime(public_path('css/report-print.css')) }}" data-letterhead="{{ asset('images/report-letterhead.jpeg') }}"></script>
 </head>
-<body class="admin-body">
+<body class="admin-body @yield('body-class')">
 @php
     $adminUser = auth()->user();
     $isGlobalAdmin = $adminUser->isGlobalAdmin();
     $isDepartmentDean = $adminUser->isDepartmentDean();
     $isResearchCoordinator = $adminUser->isResearchCoordinator();
-    $showCaptureLogs = $isGlobalAdmin;
     $portalTitle = $isResearchCoordinator ? 'Research Coordinator' : ($isDepartmentDean ? 'Ube Dean' : 'Ube Admin');
     $accountRoleLabel = $isResearchCoordinator ? 'Research Coordinator' : ($isDepartmentDean ? 'Department Dean' : 'Administrator');
-    $captureLogAlertCount = 0;
-    $latestCaptureLogId = 0;
-    $reviewNotificationTokens = $isGlobalAdmin
-        ? \App\Models\Research::pending()->whereNotNull('coordinator_id')->get(['id', 'updated_at'])
-            ->map(fn ($research) => $research->id . ':' . $research->updated_at->format('Y-m-d H:i:s'))->values()
-        : collect();
-
-    if ($showCaptureLogs) {
-        $captureLogNotificationQuery = \App\Models\CaptureAttemptLog::query()
-            ->whereIn('event_type', \App\Models\CaptureAttemptLog::securityEventTypes());
-
-        $captureLogAlertCount = (clone $captureLogNotificationQuery)
-            ->whereDoesntHave('reads', fn ($readQuery) => $readQuery->where('user_id', $adminUser->id))
-            ->count();
-        $latestCaptureLogId = (clone $captureLogNotificationQuery)
-            ->latest('id')
-            ->value('id') ?? 0;
+    $profileNameParts = preg_split('/\s+/', trim($adminUser->name), 2);
+    $profileFirstName = old('first_name', $profileNameParts[0] ?? '');
+    $profileNameRemainder = $profileNameParts[1] ?? '';
+    if ($adminUser->middle_name && str_starts_with($profileNameRemainder, $adminUser->middle_name . ' ')) {
+        $profileNameRemainder = trim(substr($profileNameRemainder, strlen($adminUser->middle_name)));
     }
+    $profileMiddleName = old('middle_name', $adminUser->middle_name);
+    $profileLastName = old('last_name', $profileNameRemainder);
+
 @endphp
 
 <div class="admin-mobile-bar">
@@ -145,13 +137,19 @@
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
     Users
 </a>
+@if($isDepartmentDean)
+<a href="{{ route('admin.user-activity-logs') }}" class="sidelink {{ request()->routeIs('admin.user-activity-logs') ? 'active' : '' }}">
+    <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-7"/></svg></span>
+    User Activity Logs
+</a>
+@endif
 @endif
 
 {{-- Semesters --}}
 @if($isGlobalAdmin)
 <a href="{{ route('admin.semesters') }}" class="sidelink {{ request()->routeIs('admin.semesters*') ? 'active' : '' }}">
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/><path d="M8 14h3"/><path d="M13 14h3"/><path d="M8 18h3"/></svg></span>
-    Semesters
+    Academic Period
 </a>
 @endif
 
@@ -165,13 +163,10 @@
 </a>
 @endif
 
-@if($showCaptureLogs)
-<a href="{{ route('admin.capture-attempt-logs') }}" class="sidelink {{ request()->routeIs('admin.capture-attempt-logs') ? 'active' : '' }}">
+@if($isGlobalAdmin)
+<a href="{{ route('admin.activity-logs') }}" class="sidelink {{ request()->routeIs('admin.activity-logs') ? 'active' : '' }}">
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></span>
-    Capture Logs
-    <span id="captureLogBadge" class="badge-count capture-log-badge {{ $captureLogAlertCount > 0 ? '' : 'is-hidden' }}" data-latest-id="{{ $latestCaptureLogId }}">
-        {{ $captureLogAlertCount > 99 ? '99+' : $captureLogAlertCount }}
-    </span>
+    Activity Logs
 </a>
 @endif
 
@@ -190,10 +185,10 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m18 15-6-6-6 6"/></svg>
     </button>
     <div class="sidebar-account-menu" role="menu">
-        <a href="{{ route('profile.edit') }}" class="sidebar-account-item" role="menuitem">
+        <button type="button" class="sidebar-account-item" role="menuitem" onclick="toggleAdminProfileModal(true)">
             <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg></span>
             My Profile
-        </a>
+        </button>
         <a href="{{ route('home') }}" class="sidebar-account-item" role="menuitem">
             <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
             Browse
@@ -214,19 +209,11 @@
         <h1 class="page-title">@yield('page-title', 'Dashboard')</h1>
         <div class="topbar-right">
             <span class="topbar-date">{{ now('Asia/Manila')->format('F j, Y') }}</span>
-            @if($isResearchCoordinator || $isGlobalAdmin)
-                @php $notificationCount = $isResearchCoordinator ? $coordinatorPendingHandoffs : $reviewNotificationTokens->count(); @endphp
-                <button type="button" id="notificationToggle"
-                   class="topbar-notifications"
-                   aria-label="Notifications{{ $notificationCount > 0 ? ' (' . $notificationCount . ')' : '' }}"
-                   aria-haspopup="dialog" aria-controls="notificationPanel" aria-expanded="false"
-                   title="Notifications">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                    @if($notificationCount > 0)
-                        <span class="topbar-notification-count" aria-hidden="true">{{ $notificationCount > 99 ? '99+' : $notificationCount }}</span>
-                    @endif
-                </button>
-            @endif
+            <button type="button" id="notificationToggle" class="topbar-notifications"
+                aria-label="Notifications" aria-haspopup="dialog" aria-controls="notificationPanel" aria-expanded="false" title="Notifications">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                <span class="topbar-notification-count" aria-hidden="true" hidden>0</span>
+            </button>
         </div>
     </div>
 
@@ -247,121 +234,74 @@
         </div>
     @endif
 
-    @if($showCaptureLogs)
-    <div class="capture-log-toast" id="captureLogToast" aria-live="polite" aria-hidden="true">
-        <strong id="captureLogToastTitle">New capture log</strong>
-        <span id="captureLogToastBody">A protected viewer event was recorded.</span>
-        <a href="{{ route('admin.capture-attempt-logs') }}">Open logs</a>
-    </div>
-    @endif
 
     @yield('content')
 </main>
 
-@if($isResearchCoordinator || $isGlobalAdmin)
-<dialog id="notificationPanel" class="notification-panel" aria-labelledby="notificationPanelTitle">
-    <div class="notification-panel-header">
-        <h2 id="notificationPanelTitle">Notifications</h2>
-        <button type="button" id="notificationClose" aria-label="Close notifications" autofocus>&times;</button>
+<div class="ud-modal" id="adminProfileModal" aria-hidden="true">
+    <div class="ud-modal-backdrop" onclick="toggleAdminProfileModal(false)"></div>
+    <div class="ud-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="adminProfileTitle">
+        <div class="ud-modal-head">
+            <div><span class="ra-eyebrow">{{ $accountRoleLabel }} Account</span><h2 id="adminProfileTitle">My Profile</h2><p>Manage your profile photo and account security</p></div>
+            <button type="button" class="ud-modal-close" onclick="toggleAdminProfileModal(false)" aria-label="Close profile modal">&times;</button>
+        </div>
+        <div class="ud-profile-modal-body">
+            <div class="ud-profile-photo-card">
+                <div class="ud-profile-avatar-wrap">
+                    @if($adminUser->profile_photo)<img src="{{ asset('storage/' . $adminUser->profile_photo) }}" alt="{{ $adminUser->name }}" class="ud-profile-avatar-img">@else<span class="ud-profile-avatar-initials">{{ strtoupper(substr($adminUser->name, 0, 1)) }}</span>@endif
+                </div>
+                <div class="ud-profile-photo-info">
+                    <strong>{{ $adminUser->name }}</strong><span>{{ $accountRoleLabel }} &bull; {{ $adminUser->is_active ? 'Active Account' : 'Inactive Account' }}</span>
+                    <form method="POST" action="{{ route('profile.photo') }}" enctype="multipart/form-data" class="ud-photo-form" id="deanModalPhotoForm">@csrf @method('PATCH')
+                        <div class="ud-photo-actions"><label class="ud-file-picker-btn"><input type="file" name="profile_photo" accept="image/jpeg,image/png,image/jpg,image/gif" onchange="document.getElementById('deanModalPhotoForm').submit()" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Change Photo</label>@if($adminUser->profile_photo)<a href="{{ route('profile.photo.remove') }}" onclick="return confirm('Remove profile photo?')" class="ud-photo-remove-btn">Remove</a>@endif</div>
+                    </form>
+                </div>
+            </div>
+            <form method="POST" action="{{ route('profile.update') }}" class="ud-profile-edit-form">@csrf @method('PATCH')
+                <div class="ud-profile-edit-grid">
+                    <div class="ud-profile-readonly"><span>First Name</span><strong>{{ $profileFirstName ?: 'N/A' }}</strong></div>
+                    <div class="ud-profile-readonly"><span>Middle Name</span><strong>{{ $profileMiddleName ?: 'N/A' }}</strong></div>
+                    <div class="ud-profile-readonly"><span>Last Name</span><strong>{{ $profileLastName ?: 'N/A' }}</strong></div>
+                    <label><span>Email Address</span><input type="email" name="email" value="{{ old('email', $adminUser->email) }}" required></label>
+                    <div class="ud-profile-readonly"><span>{{ $isDepartmentDean ? 'Dean ID' : ($isResearchCoordinator ? 'Coordinator ID' : 'Administrator ID') }}</span><strong>{{ $adminUser->student_id ?: 'N/A' }}</strong></div>
+                </div>
+                @error('email')<p class="ud-profile-form-error">{{ $message }}</p>@enderror
+                <div class="ud-profile-save-row"><button type="submit">Save Changes</button></div>
+            </form>
+        </div>
+        @include('profile.partials.modal-password')
+        <div class="ud-modal-footer"><button type="button" class="ra-link-btn" onclick="toggleAdminProfileModal(false)">Close</button></div>
     </div>
-    <div id="notificationPanelContent" class="notification-panel-content" aria-live="polite"></div>
-</dialog>
-<script>
-    (() => {
-        const toggle = document.getElementById('notificationToggle');
-        const panel = document.getElementById('notificationPanel');
-        const content = document.getElementById('notificationPanelContent');
-        const badge = toggle.querySelector('.topbar-notification-count');
-        const pendingIds = @json($coordinatorPendingHandoffIds ?? []);
-        const reviewTokens = @json($reviewNotificationTokens);
-        const isGlobalAdmin = @json($isGlobalAdmin);
-        const reviewSeenKey = @json('review-notifications-seen:' . $adminUser->id);
-        let seenReviews = [];
-        try {
-            const stored = JSON.parse(localStorage.getItem(reviewSeenKey) || '[]');
-            if (Array.isArray(stored)) seenReviews = stored;
-        } catch (error) {}
-        const seenKey = @json('dean-notifications-seen:' . $adminUser->id . ':' . $adminUser->department);
-        let seenId = 0;
-        try {
-            const storedId = Number(localStorage.getItem(seenKey));
-            if (Number.isSafeInteger(storedId) && storedId > 0) seenId = storedId;
-        } catch (error) {
-            // The badge still clears for this page if browser storage is unavailable.
-        }
+</div>
 
-        function updateNotificationBadge() {
-            const count = isGlobalAdmin
-                ? reviewTokens.filter(token => !seenReviews.includes(token)).length
-                : pendingIds.filter(id => Number(id) > seenId).length;
-            if (badge) {
-                badge.hidden = count === 0;
-                badge.textContent = count > 99 ? '99+' : String(count);
-            }
-            toggle.setAttribute('aria-label', count > 0 ? `Notifications (${count})` : 'Notifications');
-        }
-
-        updateNotificationBadge();
-        let requestController;
-
-        async function loadNotifications() {
-            requestController?.abort();
-            requestController = new AbortController();
-            content.textContent = 'Loading notifications…';
-            content.setAttribute('aria-busy', 'true');
-            try {
-                const response = await fetch(@json($isGlobalAdmin ? route('admin.review-notifications') : route('admin.coordinator.notifications', ['panel' => 1])), {
-                    headers: { 'Accept': 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
-                    credentials: 'same-origin',
-                    signal: requestController.signal,
-                });
-                if (!response.ok || response.redirected) throw new Error('Unable to load notifications');
-                content.innerHTML = await response.text();
-            } catch (error) {
-                if (error.name === 'AbortError') return;
-                content.textContent = 'Unable to load notifications. ';
-                const retry = document.createElement('button');
-                retry.type = 'button';
-                retry.className = 'notification-retry';
-                retry.textContent = 'Try again';
-                retry.addEventListener('click', loadNotifications);
-                content.append(retry);
-            } finally {
-                content.removeAttribute('aria-busy');
-            }
-        }
-
-        toggle.addEventListener('click', () => {
-            panel.showModal();
-            seenId = pendingIds.reduce((latest, id) => Math.max(latest, Number(id)), seenId);
-            seenReviews = reviewTokens;
-            updateNotificationBadge();
-            try {
-                localStorage.setItem(seenKey, String(seenId));
-                if (isGlobalAdmin) localStorage.setItem(reviewSeenKey, JSON.stringify(seenReviews));
-            } catch (error) {
-                // Storage can be disabled by the browser.
-            }
-            toggle.setAttribute('aria-expanded', 'true');
-            document.body.classList.add('notifications-open');
-            loadNotifications();
-        });
-        document.getElementById('notificationClose').addEventListener('click', () => panel.close());
-        panel.addEventListener('click', (event) => {
-            const bounds = panel.getBoundingClientRect();
-            if (event.target === panel && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) panel.close();
-        });
-        panel.addEventListener('close', () => {
-            requestController?.abort();
-            toggle.setAttribute('aria-expanded', 'false');
-            document.body.classList.remove('notifications-open');
-            toggle.focus();
-        });
-    })();
-</script>
-@endif
+@include('admin.partials.notifications')
 <script src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
 <script>
+    function toggleAdminProfileModal(shouldOpen) {
+        const modal = document.getElementById('adminProfileModal');
+        if (!modal) return;
+        modal.classList.toggle('is-visible', shouldOpen);
+        modal.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+        document.body.classList.toggle('admin-profile-open', shouldOpen);
+        if (shouldOpen) {
+            document.querySelector('[data-sidebar-account]')?.classList.remove('is-open');
+            window.setTimeout(() => modal.querySelector('.ud-modal-close')?.focus(), 0);
+        }
+    }
+
+    @php
+        $reopenAdminProfile = (bool) (session('profile_updated') || session('password_change_pending') || session('password_code_sent') || session('info') === 'Password change request cancelled.' || session('success') === 'Your password has been changed successfully!' || $errors->hasAny(['email', 'current_password', 'password', 'password_confirmation', 'verification_code']));
+    @endphp
+    if (window.location.hash === '#profile' || @json($reopenAdminProfile)) {
+        toggleAdminProfileModal(true);
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && document.getElementById('adminProfileModal')?.classList.contains('is-visible')) {
+            toggleAdminProfileModal(false);
+        }
+    });
+
     function toggleAdminSidebar(forceState) {
         const body = document.body;
         const shouldOpen = typeof forceState === 'boolean'
@@ -386,75 +326,8 @@
         }
     });
 
-    @if($showCaptureLogs)
-    (function() {
-        const summaryUrl = @json(route('admin.capture-attempt-logs.summary'));
-        const onCaptureLogsPage = @json(request()->routeIs('admin.capture-attempt-logs'));
-        const renderedLatestId = Number(@json($latestCaptureLogId));
-        const badge = document.getElementById('captureLogBadge');
-        const toast = document.getElementById('captureLogToast');
-        const toastTitle = document.getElementById('captureLogToastTitle');
-        const toastBody = document.getElementById('captureLogToastBody');
-        let knownLatestId = renderedLatestId;
-        let toastTimer = null;
-
-        function updateCaptureBadge(count) {
-            if (!badge) {
-                return;
-            }
-
-            const safeCount = Number(count || 0);
-            badge.textContent = safeCount > 99 ? '99+' : String(safeCount);
-            badge.classList.toggle('is-hidden', safeCount <= 0);
-        }
-
-        function showCaptureToast(payload) {
-            if (!toast || onCaptureLogsPage) {
-                return;
-            }
-
-            window.clearTimeout(toastTimer);
-            toastTitle.textContent = payload.event || 'New capture log';
-            toastBody.textContent = (payload.viewer || 'Unknown viewer') + ' - ' + (payload.research || 'Protected viewer');
-            toast.classList.add('is-visible');
-            toast.setAttribute('aria-hidden', 'false');
-
-            toastTimer = window.setTimeout(function() {
-                toast.classList.remove('is-visible');
-                toast.setAttribute('aria-hidden', 'true');
-            }, 7000);
-        }
-
-        async function pollCaptureLogs() {
-            try {
-                const response = await fetch(summaryUrl, {
-                    headers: { 'Accept': 'application/json' },
-                    credentials: 'same-origin',
-                });
-
-                if (!response.ok) {
-                    return;
-                }
-
-                const payload = await response.json();
-                const latestId = Number(payload.latest_id || 0);
-
-                updateCaptureBadge(payload.unread_count);
-
-                if (latestId > knownLatestId) {
-                    showCaptureToast(payload);
-                    knownLatestId = latestId;
-                }
-            } catch (error) {
-                // Quietly retry on the next poll.
-            }
-        }
-
-        window.setTimeout(pollCaptureLogs, 10000);
-        window.setInterval(pollCaptureLogs, 30000);
-    })();
-    @endif
 </script>
 @stack('scripts')
+@include('components.live-search')
 </body>
 </html>

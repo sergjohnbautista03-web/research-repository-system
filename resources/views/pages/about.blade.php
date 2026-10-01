@@ -159,7 +159,7 @@ $colleges = [
                         </svg>
                     </span>
                     <h4>Submit Research</h4>
-                    <p>Approved researchers can submit research files for review and publication.</p>
+                    <p>Department deans submit research through the staff review and publication workflow. Students and faculty should contact their dean.</p>
                     <div class="feature-expand" hidden>
                         <ul>
                             <li>Fill in title, abstract, keywords, department, and course details</li>

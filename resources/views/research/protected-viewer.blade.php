@@ -5,7 +5,7 @@
     <title>{{ $research->title }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+
 
     <style>
         html, body {
@@ -18,6 +18,8 @@
             -webkit-user-select: none;
             -webkit-touch-callout: none;
         }
+
+        *, *::before, *::after { box-sizing: border-box; }
 
         .viewer-topbar {
             position: sticky;
@@ -35,18 +37,23 @@
         }
 
         .viewer-title {
+            min-width: 0;
+            overflow-wrap: anywhere;
             font-size: 13px;
             font-weight: 700;
             letter-spacing: 0.02em;
         }
 
         .viewer-note {
+            min-width: 0;
+            overflow-wrap: anywhere;
             font-size: 12px;
             color: rgba(248, 250, 252, 0.8);
             text-align: right;
         }
 
         .viewer-shell {
+            width: 100%;
             max-width: 1040px;
             margin: 0 auto;
             padding: 24px 14px 48px;
@@ -73,6 +80,7 @@
 
         .viewer-pages {
             display: grid;
+            grid-template-columns: minmax(0, 1fr);
             gap: 18px;
         }
 
@@ -116,7 +124,7 @@
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: rgba(15, 23, 42, 0.96);
+            background: #0f172a;
             color: #f8fafc;
             text-align: center;
         }
@@ -126,7 +134,11 @@
         }
 
         .screen-guard-card {
+            width: 100%;
             max-width: 560px;
+            max-height: 100%;
+            overflow-y: auto;
+            overflow-wrap: anywhere;
             padding: 24px 28px;
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 20px;
@@ -148,6 +160,23 @@
             color: rgba(248, 250, 252, 0.84);
         }
 
+        #resumeViewing {
+            min-height: 44px;
+            max-width: 100%;
+            margin-top: 18px;
+            padding: 10px 18px;
+            border: 1px solid #c4b5fd;
+            border-radius: 10px;
+            background: #ede9fe;
+            color: #3b0f7a;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        #resumeViewing[hidden] { display: none; }
+        #resumeViewing:disabled { opacity: .5; cursor: default; }
+        #resumeViewing:focus-visible { outline: 3px solid #a78bfa; outline-offset: 4px; }
+
         @media print {
             body {
                 display: none !important;
@@ -164,6 +193,15 @@
                 text-align: left;
             }
         }
+
+        @media (max-width: 480px) {
+            .viewer-topbar { padding: 12px; gap: 8px; }
+            .viewer-shell { padding: 16px 8px 24px; }
+            .viewer-pages { gap: 12px; }
+            .screen-guard { padding: 12px; }
+            .screen-guard-card { padding: 18px; border-radius: 14px; }
+            #resumeViewing { width: 100%; font-size: 16px; }
+        }
     </style>
 </head>
 <body>
@@ -177,19 +215,20 @@
     <div class="viewer-pages" id="viewerPages"></div>
 </div>
 
-<div class="screen-guard" id="screenGuard" aria-live="polite" aria-hidden="true">
+<div class="screen-guard" id="screenGuard" role="alert" aria-live="assertive" aria-hidden="true">
     <div class="screen-guard-card">
-        <strong>Protected document hidden</strong>
-        <span>This viewer temporarily hides the full document when screen capture, print, or app switching is detected.</span>
+        <strong id="screenGuardTitle">Content Protected by PHILCST.</strong>
+        <span id="screenGuardDescription">The document is hidden while this window is inactive.</span>
+        <button type="button" id="resumeViewing" hidden>Resume Viewing</button>
     </div>
 </div>
 
 <script>
     window.protectedViewerConfig = {
-        logUrl: @json(route('research.capture-attempt', $research)),
+        logUrl: @json(route('research.capture-attempt', $research, false)),
         viewerScope: @json(!empty($adminMode) ? 'admin' : 'standard'),
         csrfToken: document.querySelector('meta[name="csrf-token"]').content,
-        loadedMessage: 'Protected document loaded. Browser PDF save, print, and screenshot shortcuts are blocked where the browser allows.',
+        loadedMessage: 'Protected document loaded. Authorized academic use only.',
     };
 
     (function() {
@@ -276,6 +315,8 @@
     })();
 </script>
 
+<script src="{{ asset('js/document-protection.js') }}?v={{ filemtime(public_path('js/document-protection.js')) }}"></script>
+
 <script type="module">
     import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
 
@@ -285,37 +326,10 @@
     const viewerConfig = window.protectedViewerConfig || {};
     const statusEl = document.getElementById('viewerStatus');
     const pagesEl = document.getElementById('viewerPages');
-    const shellEl = document.querySelector('.viewer-shell');
-    const guardEl = document.getElementById('screenGuard');
-    let guardTimer = null;
 
     function updateStatus(message) {
         statusEl.textContent = message;
     }
-
-    function setGuardState(active, message) {
-        shellEl.classList.toggle('is-obscured', active);
-        guardEl.classList.toggle('is-visible', active);
-        guardEl.setAttribute('aria-hidden', active ? 'false' : 'true');
-
-        if (message) {
-            updateStatus(message);
-        }
-    }
-
-    function triggerGuard(message, duration = 3500) {
-        window.clearTimeout(guardTimer);
-        setGuardState(true, message);
-
-        guardTimer = window.setTimeout(() => {
-            setGuardState(false, viewerConfig.loadedMessage);
-        }, duration);
-    }
-
-    window.protectedViewerGuard = {
-        setGuardState,
-        triggerGuard,
-    };
 
     async function renderProtectedPdf() {
         try {
@@ -354,7 +368,7 @@
                 pagesEl.appendChild(pageCard);
             }
 
-            getViewerLogger()('protected_view_opened', {
+            window.logCaptureAttempt?.('protected_view_opened', {
                 page_count: pdf.numPages,
                 viewer: viewerConfig.viewerScope || 'standard',
             });
@@ -367,173 +381,7 @@
     renderProtectedPdf();
 </script>
 
-<script>
-    function getViewerGuard() {
-        return window.protectedViewerGuard;
-    }
 
-    function getViewerLogger() {
-        return window.logCaptureAttempt || function () {};
-    }
-
-    function getViewerLoadedMessage() {
-        return window.protectedViewerConfig?.loadedMessage
-            || 'Protected document loaded. Browser PDF save, print, and screenshot shortcuts are blocked where the browser allows.';
-    }
-
-    function normalizedEventKey(e) {
-        return String(e.key || '').toLowerCase();
-    }
-
-    function normalizedEventCode(e) {
-        return String(e.code || '').toLowerCase();
-    }
-
-    function viewerPlatformText() {
-        return ((navigator.userAgent || '') + ' ' + (navigator.platform || '')).toLowerCase();
-    }
-
-    function isPrintScreenEvent(e) {
-        const key = normalizedEventKey(e);
-        const code = normalizedEventCode(e);
-
-        return key === 'printscreen'
-            || code === 'printscreen'
-            || key === 'snapshot'
-            || code === 'snapshot';
-    }
-
-    function isWindowsSnippingShortcut(e, key) {
-        return viewerPlatformText().includes('win')
-            && e.metaKey
-            && e.shiftKey
-            && key === 's';
-    }
-
-    function isMacScreenshotShortcut(e, key) {
-        const platform = viewerPlatformText();
-
-        return (platform.includes('mac') || platform.includes('iphone') || platform.includes('ipad'))
-            && e.metaKey
-            && e.shiftKey
-            && ['3', '4', '5'].includes(key);
-    }
-
-    function shortcutDetails(e, reason, phase) {
-        return {
-            key: e.key || 'unknown',
-            code: e.code || 'unknown',
-            reason,
-            phase,
-            ctrl: e.ctrlKey ? 'yes' : 'no',
-            alt: e.altKey ? 'yes' : 'no',
-            shift: e.shiftKey ? 'yes' : 'no',
-            meta: e.metaKey ? 'yes' : 'no',
-        };
-    }
-
-    function logScreenshotShortcut(e, reason, phase) {
-        e.preventDefault();
-        e.stopPropagation();
-        getViewerGuard()?.triggerGuard('Screen capture shortcut detected. The protected document was hidden.');
-        getViewerLogger()('printscreen', shortcutDetails(e, reason, phase));
-
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText('Protected document capture is blocked where supported.').catch(() => {});
-        }
-    }
-
-    function handleScreenshotShortcut(e, phase) {
-        const key = normalizedEventKey(e);
-
-        if (isPrintScreenEvent(e)) {
-            logScreenshotShortcut(e, phase === 'keyup' ? 'printscreen_keyup' : 'printscreen_keydown', phase);
-            return true;
-        }
-
-        if (phase === 'keydown' && isWindowsSnippingShortcut(e, key)) {
-            logScreenshotShortcut(e, 'windows_snipping_shortcut', phase);
-            return true;
-        }
-
-        if (phase === 'keydown' && isMacScreenshotShortcut(e, key)) {
-            logScreenshotShortcut(e, 'macos_screenshot_shortcut', phase);
-            return true;
-        }
-
-        return false;
-    }
-
-    function blockProtectedAction(e) {
-        e.preventDefault();
-        return false;
-    }
-
-    document.addEventListener('contextmenu', blockProtectedAction);
-    document.addEventListener('dragstart', blockProtectedAction);
-    document.addEventListener('drop', blockProtectedAction);
-    document.addEventListener('copy', blockProtectedAction);
-    document.addEventListener('cut', blockProtectedAction);
-    document.addEventListener('paste', blockProtectedAction);
-    document.addEventListener('selectstart', blockProtectedAction);
-    document.addEventListener('beforeinput', function(e) {
-        if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
-            blockProtectedAction(e);
-        }
-    });
-    document.addEventListener('contextmenu', function() {
-        getViewerLogger()('context_menu_blocked', { reason: 'right_click' });
-    });
-
-    document.addEventListener('keydown', function(e) {
-        if (handleScreenshotShortcut(e, 'keydown')) {
-            return false;
-        }
-
-        const key = normalizedEventKey(e);
-
-        if ((e.ctrlKey || e.metaKey) && ['p', 's', 'u', 'c'].includes(key)) {
-            e.preventDefault();
-            e.stopPropagation();
-            getViewerGuard()?.triggerGuard('Blocked a protected shortcut for this document.');
-            const typeMap = { p: 'print_blocked', s: 'save_blocked', u: 'source_view_blocked', c: 'copy_blocked' };
-            getViewerLogger()(typeMap[key] || 'copy_blocked', { key });
-            return false;
-        }
-    }, true);
-
-    document.addEventListener('keyup', function(e) {
-        handleScreenshotShortcut(e, 'keyup');
-    }, true);
-
-    window.addEventListener('beforeprint', function() {
-        getViewerGuard()?.triggerGuard('Printing is blocked in the protected viewer.', 5000);
-        getViewerLogger()('print_blocked', { reason: 'beforeprint' });
-    });
-
-    window.addEventListener('afterprint', function() {
-        getViewerGuard()?.setGuardState(false, getViewerLoadedMessage());
-    });
-
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            getViewerGuard()?.setGuardState(true, 'Document hidden while this tab is inactive.');
-            getViewerLogger()('tab_hidden', { reason: 'visibilitychange' });
-            return;
-        }
-
-        getViewerGuard()?.setGuardState(false, getViewerLoadedMessage());
-    });
-
-    window.addEventListener('blur', function() {
-        getViewerGuard()?.setGuardState(true, 'Document hidden while the window is out of focus.');
-        getViewerLogger()('window_blur', { reason: 'window_blur' });
-    });
-
-    window.addEventListener('focus', function() {
-        getViewerGuard()?.setGuardState(false, getViewerLoadedMessage());
-    });
-</script>
 
 </body>
 </html>

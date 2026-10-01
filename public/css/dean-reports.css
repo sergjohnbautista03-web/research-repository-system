@@ -1,0 +1,50 @@
+.dr-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:22px}
+.dr-actions{display:flex;justify-content:flex-end;margin-bottom:14px}
+.dr-eyebrow{color:#7943b2;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+.dr-heading h2{margin:6px 0;font-size:23px;color:#301051;line-height:1.3}.dr-heading p{margin:0;color:#79678f;font-size:13px}
+.dr-button{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 17px;border:1px solid #d7c3ed;border-radius:12px;background:#faf6ff;color:#59278b;font-family:inherit;font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap;cursor:pointer}
+.dr-primary{background:linear-gradient(120deg,#7130bb,#502093);color:white;border-color:transparent}.dr-button:hover{filter:brightness(.96)}.dr-button:disabled{opacity:.55;cursor:wait}
+.dr-filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) auto;gap:12px;align-items:end;background:white;border:1px solid #e9def5;padding:18px;border-radius:18px;margin-bottom:18px;box-shadow:0 6px 22px #44206606}
+.dr-field{min-width:0}.dr-field label{display:block;margin-bottom:7px;font-size:11px;font-weight:700;color:#69507f}.dr-field select{width:100%;height:40px;padding:0 9px;border:1px solid #dfd0ee;border-radius:10px;background:#fcfaff;color:#39214f;font:inherit;font-size:12px;text-overflow:ellipsis}
+.dr-field select:focus-visible,.dr-button:focus-visible{outline:3px solid #c1a0e9;outline-offset:2px}
+.dr-summary{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px}.dr-stat{background:linear-gradient(130deg,#fff,#f8f2ff);border:1px solid #e7d9f5;border-radius:16px;padding:18px 22px;display:grid;gap:10px;min-width:170px;box-sizing:border-box;border-top:3px solid #955dcd}.dr-stat span{font-size:13px;color:#73578e}.dr-stat strong{font-size:30px;line-height:1;color:#4b197e}
+.dr-card{background:white;border:1px solid #e7dcf1;border-radius:18px;overflow:hidden}.dr-card-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;background:#fcf9ff}.dr-card-heading h3{margin:0;font-size:15px;color:#472265}.dr-card-heading span{font-size:12px;color:#7a648e}
+.dr-table-wrap{overflow-x:auto}.dr-table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}.dr-table th{background:#f4edf9;color:#6b4487;font-size:10px;letter-spacing:.035em;text-transform:uppercase;padding:13px 14px;white-space:nowrap}.dr-table td{padding:16px 14px;border-bottom:1px solid #f0e9f6;color:#675376;vertical-align:top;line-height:1.5}.dr-table td:nth-child(2){min-width:200px;max-width:340px;overflow-wrap:anywhere}.dr-table a{color:#4c2075;font-weight:600;text-decoration:none}.dr-table a:hover{text-decoration:underline}.dr-table tbody tr:hover{background:#fcf9ff}
+.dr-status{display:inline-block;padding:4px 9px;border-radius:20px;background:#f0e7fa;color:#653292;font-size:11px;font-weight:600;white-space:nowrap}.dr-status-approved{background:#e9f7ed;color:#237141}.dr-status-pending{background:#fff5dc;color:#89621a}.dr-status-rejected{background:#fcebed;color:#a33b4a}.dr-status-archived,.dr-status-draft{background:#efedf4;color:#6c627b}.dr-table .dr-empty{padding:48px;text-align:center;color:#826d95}.dr-pagination{padding:14px 18px}.dr-feedback{font-size:13px;color:#754393}.dr-feedback:empty{display:none}#dr-results[aria-busy=true]{opacity:.6}.dr-print-report{display:none}
+@media(max-width:1200px){.dr-filters{grid-template-columns:repeat(3,minmax(0,1fr))}.dr-filters>.dr-button{justify-self:start}}
+@media(max-width:650px){.dr-heading{align-items:flex-start;flex-direction:column}.dr-heading h2{font-size:20px}.dr-filters{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px}.dr-summary{gap:8px}.dr-stat{padding:14px 16px;min-width:140px}.dr-stat span{font-size:11px}.dr-stat strong{font-size:24px}}
+@media print{@page{size:A4 landscape;margin:12mm}.dean-reports-page .sidebar,.dean-reports-page .admin-sidebar,.dean-reports-page .admin-topbar,.dean-reports-page .admin-mobile-bar,.dr-heading,.dr-actions,.dr-filters,.dr-feedback,.dr-summary,.dr-card{display:none!important}.dean-reports-page .admin-main{margin:0!important;padding:0!important;width:100%!important}.dr-print-report{display:block}.dr-print-report h1{font-size:21px}.dr-print-report h2{font-size:16px}.dr-print-report p{font-size:10px}.dr-table-wrap{overflow:visible}.dr-table{font-size:10px}.dr-table td,.dr-table th{padding:8px}.dr-table td:nth-child(2){min-width:0}.dr-table tr{break-inside:avoid}.dr-table thead{display:table-header-group}.dr-table a{color:#222;text-decoration:none}.dr-status{padding:0;background:none;color:#222}}
+.dean-reports-page .dr-print-report{overflow-wrap:anywhere}
+/* Allow only the Dean report content through the site's default print guard. */
+@media print {
+    body.dean-reports-page::before{content:none!important;display:none!important}
+    body.dean-reports-page > .admin-main{display:block!important;filter:none!important;overflow:visible!important;height:auto!important;min-height:0!important}
+    body.dean-reports-page .admin-main > :not(#dr-results){display:none!important}
+    body.dean-reports-page #dr-results > :not(.dr-print-report){display:none!important}
+    body.dean-reports-page{display:block!important;background:#fff!important;overflow:visible!important;height:auto!important}
+}
+
+@media screen {
+    .dr-eyebrow{font-size:13px}.dr-heading h2{font-size:25px}.dr-heading p{font-size:15px}.dr-button{font-size:15px}
+    .dr-field label{font-size:13px}.dr-field select{font-size:14px}.dr-feedback{font-size:15px}
+    .dr-stat span{font-size:15px}.dr-stat strong{font-size:32px}.dr-card-heading h3{font-size:17px}.dr-card-heading span{font-size:14px}
+    .dr-table{font-size:14px}.dr-table th{font-size:12px}.dr-status{font-size:13px}
+}
+.report-print-letterhead{display:none}
+@media print {
+    @page{size:A4 portrait;margin:43mm 14mm 34mm}
+    .dean-reports-page .report-print-letterhead{display:block;position:fixed;top:-43mm;left:-14mm;width:210mm;height:297mm;max-width:none;z-index:0;pointer-events:none}
+    .dean-reports-page .dr-print-report > :not(.report-print-letterhead){position:relative;z-index:1}
+    .dean-reports-page .dr-print-report .dr-table{table-layout:fixed;font-size:8px}
+    .dean-reports-page .dr-print-report .dr-table th{white-space:normal;font-size:8px}
+    .dean-reports-page .dr-print-report .dr-table td,.dean-reports-page .dr-print-report .dr-table th{padding:6px 4px;overflow-wrap:anywhere}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(1){width:4%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(2){width:25%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(3){width:15%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(4){width:9%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(5){width:16%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(6){width:13%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(7){width:7%}
+    .dean-reports-page .dr-print-report .dr-table th:nth-child(8){width:11%}
+    .dean-reports-page .dr-print-report .dr-status{white-space:normal;font-size:8px}
+}

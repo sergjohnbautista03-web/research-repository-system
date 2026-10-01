@@ -1,0 +1,7 @@
+.ube-search-suggestions{position:fixed;z-index:10050;overflow:auto;background:#fff;border:1px solid #dfd2f3;border-radius:12px;box-shadow:0 12px 28px #35135c24;padding:5px;font:14px/1.4 var(--font-body,Arial,sans-serif);color:#291243;overscroll-behavior:contain}
+.ube-search-suggestions[hidden]{display:none}
+.ube-search-option{padding:10px 12px;border-radius:8px;cursor:pointer;text-align:left;overflow-wrap:anywhere}
+.ube-search-option:hover,.ube-search-option[aria-selected=true]{background:#f1e9fc;color:#5923a0}
+.ube-search-option strong{display:block;font-weight:600}.ube-search-option small{display:block;color:#80679b;margin-top:3px;font-size:12px}
+.ube-search-empty{padding:12px;color:#80679b;font-size:13px}
+.ube-search-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

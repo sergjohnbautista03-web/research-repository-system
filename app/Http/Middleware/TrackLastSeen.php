@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Semester;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,14 +14,15 @@ class TrackLastSeen
         if (Auth::check()) {
             $user = Auth::user();
 
-            if ($user->isDeanImportedMember() && ! Semester::open()->exists()) {
+            // Keep admin staff sessions available even when there is no open semester.
+            if ($user->isDeanImportedMember() && ! $user->hasActiveSemesterEnrollment()) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
                 return redirect()
                     ->route('login')
-                    ->withErrors(['login' => 'Your account is not available yet because there is no active semester. Please wait for the administrator to activate a semester.']);
+                    ->withErrors(['login' => 'Your account is not activated for the current semester. Please contact your Department Dean to activate your account.']);
             }
 
             $userId = Auth::id();

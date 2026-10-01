@@ -426,19 +426,7 @@ function printReport() {
 
     html += `</body></html>`;
 
-    const blob  = new Blob([html], {type:'text/html'});
-    const url   = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    iframe.onload = function() {
-        iframe.contentWindow.print();
-        iframe.contentWindow.onafterprint = function() {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(url);
-        };
-    };
+    window.ReportPrint.printHtml(html);
 }
 
 const reportPrintData = {
@@ -642,21 +630,7 @@ function printReport(scope) {
 }
 
 function printHtml(html) {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    iframe.onload = function() {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        iframe.contentWindow.onafterprint = function() {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(url);
-        };
-    };
+    window.ReportPrint.printHtml(html);
 }
 
 document.getElementById('reportPrintModal')?.addEventListener('click', event => {

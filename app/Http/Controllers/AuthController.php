@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\CaptureAttemptLog;
-use App\Models\Semester;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -84,17 +83,19 @@ class AuthController extends Controller
             $request->session()->regenerate();
             $authenticatedUser = Auth::user();
 
-            if ($authenticatedUser->isDeanImportedMember() && ! Semester::open()->exists()) {
+            // Admin staff, including deans and coordinators, can sign in without a semester.
+            if ($authenticatedUser->isDeanImportedMember() && ! $authenticatedUser->hasActiveSemesterEnrollment()) {
                 Auth::logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();
 
                 return redirect()
                     ->route('login')
-                    ->withErrors(['login' => 'Your account is not available yet because there is no active semester. Please wait for the administrator to activate a semester.']);
+                    ->withErrors(['login' => 'Your account is not activated for the current semester. Please contact your Department Dean to activate your account.']);
             }
 
             $this->recordLoginActivity($request, $authenticatedUser);
+            \App\Services\UserActivity::record($authenticatedUser, 'login', 'Signed in successfully.');
 
             if (! $authenticatedUser->policy_accepted_at || $authenticatedUser->policy_version !== config('repository_policy.version', '2026-04-29')) {
                 return redirect()->route('policy.show');
@@ -120,6 +121,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         if (Auth::check()) {
+            \App\Services\UserActivity::record(Auth::user(), 'logout', 'User logged out of the system.');
             Auth::logout();
         }
 

@@ -5,6 +5,7 @@
 @section('content')
 @php
     $adminUser = auth()->user();
+    $isDean = $adminUser->isDepartmentDean();
     $assignedDepartment = $adminUser->isDepartmentScopedAdmin() ? $adminUser->department : null;
     $activeFilters = collect([
         request('search') ? 'Search: "' . request('search') . '"' : null,
@@ -42,7 +43,7 @@
     };
 @endphp
 
-<form method="GET" class="mr-filter-card">
+<form method="GET" action="{{ route('admin.researches') }}" class="mr-filter-card" id="mr-filters">
     @if($adminUser->isGlobalAdmin())
         <div class="mr-filter-top">
             <a href="{{ route('admin.add-research') }}" class="mr-add-btn">
@@ -52,20 +53,21 @@
         </div>
     @endif
 
-    <div class="mr-filter-grid">
+    <div class="mr-filter-grid{{ $isDean ? ' mr-filter-grid-dean' : '' }}">
         <div class="mr-filter-field mr-filter-search">
             <label for="mr-search">Search</label>
             <div class="mr-control-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input id="mr-search" type="text" name="search" value="{{ request('search') }}" placeholder="Title or author">
+                <input id="mr-search" type="text" name="search" value="{{ request('search') }}" placeholder="Title or author" data-auto-filter autocomplete="off">
             </div>
         </div>
 
+        @if(! $isDean)
         <div class="mr-filter-field">
             <label for="mr-status">Status</label>
             <select id="mr-status" name="status">
                 <option value="">All Status</option>
-                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Submitted to Admin</option>
+                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>For Review</option>
                 <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Published</option>
                 <option value="archived" {{ request('status') == 'archived' ? 'selected' : '' }}>Archived</option>
                 <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Needs Correction</option>
@@ -86,6 +88,8 @@
             @endif
         </div>
 
+        @endif
+
         <div class="mr-filter-field">
             <label for="mr-year">Year</label>
             <select id="mr-year" name="year">
@@ -97,11 +101,7 @@
         </div>
 
         <div class="mr-filter-actions">
-            <button type="submit" class="mr-filter-btn mr-filter-btn-primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                Filter
-            </button>
-            <a href="{{ route('admin.researches') }}" class="mr-filter-btn mr-filter-btn-ghost">Clear</a>
+            <a id="mr-clear" href="{{ route('admin.researches') }}" class="mr-filter-btn mr-filter-btn-ghost">Clear</a>
         </div>
     </div>
 
@@ -113,8 +113,9 @@
         </div>
     @endif
 </form>
+<p id="mr-feedback" class="mr-feedback" role="status" aria-live="polite"></p>
 
-<div class="mr-table-card">
+<div id="mr-results" class="mr-table-card">
     <div class="mr-table-head">
         <div>
             <span>Research Records</span>
@@ -124,13 +125,13 @@
     </div>
 
     <div class="mr-table-wrap">
-        <table class="mr-table">
+        <table class="mr-table{{ $isDean ? ' mr-table-dean' : '' }}">
             <thead>
                 <tr>
                     <th>Title</th>
                     <th>Author</th>
-                    <th>Department</th>
-                    <th>Actions</th>
+                    <th>Year</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -140,21 +141,12 @@
                     $departmentCode = $departmentAbbreviation($r->department);
                 @endphp
                 <tr>
-                    <td data-label="Title" class="mr-title-cell">
+                    <td data-label="Title" class="mr-title-cell" data-search-label="{{ $r->title }}" data-search-detail="{{ $r->author_name }}">
                         <span class="mr-title-link">{{ Str::limit($r->title, 86) }}</span>
                     </td>
                     <td data-label="Author"><span class="mr-author">{{ Str::limit($r->author_name, 46) }}</span></td>
-                    <td data-label="Department">
-                        <span
-                            class="mr-department-code"
-                            title="{{ $departmentFullName }}"
-                            data-tooltip="{{ $departmentFullName }}"
-                            aria-label="{{ $departmentFullName }}"
-                            tabindex="0">
-                            {{ $departmentCode }}
-                        </span>
-                    </td>
-                    <td data-label="Actions" class="action-cell">
+                    <td data-label="Year">{{ $r->year_published ?: 'N/A' }}</td>
+                    <td data-label="Action" class="action-cell">
                         <div class="research-action-row">
                             <button type="button" class="btn-action-view js-open-research-modal" data-research="{{ json_encode([
                                 'id' => $r->id,
@@ -591,6 +583,7 @@
 .mr-table th:nth-child(2){width:24%; min-width:190px}
 .mr-table th:nth-child(3){width:12%; min-width:110px}
 .mr-table th:nth-child(4){width:20%; min-width:210px}
+.mr-table-dean th:nth-child(3){width:12%;min-width:90px}
 
 .mr-table td:nth-child(3),
 .mr-table td:nth-child(4) {
@@ -1067,6 +1060,12 @@
 }
 
 
+@media (min-width: 1201px) {
+    .mr-filter-grid.mr-filter-grid-dean {
+        grid-template-columns: minmax(240px, 1fr) minmax(180px, .45fr) auto;
+    }
+}
+
 @media (max-width: 1200px) {
     .mr-filter-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1149,6 +1148,26 @@
         left: 0;
     }
 }
+
+/* User Activity Logs-aligned research management layout. */
+.mr-filter-card{padding:16px;border:1px solid #e8dcf3;border-radius:18px;box-shadow:0 8px 24px rgba(64,30,100,.05);margin-bottom:14px}
+.mr-filter-grid,.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:minmax(210px,1.5fr) repeat(3,minmax(140px,1fr)) auto;gap:10px;align-items:end}
+.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:minmax(240px,1.5fr) minmax(160px,.6fr) auto}
+.mr-filter-field label,.mr-table-head span{margin-bottom:6px;color:#65457e;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none}
+.mr-filter-field input,.mr-filter-field select,.mr-fixed-department{height:41px;padding:0 12px;border:1px solid #decdef;border-radius:11px;background:#fcfaff;color:#32144e;font-size:12px}
+.mr-control-wrap svg{left:12px;width:18px;height:18px}.mr-filter-field input{padding-left:39px}
+.mr-filter-actions{gap:8px}.mr-filter-btn{height:41px;min-width:0;padding:0 17px;border-radius:11px;font-size:12px}.mr-filter-btn-ghost{color:#5a2388;background:#faf7fd;border-color:#cdb2e5}
+.mr-active-filters{margin-top:10px}.mr-active-filters span{padding:5px 9px;font-size:10px}
+.mr-feedback{margin:0 0 12px;color:#704096;font-size:12px}.mr-feedback:empty{display:none}
+.mr-table-card{border:1px solid #e8dcf3;border-radius:18px;box-shadow:none;overflow:hidden}.mr-table-card[aria-busy=true]{opacity:.65}
+.mr-table-head{padding:18px 20px;background:#fbf8fe;border-bottom:1px solid #eee5f6}.mr-table-head h3{font-family:var(--font-body);font-size:15px;color:#432062}.mr-table-head strong{padding:5px 10px;background:#f0e6fa;color:#672f96;font-size:11px}
+.mr-table th{padding:12px 15px;background:#f4edf9;color:#70468d;font-size:10px;letter-spacing:.04em}.mr-table td{padding:14px 15px;border-bottom:1px solid #f0e9f5;color:#655573;font-size:12px;vertical-align:top}.mr-title-link{color:#35154e;font-size:12px}.mr-author{color:#655573;font-size:12px}.btn-action-view{padding:7px 11px;border-radius:9px;font-size:11px}.pagination-wrap{padding:13px 18px}
+@media(max-width:950px){.mr-filter-grid,.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:repeat(2,minmax(0,1fr))}.mr-filter-actions{grid-column:auto;justify-content:flex-start}}
+@media(max-width:760px){.mr-filter-grid,.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:1fr}.mr-filter-btn{width:100%}}
+
+/* Readability increase. */
+.mr-filter-field label,.mr-table-head span{font-size:13px}.mr-filter-field input,.mr-filter-field select,.mr-fixed-department,.mr-filter-btn{font-size:14px}.mr-active-filters span{font-size:12px}.mr-feedback{font-size:14px}
+.mr-table-head h3{font-size:17px}.mr-table-head strong{font-size:13px}.mr-table th{font-size:12px}.mr-table td,.mr-title-link,.mr-author{font-size:14px}.btn-action-view{font-size:13px}
 </style>
 
 <!-- Research Detail Modal -->
@@ -1218,6 +1237,7 @@
 @endsection
 
 @push('scripts')
+<script src="{{ asset('js/manage-researches.js') }}?v={{ filemtime(public_path('js/manage-researches.js')) }}" defer></script>
 <script>
 
 function closeResearchActionMenus() {
@@ -1355,12 +1375,11 @@ function closeResearchDetailModal() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('.js-open-research-modal').forEach(function(button) {
-        button.addEventListener('click', function(event) {
-            event.preventDefault();
-            const research = JSON.parse(this.getAttribute('data-research'));
-            openResearchDetailModal(research);
-        });
+    document.addEventListener('click', function(event) {
+        const button = event.target.closest('.js-open-research-modal');
+        if (!button) return;
+        event.preventDefault();
+        openResearchDetailModal(JSON.parse(button.getAttribute('data-research')));
     });
 
     const closeButton = document.querySelector('[data-close-research-modal]');

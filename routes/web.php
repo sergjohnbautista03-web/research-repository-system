@@ -81,6 +81,11 @@ Route::middleware(['auth', 'policy.accepted'])->group(function () {
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', 'admin'])->group(function () {
     Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
     Route::get('/review-notifications', [AdminController::class, 'reviewNotifications'])->name('review-notifications');
+    Route::get('/dean-notifications', [\App\Http\Controllers\DeanNotificationController::class, 'index'])->name('dean-notifications');
+    Route::get('/notifications/feed', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.feed');
+    Route::post('/notifications/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::get('/user-activity-logs', [\App\Http\Controllers\UserActivityLogController::class, 'index'])->name('user-activity-logs');
 
     // Research Coordinator workflow
     Route::prefix('coordinator')->name('coordinator.')->group(function () {
@@ -127,6 +132,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
 
     // User management
     Route::get('/users', [AdminController::class, 'users'])->name('users');
+    Route::get('/users/activate-existing', [AdminController::class, 'activateExistingUsers'])->name('users.activate-existing');
+    Route::post('/users/activate-existing', [AdminController::class, 'activateUsersForCurrentSemester'])->name('users.activate-current');
     Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('user.show');
     Route::post('/users/{user}/toggle', [AdminController::class, 'toggleUserStatus'])->name('user.toggle');
     Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('user.delete');
@@ -147,7 +154,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
     Route::get('/reports/export/excel', [AdminController::class, 'exportReportExcel'])->name('reports.export.excel');
 
     // Capture logs
-    Route::get('/capture-attempt-logs', [AdminController::class, 'captureAttemptLogs'])->name('capture-attempt-logs');
+    Route::get('/activity-logs', [\App\Http\Controllers\UserActivityLogController::class, 'systemIndex'])->name('activity-logs');
+    Route::get('/capture-attempt-logs', fn () => redirect()->route('admin.activity-logs'))->name('capture-attempt-logs');
     Route::get('/capture-attempt-logs/summary', [AdminController::class, 'captureAttemptSummary'])->name('capture-attempt-logs.summary');
     Route::post('/capture-attempt-logs/mark-viewed', [AdminController::class, 'markCaptureActivityViewed'])->name('capture-attempt-logs.mark-viewed');
 

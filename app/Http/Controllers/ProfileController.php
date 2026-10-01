@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class ProfileController extends Controller
@@ -29,21 +30,38 @@ class ProfileController extends Controller
 
     public function update(Request $request)
     {
-        if (! Auth::user()->isAdmin()) {
+        $emailOnlyUpdate = $request->has('email') && ! $request->hasAny(['first_name', 'middle_name', 'last_name', 'name']);
+
+        if (! Auth::user()->isAdmin() && ! $emailOnlyUpdate) {
             return back()->with('error', 'Account details are managed by your dean or administrator.');
         }
 
-        $request->validate([
-            'name' => ['required', 'regex:/^[a-zA-Z\s]+$/', 'max:255'],
-        ], [
-            'name.regex' => 'Name must contain letters only.',
-        ]);
+        $user = Auth::user();
 
-        Auth::user()->update([
-            'name' => $request->name,
-        ]);
+        if ($emailOnlyUpdate) {
+            $data = $request->validate([
+                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            ]);
+            $user->update(['email' => strtolower($data['email'])]);
+        } elseif ($request->has('first_name') || $request->has('last_name')) {
+            $data = $request->validate([
+                'first_name' => ['required', 'string', 'max:100', "regex:/^[\pL\s.'-]+$/u"],
+                'middle_name' => ['nullable', 'string', 'max:100', "regex:/^[\pL\s.'-]+$/u"],
+                'last_name' => ['required', 'string', 'max:100', "regex:/^[\pL\s.'-]+$/u"],
+                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            ]);
 
-        return back()->with('success', 'Profile updated successfully!');
+            $user->update([
+                'name' => trim(implode(' ', array_filter([$data['first_name'], $data['middle_name'] ?? null, $data['last_name']]))),
+                'middle_name' => $data['middle_name'] ?: null,
+                'email' => strtolower($data['email']),
+            ]);
+        } else {
+            $data = $request->validate(['name' => ['required', 'string', 'max:255', "regex:/^[\pL\s.'-]+$/u"]]);
+            $user->update(['name' => $data['name']]);
+        }
+
+        return back()->with('success', 'Profile updated successfully!')->with('profile_updated', true);
     }
 
     public function updatePassword(Request $request)
@@ -156,6 +174,7 @@ class ProfileController extends Controller
             'password'       => $verification['new_password_hash'],
             'remember_token' => Str::random(60),
         ])->save();
+        \App\Services\UserActivity::record($user, 'password_changed', 'Changed account password.');
 
         session()->forget(['password_change_verification', 'password_change_pending']);
 
@@ -226,6 +245,7 @@ class ProfileController extends Controller
         $path = $request->file('profile_photo')->store('profile-photos', 'public');
 
         $user->update(['profile_photo' => $path]);
+        \App\Services\UserActivity::record($user, 'profile_updated', 'Updated profile photo.');
 
         return back()->with('success', 'Profile photo updated successfully!');
     }
@@ -237,6 +257,7 @@ class ProfileController extends Controller
         if ($user->profile_photo) {
             Storage::disk('public')->delete($user->profile_photo);
             $user->update(['profile_photo' => null]);
+            \App\Services\UserActivity::record($user, 'profile_updated', 'Removed profile photo.');
         }
 
         return back()->with('success', 'Profile photo removed.');

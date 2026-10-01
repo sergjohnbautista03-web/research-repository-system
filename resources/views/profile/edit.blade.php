@@ -9,7 +9,13 @@
         : ($profileUser->isResearchCoordinator() ? 'Research Coordinator' : ucfirst($profileUser->role));
     $profileIdLabel = $profileUser->isDepartmentDean()
         ? 'Dean ID'
-        : ($profileUser->isResearchCoordinator() ? 'Coordinator ID' : ($profileUser->isAdmin() ? 'Admin ID' : 'Student / Employee ID'));
+        : ($profileUser->isResearchCoordinator() ? 'Coordinator ID' : ($profileUser->isAdmin() ? 'Admin ID' : 'Student ID'));
+    if (! $profileUser->isAdmin()) {
+        $profileRoleLabel = $profileUser->role === 'researcher'
+            ? (is_null($profileUser->graduation_year) ? 'Faculty' : 'Student Researcher')
+            : 'Student';
+        $profileIdLabel = $profileRoleLabel === 'Faculty' ? 'Faculty ID' : 'Student ID';
+    }
 @endphp
 
 <div class="prof-root">
@@ -21,7 +27,7 @@
         <div class="prof-glow prof-g2"></div>
         <div class="prof-hero-inner">
             <div class="prof-eyebrow"><span class="prof-eyebrow-dot"></span> Account</div>
-            <h1>My Profile</h1>
+            <h1>Profile Settings</h1>
             <p>Manage your personal information and account settings</p>
         </div>
     </div>
@@ -93,17 +99,12 @@
                 <div class="prof-form-grid">
                     <div class="prof-field">
                         <label class="prof-field-label">Full Name</label>
-                        <input type="text" name="name" value="{{ old('name', auth()->user()->name) }}" required class="prof-input">
+                        <input type="text" name="name" value="{{ old('name', auth()->user()->name) }}" required class="prof-input" @readonly(! $profileUser->isAdmin())>
                     </div>
                     <div class="prof-field">
                         <label class="prof-field-label">Email Address</label>
                         <input type="email" value="{{ auth()->user()->email }}" disabled class="prof-input prof-input--disabled">
                         <small class="prof-hint">Email cannot be changed.</small>
-                        </div>
-                        <div class="prof-field">
-                            <label class="prof-field-label">Department</label>
-                            <input type="text" value="{{ auth()->user()->department }}" disabled class="prof-input prof-input--disabled">
-                            <small class="prof-hint">Department cannot be changed.</small>
                         </div>
                     @if(auth()->user()->student_id)
                     <div class="prof-field">
@@ -113,12 +114,14 @@
                     @endif
                 </div>
 
+                @if($profileUser->isAdmin())
                 <div class="prof-form-actions">
                     <button type="submit" class="prof-btn prof-btn--primary">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
                         Save Changes
                     </button>
                 </div>
+                @endif
             </form>
         </div>
         </div>
@@ -188,18 +191,21 @@
                 </div>
             @else
                 {{-- Step 1: Request Password Change Code Form --}}
-                <div class="prof-access-status" style="margin-bottom:20px;">
+                <div class="prof-access-status prof-verification-notice">
+                    <span class="prof-verification-icon" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg></span>
+                    <div>
                     <strong>Secure Email Verification</strong>
                     <p>To update your password, enter your current password and your new password. A 6-digit verification code will be sent to your registered email (<strong>{{ auth()->user()->email }}</strong>) to verify your identity before the password is saved.</p>
+                    </div>
                 </div>
 
                 <form method="POST" action="{{ route('profile.password.request-code') }}">
                     @csrf
-                    <div class="prof-form-grid">
-                        <div class="prof-field prof-field--full" style="max-width:480px;">
-                            <label class="prof-field-label">Current Password</label>
+                    <div class="prof-form-grid prof-password-grid">
+                        <div class="prof-field">
+                            <label class="prof-field-label" for="prof_current_password"><span class="prof-lock-icon" aria-hidden="true">&#128274;</span> Current Password</label>
                             <div class="password-wrap" style="position:relative;">
-                                <input type="password" id="prof_current_password" name="current_password" required autocomplete="current-password" class="prof-input">
+                                <input type="password" id="prof_current_password" name="current_password" placeholder="Enter your current password" required autocomplete="current-password" class="prof-input">
                                 <button type="button" class="toggle-pw" onclick="togglePassword('prof_current_password', this)" aria-label="Show or hide current password" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#7c3aed; padding:4px;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
                                 </button>
@@ -210,7 +216,7 @@
                         </div>
 
                         <div class="prof-field">
-                            <label class="prof-field-label">New Password</label>
+                            <label class="prof-field-label" for="prof_new_password"><span class="prof-lock-icon" aria-hidden="true">&#128274;</span> New Password</label>
                             <div class="password-wrap" style="position:relative;">
                                 <input type="password" id="prof_new_password" name="password" placeholder="Minimum 8 characters" required autocomplete="new-password" class="prof-input">
                                 <button type="button" class="toggle-pw" onclick="togglePassword('prof_new_password', this)" aria-label="Show or hide new password" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#7c3aed; padding:4px;">
@@ -223,7 +229,7 @@
                         </div>
 
                         <div class="prof-field">
-                            <label class="prof-field-label">Confirm New Password</label>
+                            <label class="prof-field-label" for="prof_password_confirmation"><span class="prof-lock-icon" aria-hidden="true">&#128274;</span> Confirm New Password</label>
                             <div class="password-wrap" style="position:relative;">
                                 <input type="password" id="prof_password_confirmation" name="password_confirmation" placeholder="Confirm new password" required autocomplete="new-password" class="prof-input">
                                 <button type="button" class="toggle-pw" onclick="togglePassword('prof_password_confirmation', this)" aria-label="Show or hide confirm password" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#7c3aed; padding:4px;">
@@ -231,9 +237,8 @@
                                 </button>
                             </div>
                         </div>
+                        <small class="prof-hint prof-password-requirements">Requirements: Minimum 8 characters, at least one number (0-9), and at least one symbol (!@#$%^&*).</small>
                     </div>
-
-                    <small class="prof-hint" style="margin-bottom:20px;">Requirements: Minimum 8 characters, at least one number (0-9), and at least one symbol (!@#$%^&*).</small>
 
                     <div class="prof-form-actions">
                         <button type="submit" class="prof-btn prof-btn--primary">
@@ -503,6 +508,19 @@
 @media(max-width: 980px) {
     .prof-top-grid { grid-template-columns: 1fr; }
 }
+.prof-verification-notice { display: flex; align-items: center; gap: 22px; margin-bottom: 24px; padding: 22px 24px; border: 1px solid #e5d5fc; border-radius: 16px; background: #faf6ff; }
+.prof-verification-icon { display: grid; place-items: center; flex: 0 0 60px; height: 60px; border-radius: 20px; background: #eee2ff; color: #7c3aed; }
+.prof-verification-notice > div { min-width: 0; }
+.prof-verification-notice > div > strong { font-size: 17px; color: #54208b; }
+.prof-verification-notice p { margin: 6px 0 0; line-height: 1.6; overflow-wrap: anywhere; }
+.prof-verification-notice p strong { display: inline; font-size: inherit; }
+.prof-password-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px 32px; align-items: start; }
+.prof-password-grid .prof-field { min-width: 0; }
+.prof-password-grid .prof-field-label { display: flex; align-items: center; gap: 9px; text-transform: none; letter-spacing: 0; font-size: 13px; color: #422166; }
+.prof-lock-icon { display: inline-block; flex: 0 0 19px; width: 19px; height: 21px; font-size: 0; background: #8b45ef; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Crect x='5' y='10' width='14' height='11' rx='2'/%3E%3Cpath d='M8 10V7a4 4 0 0 1 8 0v3M12 14v3'/%3E%3C/svg%3E") center / contain no-repeat; }
+.prof-password-grid .password-wrap input { width: 100%; padding-right: 46px; min-height: 52px; border-color: #e3d5f5; }
+.prof-password-requirements { grid-column: 2 / -1; margin: 0; line-height: 1.6; }
+@media(max-width:900px) { .prof-password-grid { grid-template-columns: 1fr; gap: 18px; } .prof-password-requirements { grid-column: 1; } .prof-verification-notice { align-items: flex-start; gap: 14px; padding: 18px; } .prof-verification-icon { flex-basis: 44px; height: 44px; border-radius: 14px; } }
 </style>
 
 @push('scripts')

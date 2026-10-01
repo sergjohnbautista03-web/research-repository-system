@@ -79,6 +79,9 @@ if (document.readyState === 'loading') {
 function togglePassword(fieldId, btn) {
     const input = document.getElementById(fieldId);
     if (!input) return;
+    const showing = input.type === 'password';
+    btn.setAttribute('aria-pressed', String(showing));
+    btn.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
 
     if (input.type === 'password') {
         // Show password — open eye
@@ -93,22 +96,34 @@ function togglePassword(fieldId, btn) {
 
 // ── Pin / Unpin research ────────────────────────────────
 function togglePin(id, btn) {
-    fetch(`/pin/${id}`, {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    return fetch(`/pin/${id}`, {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             'Accept': 'application/json',
         }
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) throw new Error('Save request failed');
+        return r.json();
+    })
     .then(data => {
-        if (data.pinned) {
-            btn.classList.add('pinned');
-            btn.textContent = 'Pinned';
-        } else {
-            btn.classList.remove('pinned');
-            btn.textContent = 'Pin';
-        }
+        if (typeof data.pinned !== 'boolean') throw new Error('Invalid save response');
+        btn.classList.toggle('pinned', data.pinned);
+        btn.dataset.pinned = String(data.pinned);
+        btn.setAttribute('aria-pressed', String(data.pinned));
+        const label = btn.querySelector('[data-save-label]');
+        if (label) label.textContent = data.pinned ? 'Saved' : 'Save';
+        else btn.textContent = data.pinned ? 'Saved' : 'Save';
+        btn.querySelector('svg')?.setAttribute('fill', data.pinned ? 'currentColor' : 'none');
+    })
+    .catch(() => alert('Unable to update your saved research. Please try again.'))
+    .finally(() => {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
     });
 }
 

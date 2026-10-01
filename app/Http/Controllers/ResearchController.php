@@ -23,18 +23,33 @@ class ResearchController extends Controller
     private const PDF_WATERMARK_TEXT = 'PROPERTY OF PHILCST';
     private const PDF_WATERMARK_STYLE_VERSION = 4;
 
+    private function recordRecentView(Research $research): void
+    {
+        $user = auth()->user();
+        if (! $user || ! in_array($user->role, ['user', 'researcher'], true) || $research->status !== 'approved') {
+            return;
+        }
+
+        \Illuminate\Support\Facades\DB::table('research_views')->upsert([
+            'user_id' => $user->id,
+            'research_id' => $research->id,
+            'last_viewed_at' => now(),
+        ], ['user_id', 'research_id'], ['last_viewed_at']);
+        \App\Services\UserActivity::record($user, 'viewed_research', 'Viewed research: ' . $research->title);
+    }
+
     private function ensureAdminDocumentAccess(?User $user, Research $research): void
     {
         abort_unless($user?->isAdmin(), 403, 'Admins only.');
-        if ($user->isDepartmentScopedAdmin()) {
-            abort_if(empty($user->department) || $user->department !== $research->department,
-                403, 'You can only view researches from your assigned department.');
-        }
+        // All admins may read research across departments; management stays scoped separately.
     }
 
     private function renderProtectedViewer(Request $request, Research $research, bool $adminMode = false)
     {
         $user = auth()->user();
+        if (! $adminMode) {
+            \App\Services\UserActivity::record($user, 'research_access_attempt', 'Attempted to access full document: ' . $research->title);
+        }
 
         if ($adminMode) {
             $this->ensureAdminDocumentAccess($user, $research);
@@ -67,6 +82,8 @@ class ResearchController extends Controller
                 'scope' => $adminMode ? 'admin' : 'standard',
             ]
         );
+
+        $this->recordRecentView($research);
 
         return view('research.protected-viewer', compact('research', 'signedUrl', 'adminMode'));
     }
@@ -258,6 +275,7 @@ class ResearchController extends Controller
         }
 
         $research->increment('view_count');
+        $this->recordRecentView($research);
 
         return view('research.show', compact('research'));
     }
@@ -265,6 +283,7 @@ class ResearchController extends Controller
     public function recordCitationCopy(Research $research)
     {
         abort_if($research->status !== 'approved', 404);
+        \App\Services\UserActivity::record(auth()->user(), 'copied_citation', 'Copied citation for: ' . $research->title);
 
         if (Schema::hasColumn('researches', 'citation_copy_count')) {
             $research->increment('citation_copy_count');
@@ -293,8 +312,7 @@ class ResearchController extends Controller
         }
 
         if (! $user->isAdmin() && ! $user->canSubmitResearch()) {
-            return redirect()->route('user.dashboard')
-                ->with('error', 'Only active approved accounts can submit research.');
+            abort(403, 'Students and faculty cannot submit research. Please contact your department dean.');
         }
 
         return view('research.submit');
@@ -319,7 +337,7 @@ class ResearchController extends Controller
         }
 
         if (! $user->isAdmin() && ! $user->canSubmitResearch()) {
-            return redirect()->route('user.dashboard')->with('error', 'Only active approved accounts can submit research.');
+            abort(403, 'Students and faculty cannot submit research. Please contact your department dean.');
         }
 
         if ($user->isDepartmentDean() && empty($user->department)) {
@@ -510,9 +528,11 @@ class ResearchController extends Controller
         if ($user->pinnedResearches()->where('research_id', $research->id)->exists()) {
             $user->pinnedResearches()->detach($research->id);
             $pinned = false;
+            \App\Services\UserActivity::record($user, 'unsaved_research', 'Removed saved research: ' . $research->title);
         } else {
             $user->pinnedResearches()->attach($research->id);
             $pinned = true;
+            \App\Services\UserActivity::record($user, 'saved_research', 'Saved research: ' . $research->title);
         }
 
         return response()->json(['pinned' => $pinned]);
@@ -550,6 +570,7 @@ class ResearchController extends Controller
         ];
 
         $recentPinned = $pinnedResearches->take(4);
+        $recentlyViewedResearches = $user->recentlyViewedResearches()->limit(20)->get();
         $recentDepartmentResearches = $user->department
             ? Research::approved()
                 ->where('department', $user->department)
@@ -560,7 +581,7 @@ class ResearchController extends Controller
             : collect();
         $departments = $this->departments();
 
-        return view('user.dashboard', compact('user', 'stats', 'pinnedResearches', 'mySubmissions', 'recentPinned', 'recentDepartmentResearches', 'departments'));
+        return view('user.dashboard', compact('user', 'stats', 'pinnedResearches', 'mySubmissions', 'recentPinned', 'recentDepartmentResearches', 'recentlyViewedResearches', 'departments'));
     }
 
     public function byDepartment($department)

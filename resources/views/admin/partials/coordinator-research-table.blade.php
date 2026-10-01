@@ -10,7 +10,8 @@
                     <th>Research</th>
                     <th>Department</th>
                     <th>Type</th>
-                    <th>Term</th>
+                    <th>Year</th>
+                    <th>Academic Year</th>
                     <th>Status / Stage</th>
                     <th>Actions</th>
                 </tr>
@@ -19,7 +20,7 @@
                 @forelse($researches as $research)
                     <tr>
                         <td>
-                            <span class="coord-title">{{ $research->title }}</span>
+                            <span class="coord-title" data-search-label="{{ $research->title }}" data-search-detail="{{ $research->authorListLabel() }}">{{ $research->title }}</span>
                             <span class="coord-muted">{{ $research->authorListLabel() }}</span>
                             @if($research->rejection_reason)
                                 <span class="coord-muted">Return reason: {{ Str::limit($research->rejection_reason, 120) }}</span>
@@ -31,9 +32,9 @@
                             <span class="coord-muted">{{ $research->getSubmissionCategoryLabel() }}</span>
                         </td>
                         <td>
-                            {{ $research->semester?->label ?? 'Not set' }}
-                            <span class="coord-muted">{{ $research->year_published ?: 'No year' }}</span>
+                            {{ $research->year_published ?: 'No year' }}
                         </td>
+                        <td>{{ $research->semester?->school_year ?? 'Not assigned' }}</td>
                         <td>
                             <span class="coord-pill coord-pill-{{ $research->status }}">{{ $research->coordinatorStageLabel() }}</span>
                         </td>
@@ -51,7 +52,7 @@
                                     </form>
                                 @elseif($mode === 'archive')
                                     <span class="coord-muted">Processed {{ optional($research->approved_at ?? $research->updated_at)->format('M d, Y') }}</span>
-                                @else
+                                @elseif($research->status !== \App\Models\Research::STATUS_APPROVED)
                                     <span class="coord-muted">{{ $research->status === \App\Models\Research::STATUS_PENDING ? 'Waiting for Admin review' : $research->coordinatorStageLabel() }}</span>
                                 @endif
                             </div>
@@ -59,7 +60,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6">
+                        <td colspan="7">
                             <div class="coord-empty">
                                 <strong>No research records found.</strong>
                                 <span>Try changing the filters or check another module.</span>

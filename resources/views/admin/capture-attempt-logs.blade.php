@@ -269,7 +269,7 @@
                 @foreach($viewerGroups as $index => $viewer)
                     <article class="cal-account-item {{ $viewer['unread_count'] > 0 ? 'is-unread' : '' }} {{ $viewer['risk_score'] >= 5 ? 'is-suspicious' : '' }}" data-account-row>
                         <div>
-                            <div class="cal-viewer-name">
+                            <div class="cal-viewer-name" data-search-label="{{ $viewer['name'] }}" data-search-detail="{{ $viewer['email'] }}">
                                 {{ $viewer['name'] }}
                                 @if($viewer['unread_count'] > 0)
                                     <span class="cal-review-dot" title="Unread suspicious activity"></span>

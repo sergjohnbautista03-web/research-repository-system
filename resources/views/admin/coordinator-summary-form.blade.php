@@ -107,7 +107,7 @@
                         <input type="text" value="{{ auth()->user()->department }}" readonly>
                     </div>
                     <div class="coord-field">
-                        <label for="school_year">School Year</label>
+                        <label for="school_year">Academic Year</label>
                         <select id="school_year" name="school_year">
                             <option value="">Not set</option>
                             @foreach($schoolYearList as $schoolYear)
@@ -115,15 +115,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="coord-field">
-                        <label for="semester">Semester</label>
-                        <select id="semester" name="semester">
-                            <option value="">Not set</option>
-                            @foreach($semesterOptions as $semester)
-                                <option value="{{ $semester }}" {{ $selectedSemester === $semester ? 'selected' : '' }}>{{ \App\Models\Semester::semesterLabels()[$semester] ?? $semester }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <input type="hidden" name="semester" id="semester" value="{{ $selectedSemester }}">
                 </div>
 
                 <div class="coord-field" id="programGroup">
@@ -230,12 +222,11 @@ function authorsText() {
 
 function updatePreview() {
     const schoolYear = document.getElementById('school_year').value || 'Not set';
-    const semester = document.getElementById('semester').selectedOptions[0]?.textContent.trim() || 'Not set';
 
     document.getElementById('previewType').textContent = document.getElementById('type').value || 'Research Type';
     document.getElementById('previewTitle').textContent = document.getElementById('title').value || 'Untitled research';
     document.getElementById('previewAuthors').textContent = authorsText();
-    document.getElementById('previewMeta').textContent = departmentName + ' / ' + schoolYear + ' ' + semester;
+    document.getElementById('previewMeta').textContent = departmentName + ' / ' + schoolYear;
     document.getElementById('previewYear').textContent = 'Year Published: ' + document.getElementById('year_published').value;
     document.getElementById('previewCategory').textContent = category.selectedOptions[0]?.textContent.trim() || '';
     document.getElementById('previewAbstract').textContent = document.getElementById('abstract').value || 'No abstract yet.';

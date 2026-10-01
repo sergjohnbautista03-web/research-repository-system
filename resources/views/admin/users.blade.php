@@ -1,6 +1,13 @@
 @extends('layouts.admin')
 @section('title', 'Manage Users')
 @section('page-title', 'Manage Users')
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/dean-import-users.css') }}?v={{ filemtime(public_path('css/dean-import-users.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/dean-add-user.css') }}?v={{ filemtime(public_path('css/dean-add-user.css')) }}">
+@if(auth()->user()->canImportUsers())
+<link rel="stylesheet" href="{{ asset('css/dean-semester-users.css') }}?v={{ filemtime(public_path('css/dean-semester-users.css')) }}">
+@endif
+@endpush
 
 @section('content')
 
@@ -13,6 +20,7 @@
     $currentYear = (int) date('Y');
 @endphp
 
+@if(! auth()->user()->isDepartmentDean())
 <div class="summary-grid">
     <div class="summary-card sc-total">
         <div class="sc-icon sc-i-total">
@@ -21,16 +29,9 @@
         <div class="sc-info"><div class="sc-val">{{ $users->total() }}</div><div class="sc-lbl">Total Users</div></div>
     </div>
 
-    @if(auth()->user() && auth()->user()->canManageDepartmentKeys())
-    <div class="summary-card sc-dean">
-        <div class="sc-icon sc-i-dean">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 4.5-9 4.5L3 7.5 12 3Z"/><path d="M7 10.5V15c0 1.8 2.2 3 5 3s5-1.2 5-3v-4.5"/><path d="M21 9v6"/></svg>
-        </div>
-        <div class="sc-info"><div class="sc-val">{{ $deans->count() }}</div><div class="sc-lbl">Deans Listed</div></div>
-    </div>
-    @endif
-
 </div>
+
+@endif
 
 @if(session('success'))
     <div class="mu-alert mu-alert-success">
@@ -94,19 +95,19 @@
 @endif
 
 {{-- FILTER BAR --}}
-<form method="GET" class="mu-filter-card">
+<form method="GET" action="{{ route('admin.users') }}" class="mu-filter-card" id="mu-user-filters">
     <div class="mu-filter-main">
         <div class="mu-search-wrap">
             <span class="mu-search-icon">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </span>
-            <input id="mu-user-search" type="text" name="search" value="{{ request('search') }}" placeholder="Search name initial or name..." autocomplete="off">
+            <input id="mu-user-search" type="text" name="search" value="{{ request('search') }}" placeholder="Search users..." aria-label="Search users" data-auto-filter autocomplete="off">
         </div>
 
         <div class="mu-select-wrap">
-            <select name="role" onchange="this.form.submit()">
+            <select name="role" aria-label="Role">
                 @if($isDepartmentScoped)
-                    <option value="" {{ request('role') ? '' : 'selected' }} hidden>All Roles</option>
+                    <option value="" {{ request('role') ? '' : 'selected' }}>All Roles</option>
                     <option value="student" {{ request('role') == 'student' ? 'selected' : '' }}>Student</option>
                     <option value="faculty" {{ request('role') == 'faculty' ? 'selected' : '' }}>Faculty</option>
                 @else
@@ -121,7 +122,7 @@
 
         @unless($isDepartmentScoped)
             <div class="mu-select-wrap">
-                <select name="department">
+                <select name="department" aria-label="Department">
                     <option value="">All Departments</option>
                     @foreach($departments as $department)
                         <option value="{{ $department }}" {{ request('department') == $department ? 'selected' : '' }}>{{ $department }}</option>
@@ -130,8 +131,9 @@
             </div>
         @endunless
 
+        @if($isDepartmentScoped)
         <div class="mu-select-wrap">
-            <select name="school_year">
+            <select name="school_year" aria-label="Academic Year">
                 <option value="">All Academic Years</option>
                 @foreach($schoolYears as $schoolYear)
                     <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
@@ -140,26 +142,32 @@
         </div>
 
         <div class="mu-select-wrap">
-            <select name="semester">
+            <select name="semester" aria-label="Semester">
                 <option value="">All Semesters</option>
                 @foreach($semesterOptions as $semesterOption)
                     <option value="{{ $semesterOption }}" {{ $selectedSemester === $semesterOption ? 'selected' : '' }}>{{ $semesterOption }}</option>
                 @endforeach
             </select>
         </div>
+        @endif
 
+        <div class="mu-select-wrap" data-year-level-filter @if(request('role') !== 'student') hidden @endif>
+            <select name="year_level" aria-label="Year Level" @disabled(request('role') !== 'student')>
+                <option value="">All Year Levels</option>
+                @foreach([1 => '1st Year', 2 => '2nd Year', 3 => '3rd Year', 4 => '4th Year'] as $level => $label)
+                    <option value="{{ $level }}" @selected((string) request('year_level') === (string) $level)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
     </div>
 
     <div class="mu-filter-actions">
-        <button type="submit" class="mu-btn mu-btn-primary">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            Filter
-        </button>
-        <a href="{{ route('admin.users') }}" class="mu-btn mu-btn-ghost">Clear</a>
-        @if(auth()->user() && auth()->user()->canImportUsers())
-            <button type="button" class="mu-btn mu-btn-outline" onclick="openImportUserModal()">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Import Users
+        <a href="{{ route('admin.users', ['school_year' => '', 'semester' => '']) }}" class="mu-btn mu-btn-ghost" data-clear-filters>Clear</a>
+        @if(auth()->user()->canImportUsers())
+            <button type="button" class="mu-btn mu-btn-outline" data-open-semester-users aria-haspopup="dialog" aria-controls="activateExistingUsersModal">Activate Existing Users</button>
+            <button type="button" class="mu-btn mu-btn-outline" data-open-add-user aria-haspopup="dialog" aria-controls="addUserModal">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                Add User
             </button>
         @endif
         @if(auth()->user() && auth()->user()->canManageDepartmentKeys())
@@ -168,11 +176,39 @@
                 Add Dept Account
             </button>
         @endif
+        @if(auth()->user()->canImportUsers())
+            <button type="button" class="mu-btn mu-btn-outline" onclick="openImportUserModal()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Import Users
+            </button>
+        @endif
     </div>
 </form>
 
 {{-- TABLE CARD --}}
-<div class="mu-card">
+@if(auth()->user()->canImportUsers())
+<dialog id="addUserModal" class="member-dialog" aria-labelledby="addUserTitle" data-reopen="{{ $errors->addUser->any() ? 'true' : 'false' }}">
+    <section class="member-form-card">
+        <div class="member-dialog-header">
+            <h2 id="addUserTitle">Add User</h2>
+            <button type="button" class="ud-modal-close" data-close-add-user aria-label="Close Add User">&times;</button>
+        </div>
+        <p>Create a student or faculty account for {{ auth()->user()->department }}.</p>
+        @include('admin.partials.add-user-form', ['inModal' => true])
+    </section>
+</dialog>
+<script src="{{ asset('js/dean-add-user.js') }}?v={{ filemtime(public_path('js/dean-add-user.js')) }}"></script>
+<dialog id="activateExistingUsersModal" class="su-dialog" aria-labelledby="activateExistingUsersTitle" data-url="{{ route('admin.users.activate-existing') }}">
+    <header class="su-dialog-header"><h2 id="activateExistingUsersTitle">Activate Existing Users</h2><button type="button" data-close-semester-users aria-label="Close Activate Existing Users">&times;</button></header>
+    <div class="su-dialog-content"><p id="semester-modal-message" class="su-alert" role="status" aria-live="polite" hidden></p><div id="semester-modal-body"></div></div>
+</dialog>
+@push('scripts')
+<script src="{{ asset('js/dean-semester-users.js') }}?v={{ filemtime(public_path('js/dean-semester-users.js')) }}" defer></script>
+<script src="{{ asset('js/dean-semester-users-modal.js') }}?v={{ filemtime(public_path('js/dean-semester-users-modal.js')) }}" defer></script>
+@endpush
+@endif
+<p id="mu-filter-status" class="mu-filter-status" role="status" aria-live="polite"></p>
+<div class="mu-card" id="mu-user-results">
     <div class="mu-card-header">
         <div class="mu-card-header-left">
             <div class="mu-card-icon">
@@ -194,7 +230,6 @@
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
-                    <th>Semester</th>
                     <th>ID</th>
                     <th>Actions</th>
                 </tr>
@@ -227,7 +262,7 @@
                                 {{ strtoupper(substr($user->name, 0, 1)) }}
                             </div>
                             <div>
-                                <div class="mu-name">{{ $user->name }}</div>
+                                <div class="mu-name" data-search-label="{{ $user->name }}" data-search-detail="{{ $user->email }}">{{ $user->name }}</div>
                                 @if($isFaculty)
                                     <small class="mu-sub-tag mu-tag-faculty">Faculty</small>
                                 @endif
@@ -253,16 +288,6 @@
                         @endif
                     </td>
                     <td class="mu-dept" data-label="Department">{{ $user->department ? Str::limit($user->department, 40) : '—' }}</td>
-                    <td data-label="Semester">
-                        @if($user->currentSemester)
-                            <span class="mu-semester {{ $user->currentSemester->isArchived() ? 'is-archived' : '' }}">
-                                {{ $user->currentSemester->semester }}
-                                <small>{{ $user->currentSemester->school_year }}</small>
-                            </span>
-                        @else
-                            <span class="mu-muted">Unassigned</span>
-                        @endif
-                    </td>
                     <td class="mu-id" data-label="ID">{{ ($isDean || $user->role === 'admin') ? '—' : ($user->student_id ?? '—') }}</td>
                     
                     <td data-label="Actions">
@@ -279,7 +304,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="mu-empty">
+                    <td colspan="6" class="mu-empty">
                         <div class="mu-empty-icon">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                         </div>
@@ -314,13 +339,15 @@
 
 @if(auth()->user() && auth()->user()->canImportUsers())
 <div id="importUserModal" class="mu-modal-overlay" style="display:none;" onclick="closeImportUserModal(event)">
-    <div class="mu-modal-card mu-import-modal-card" onclick="event.stopPropagation()">
+    <div class="mu-modal-card mu-import-modal-card" role="dialog" aria-modal="true" aria-labelledby="importUsersTitle" onclick="event.stopPropagation()">
         <div class="mu-modal-head">
+            <span class="iu-heading-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3H3m13-17a3 3 0 0 1 0 6m3 11v-3a6 6 0 0 0-3-5"/></svg></span>
             <div class="mu-modal-title-wrap">
                 <span class="mu-modal-kicker">Bulk Account Setup</span>
-                <h3 class="mu-modal-title">Import Users</h3>
+                <h3 class="mu-modal-title" id="importUsersTitle">Import Users</h3>
+                <p class="iu-subtitle">Upload Student or Faculty accounts. Accounts are automatically assigned to the semester activated by the Admin. Users outside the file stay unchanged.</p>
             </div>
-            <button type="button" class="mu-modal-close" onclick="closeImportUserModal()">&times;</button>
+            <button type="button" class="mu-modal-close" onclick="closeImportUserModal()" aria-label="Close import users">&times;</button>
         </div>
 
         <form method="POST" action="{{ route('admin.import-users') }}" class="mu-create-form" enctype="multipart/form-data">
@@ -332,21 +359,29 @@
                 </div>
             @endif
 
-            <input type="hidden" name="semester" value="{{ old('semester', $activeSemester?->semester ?? $selectedSemester ?? '') }}">
-            <input type="hidden" name="school_year" value="{{ old('school_year', $activeSemester?->school_year ?? $selectedSchoolYear ?? '') }}">
-
-            <div id="iu_guide_section" class="mu-import-guide">
-                <strong>Accepted columns</strong>
-                <span>firstname, middlename, lastname, member_type, student_id, employee_id, year_level, email, password</span>
-            </div>
+            <div class="iu-upload-panel">
             <div id="iu_file_section" class="mu-create-field">
-                <label for="iu_file">Excel or CSV file</label>
-                <input type="file" id="iu_file" name="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
-                <small class="mu-field-hint">Imported users are automatically active and approved for your department. They can submit research and view full research files immediately.</small>
+                <label class="iu-upload" for="iu_file">
+                    <input type="file" id="iu_file" name="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required aria-label="Choose Excel or CSV file" aria-describedby="iu_file_help">
+                    <span class="iu-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7zM14 2v6h5M12 18v-7m-3 3 3-3 3 3"/></svg></span>
+                    <span class="iu-upload-copy">
+                        <strong id="iu_filename" aria-live="polite">Upload Excel or CSV File</strong>
+                        <span>Click to upload or drag and drop</span>
+                        <span class="iu-choose-file" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 14v7h16v-7"/></svg>Choose File</span>
+                        <small id="iu_file_help">Supported formats: .xlsx, .csv (Maximum 10MB)</small>
+                    </span>
+                </label>
+            </div>
+            <div id="iu_guide_section" class="iu-info iu-columns">
+                <span class="iu-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7zM14 2v6h5M8 12h8M8 16h8"/></svg></span>
+                <div><h4>Required Column Names</h4><p>Use these column names in any order. Email and password can be blank for generated credentials.</p>
+                    <div class="iu-column-tags">@foreach(['firstname', 'middlename', 'lastname', 'student_id', 'year_level', 'email', 'password'] as $column)<span>{{ $column }}</span>@endforeach</div>
+                </div>
+            </div>
             </div>
             <div class="mu-create-actions">
                 <button type="button" class="mu-btn mu-btn-ghost" onclick="closeImportUserModal()">Cancel</button>
-                <button type="submit" id="iu_submit_btn" class="mu-btn mu-btn-primary">Import Users</button>
+                <button type="submit" id="iu_submit_btn" class="mu-btn mu-btn-primary" @disabled(!$activeSemester)>Import Users</button>
             </div>
         </form>
     </div>
@@ -421,6 +456,11 @@
                         <label for="dept_account_id" id="deptAccountIdLabel">Dean ID</label>
                         <input type="text" id="dept_account_id" name="dean_id" value="{{ old('dean_id') }}" required autocomplete="off" placeholder="{{ $deptAccountType === 'coordinator' ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001' }}" oninput="validateDeptAccountId(this)">
                         <small class="mu-field-error" id="deptAccountIdError"></small>
+                    </div>
+                    <div class="mu-create-field">
+                        <label for="dept_account_email">Email Address</label>
+                        <input type="email" id="dept_account_email" name="email" value="{{ old('email') }}" required maxlength="255" autocomplete="email" placeholder="name@gmail.com">
+                        <small>Account details will be sent to this email address.</small>
                     </div>
                 </div>
             </div>
@@ -503,14 +543,14 @@
 .mu-semester.is-archived small{color:#64748b;}
 .mu-field-hint{display:block;margin-top:7px;font-size:11.5px;color:#9f8abf;line-height:1.5;}
 
-.mu-filter-card{background:#fff;border-radius:24px;border:1px solid rgba(107,47,160,.1);box-shadow:0 14px 34px rgba(57,26,101,.06);padding:20px 22px;margin-bottom:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
-.mu-filter-main{display:flex;align-items:center;gap:12px;flex:1;min-width:0;flex-wrap:wrap;}
-.mu-filter-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;flex-shrink:0;}
-.mu-search-wrap{position:relative;flex:1;min-width:200px;}
+.mu-filter-card{background:#fff;border-radius:20px;border:1px solid rgba(107,47,160,.1);box-shadow:0 14px 34px rgba(57,26,101,.06);padding:14px;margin-bottom:18px;display:flex;align-items:center;gap:8px;container-type:inline-size;}
+.mu-filter-main{display:flex;align-items:center;gap:8px;flex:1;min-width:0;}
+.mu-filter-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-shrink:0;}
+.mu-search-wrap{position:relative;flex:1.4;min-width:130px;}
 .mu-search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#c0aee0;display:flex;align-items:center;pointer-events:none;}
 .mu-filter-card input[type="text"]{width:100%;height:50px;padding:0 16px 0 38px;border:1.5px solid #e8dff5;border-radius:999px;background:linear-gradient(180deg,#fefcff 0%,#faf7ff 100%);font-size:14px;color:#1a0638;transition:border-color .15s;box-sizing:border-box;font-family:inherit;}
 .mu-filter-card input:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 4px rgba(124,58,237,.11);}
-.mu-select-wrap{min-width:140px;}
+.mu-select-wrap{flex:1;min-width:0;}
 .mu-select-wrap select{width:100%;height:50px;padding:0 14px;border:1.5px solid #e8dff5;border-radius:999px;background:linear-gradient(180deg,#fefcff 0%,#faf7ff 100%);font-size:14px;color:#1a0638;transition:border-color .15s;box-sizing:border-box;font-family:inherit;}
 .mu-select-wrap select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 4px rgba(124,58,237,.11);}
 .mu-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:50px;padding:0 18px;border-radius:999px;font-size:13px;font-weight:800;cursor:pointer;border:none;text-decoration:none;transition:all .14s;font-family:inherit;white-space:nowrap;}
@@ -518,8 +558,17 @@
 .mu-btn-primary:hover{transform:translateY(-1px);}
 .mu-btn-ghost{background:#fff;color:#8b7aaa;border:1.5px solid #e8dff5;}
 .mu-btn-ghost:hover{background:#f4f0fc;color:#3b0f7a;}
+.mu-filter-actions .mu-btn-ghost{color:#54218a;border-color:#b99bdc;background:#faf7ff;}
+.mu-filter-actions .mu-btn-ghost:hover{color:#3b0f7a;border-color:#8b5abb;background:#efe5fa;}
 .mu-btn-outline{color:#6b2fa0;border:1.5px solid #e2d5f4;background:#faf8ff;}
 .mu-btn-outline:hover{background:#f0eaf9;}
+.mu-filter-card input[type="text"],.mu-filter-card select{height:40px;font-size:12px;}
+.mu-filter-card select{padding:0 7px;text-overflow:ellipsis;}
+.mu-filter-actions .mu-btn{height:40px;padding:0 12px;font-size:12px;}
+.mu-filter-actions .mu-btn:focus-visible{outline:3px solid #b797ef;outline-offset:3px;}
+.mu-filter-status{font-size:13px;color:#54218a;margin:0 0 12px;}
+.mu-filter-status:empty{display:none;}
+#mu-user-results[aria-busy="true"]{opacity:.65;}
 .mu-card{background:#fff;border-radius:24px;border:1px solid rgba(107,47,160,.1);box-shadow:0 14px 34px rgba(57,26,101,.06);overflow:hidden;}
 .mu-card-header{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;background:linear-gradient(160deg,#fdfbff,#f8f4fe);border-bottom:1px solid #f0eaf9;flex-wrap:wrap;gap:12px;}
 .mu-card-header-left{display:flex;align-items:center;gap:14px;}
@@ -626,7 +675,7 @@
 .mu-modal-badge-active{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;}
 .mu-modal-badge-inactive{background:#fee2e2;color:#dc2626;border:1px solid #fecaca;}
 .mu-modal-badge-note{background:#fef9c3;color:#92400e;border:1px solid #fde68a;}
-.mu-modal-stats{display:grid;grid-template-columns:repeat(3,minmax(90px,1fr));gap:10px;min-width:min(100%,280px);}
+.mu-modal-stats{display:grid;grid-template-columns:minmax(110px,1fr);gap:10px;}
 .mu-modal-stat{padding:14px 12px;border:1px solid #efe8fb;border-radius:16px;background:#fcfbff;text-align:center;}
 .mu-modal-stat strong{display:block;font-size:22px;line-height:1;color:#2e1253;}
 .mu-modal-stat span{display:block;margin-top:6px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9f8abf;}
@@ -634,6 +683,14 @@
 .mu-modal-info{padding:14px 15px;border:1px solid #f0eaf9;border-radius:16px;background:#fff;}
 .mu-modal-info-label{display:block;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#a090bc;margin-bottom:6px;}
 .mu-modal-info-value{font-size:14px;font-weight:600;color:#1a0638;line-height:1.45;word-break:break-word;}
+.mu-modal-periods{margin-top:16px;padding:16px;border:1px solid #f0eaf9;border-radius:16px;background:#fcfaff;}
+.mu-modal-periods h4{margin:0 0 12px;font-size:14px;color:#32144e;}
+.mu-modal-period-list{display:grid;gap:10px;max-height:240px;overflow:auto;}
+.mu-modal-period{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;background:#fff;border:1px solid #eee5f6;border-radius:12px;}
+.mu-modal-period-title{font-size:14px;font-weight:700;color:#32144e;line-height:1.5;}
+.mu-modal-period-date{display:block;margin-top:4px;font-size:12px;color:#806b91;line-height:1.5;}
+.mu-modal-period .mu-modal-badge{flex-shrink:0;font-size:11px;}
+.mu-modal-period-empty{margin:0;font-size:13px;color:#806b91;}
 
 .mu-empty{text-align:center;padding:48px 20px !important;color:#c0aee0;}
 .mu-empty-icon{width:48px;height:48px;border-radius:12px;background:#f4f0fc;border:1px solid #e8dff5;display:flex;align-items:center;justify-content:center;color:#c0aee0;margin:0 auto 12px;}
@@ -641,10 +698,30 @@
 
 .mu-pagination{padding:12px 18px;border-top:1px solid #f0eaf9;}
 
-@media(max-width:1100px){
+/* User Activity Logs-aligned user management layout. */
+.mu-filter-card{padding:16px;border:1px solid #e8dcf3;border-radius:18px;box-shadow:0 8px 24px rgba(64,30,100,.05);margin-bottom:14px;gap:10px}
+.mu-filter-main,.mu-filter-actions{gap:10px}
+.mu-filter-card input[type="text"],.mu-filter-card select{height:41px;border:1px solid #decdef;border-radius:11px;background:#fcfaff;color:#32144e;font-size:14px}
+.mu-filter-card input:focus,.mu-filter-card select:focus{outline:3px solid rgba(147,93,201,.2);border-color:#955dcd;box-shadow:none}
+.mu-filter-actions .mu-btn{height:41px;padding:0 14px;border-radius:11px;font-size:14px}
+.mu-filter-actions .mu-btn-ghost{color:#5a2388;background:#faf7fd;border-color:#cdb2e5}
+.mu-filter-actions .mu-btn-outline{color:#5a2388;background:#faf7fd;border-color:#decdef}
+.mu-filter-status{margin:0 0 12px;color:#704096;font-size:14px}
+.mu-card{border:1px solid #e8dcf3;border-radius:18px;box-shadow:none}
+.mu-card-header{padding:18px 20px;background:#fbf8fe;border-bottom:1px solid #eee5f6}
+.mu-card-icon{display:none}.mu-card-header-left{gap:0}.mu-card-title{font-size:17px;color:#432062;letter-spacing:0}.mu-card-sub{font-size:14px;color:#806b91}
+.mu-count-badge{padding:5px 10px;background:#f0e6fa;border:0;color:#672f96;font-size:13px}
+.mu-table thead tr{background:#f4edf9;border-bottom:0}.mu-table th{padding:12px 15px;color:#70468d;font-size:12px;font-weight:700;letter-spacing:.04em}
+.mu-table td{padding:14px 15px;border-bottom:1px solid #f0e9f5;color:#655573;font-size:15px;vertical-align:top}.mu-table tbody tr{border-bottom:0}.mu-table tbody tr:hover{background:#fcfaff}
+.mu-avatar{width:38px;height:38px;border-radius:11px}.mu-name{font-size:15px;color:#35154e}.mu-email,.mu-dept{font-size:14px;color:#655573}.mu-role-badge{padding:5px 9px;font-size:12px}.mu-semester{min-width:105px;font-size:13px}.mu-id{font-size:13px}.act{padding:6px 9px;border-radius:9px;font-size:12px}.mu-pagination{padding:13px 18px;border-top:1px solid #f0e9f5}
+
+@media(max-width:1000px){
     .mu-filter-card{flex-wrap:wrap;}
     .mu-filter-main{flex-basis:100%;}
     .mu-filter-actions{max-width:100%;}
+    .mu-filter-main{flex-wrap:wrap;}
+    .mu-select-wrap{flex:1 1 130px;}
+    .mu-filter-actions{flex-wrap:wrap;}
 }
 @media(max-width:700px){
     .summary-card{width:100%;}
@@ -669,6 +746,7 @@
     .mu-modal-head,.mu-modal-body{padding-left:18px;padding-right:18px;}
     .mu-modal-title{font-size:20px;}
     .mu-modal-grid,.mu-modal-stats{grid-template-columns:1fr;}
+    .mu-modal-period{flex-direction:column;gap:8px;}
     .mu-import-term,.mu-semester-choice-row{grid-template-columns:1fr;}
     .mu-create-form{padding-left:18px;padding-right:18px;}
     .mu-create-grid{grid-template-columns:1fr;}
@@ -708,6 +786,31 @@
             $statusNote = null;
         }
 
+        $academicRecords = $user->semesterEnrollments
+            ->filter(fn ($record) => $record->semester !== null)
+            ->map(function ($record) use ($user, $isFaculty) {
+                $semester = $record->semester;
+                $isCurrent = $semester->isOpen()
+                    && $user->current_semester_id === $semester->id
+                    && $record->status === \App\Models\SemesterEnrollment::STATUS_ACTIVE
+                    && $user->is_active && $user->is_approved;
+                $isPrevious = $semester->isArchived()
+                    || $record->status === \App\Models\SemesterEnrollment::STATUS_ARCHIVED;
+
+                return [
+                    'period' => ($isFaculty ? 'Activated for AY ' : 'Enrolled in AY ')
+                        . $semester->school_year . ' — '
+                        . ($semester->semester === \App\Models\Semester::FIRST_SEMESTER ? '1st Semester' : '2nd Semester'),
+                    'date_label' => $isFaculty ? 'Activated on' : 'Enrolled on',
+                    'recorded_at' => $record->enrolled_at
+                        ? $record->enrolled_at->timezone(config('app.timezone', 'Asia/Manila'))->format('F j, Y · g:i A')
+                            . ' (' . config('app.timezone', 'Asia/Manila') . ')'
+                        : 'Date not recorded',
+                    'status' => $isCurrent ? 'Current Semester' : ($isPrevious ? 'Previous Semester' : 'Inactive'),
+                    'status_class' => $isCurrent ? 'active' : ($isPrevious ? 'note' : 'inactive'),
+                ];
+            })->values()->all();
+
         return [
             $user->id => [
                 'name' => $user->name,
@@ -737,6 +840,8 @@
                 'papers' => (int) $user->researches_count,
                 'is_active' => (bool) $user->is_active,
                 'role_label' => $roleLabel,
+                'show_academic_records' => in_array($user->role, ['user', 'researcher'], true),
+                'academic_records' => $academicRecords,
                 'status_note' => $statusNote,
                 'year_level' => $user->year_level_label ?? '—',
                 'avatar_letter' => strtoupper(substr($user->name, 0, 1)),
@@ -748,6 +853,8 @@
     });
 @endphp
 
+<script type="application/json" id="mu-user-data">@json($userModalData)</script>
+<script src="{{ asset('js/user-filters.js') }}?v={{ filemtime(public_path('js/user-filters.js')) }}" defer></script>
 <script>
 setTimeout(function() {
     document.querySelectorAll('.mu-alert').forEach(function(alert) {
@@ -760,7 +867,7 @@ setTimeout(function() {
     });
 }, 3000);
 
-const userModalData = @json($userModalData);
+let userModalData = JSON.parse(document.getElementById('mu-user-data').textContent);
 
 function openUserModal(userId) {
     const user = userModalData[userId];
@@ -783,6 +890,25 @@ function openUserModal(userId) {
         `
         : '';
 
+    const escapePeriodText = (value) => String(value).replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+    const academicRecordsHtml = user.show_academic_records
+        ? `<section class="mu-modal-periods" aria-label="Academic Period Records">
+            <h4>Academic Period Records</h4>
+            <div class="mu-modal-period-list">${user.academic_records.length
+                ? user.academic_records.map((record) => `
+                    <div class="mu-modal-period">
+                        <div><div class="mu-modal-period-title">${escapePeriodText(record.period)}</div>
+                            <span class="mu-modal-period-date">${escapePeriodText(record.date_label)}: ${escapePeriodText(record.recorded_at)}</span>
+                        </div>
+                        <span class="mu-modal-badge mu-modal-badge-${record.status_class}">${escapePeriodText(record.status)}</span>
+                    </div>`).join('')
+                : '<p class="mu-modal-period-empty">No academic period record yet.</p>'}
+            </div>
+        </section>`
+        : '';
+
     document.getElementById('userModalBody').innerHTML = `
         <div class="mu-modal-hero">
             <div class="mu-modal-identity">
@@ -791,14 +917,14 @@ function openUserModal(userId) {
                     <h4 class="mu-modal-name">${user.name}</h4>
                     <div class="mu-modal-badges">
                         <span class="mu-modal-badge mu-modal-badge-role">${user.role_label}</span>
-                        ${statusBadge}
+                        @unless(auth()->user()->isDepartmentDean())
+                            ${statusBadge}
+                        @endunless
                         ${noteBadge}
                     </div>
                 </div>
             </div>
             <div class="mu-modal-stats">
-                <div class="mu-modal-stat"><strong>${user.papers}</strong><span>Papers</span></div>
-                <div class="mu-modal-stat"><strong>${user.graduation_year}</strong><span>Grad. Year</span></div>
                 <div class="mu-modal-stat"><strong>${user.year_level}</strong><span>Year Level</span></div>
             </div>
         </div>
@@ -806,12 +932,12 @@ function openUserModal(userId) {
             <div class="mu-modal-info"><span class="mu-modal-info-label">Email</span><div class="mu-modal-info-value">${user.email}</div></div>
             <div class="mu-modal-info"><span class="mu-modal-info-label">Department</span><div class="mu-modal-info-value">${user.department}</div></div>
             <div class="mu-modal-info"><span class="mu-modal-info-label">ID</span><div class="mu-modal-info-value">${user.student_id}</div></div>
-            <div class="mu-modal-info"><span class="mu-modal-info-label">Researcher Status</span><div class="mu-modal-info-value">${user.researcher_status}</div></div>
             ${approvalHtml}
             <div class="mu-modal-info"><span class="mu-modal-info-label">Account Created By</span><div class="mu-modal-info-value">${user.created_by}</div></div>
             <div class="mu-modal-info"><span class="mu-modal-info-label">Last Seen</span><div class="mu-modal-info-value">${user.last_seen}</div></div>
             <div class="mu-modal-info"><span class="mu-modal-info-label">Joined</span><div class="mu-modal-info-value">${user.joined}</div></div>
         </div>
+        ${academicRecordsHtml}
     `;
 
     const toggleForm = document.getElementById('userModalToggleForm');
@@ -836,12 +962,26 @@ function closeUserModal(event) {
     document.body.style.overflow = '';
 }
 
+let importModalOpener = null;
+document.getElementById('iu_file')?.addEventListener('change', function () {
+    document.getElementById('iu_filename').textContent = this.files[0]?.name || 'Upload Excel or CSV File';
+    this.setCustomValidity(this.files[0]?.size > 10 * 1024 * 1024 ? 'Maximum file size is 10MB.' : '');
+});
+document.getElementById('importUserModal')?.addEventListener('keydown', function (event) {
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(this.querySelectorAll('button:not(:disabled), select:not(:disabled), input:not([type=hidden]):not(:disabled)'));
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+});
 function openImportUserModal() {
     const modal = document.getElementById('importUserModal');
     if (!modal) return;
 
+    importModalOpener = document.activeElement;
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    document.getElementById('iu_file')?.focus();
 }
 
 function closeImportUserModal(event) {
@@ -854,6 +994,7 @@ function closeImportUserModal(event) {
 
     modal.style.display = 'none';
     document.body.style.overflow = '';
+    importModalOpener?.focus();
 }
 
 function openDeptAccountModal() {

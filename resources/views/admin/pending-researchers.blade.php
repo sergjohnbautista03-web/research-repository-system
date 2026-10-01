@@ -160,7 +160,7 @@
                         ];
                     @endphp
                     <tr>
-                        <td data-label="Applicant">
+                        <td data-label="Applicant" data-search-label="{{ $researcher->name }}" data-search-detail="{{ $researcher->email }}">
                             <div class="pr-profile">
                                 <div class="pr-avatar">{{ strtoupper(substr($researcher->name, 0, 1)) }}</div>
                                 <div>

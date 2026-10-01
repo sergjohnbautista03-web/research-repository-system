@@ -58,7 +58,7 @@
             <tbody>
                 @forelse($pendingStudents as $student)
                     <tr>
-                        <td data-label="Student">
+                        <td data-label="Student" data-search-label="{{ $student->name }}" data-search-detail="{{ $student->email }}">
                             <div class="ps-name-cell">
                                 <span class="ps-avatar">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
                                 <div>

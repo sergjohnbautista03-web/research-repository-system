@@ -79,7 +79,7 @@
                         <div class="dean-submission-heading">
                             <div class="dean-submission-title">
                                 <span class="dean-submission-label">Research title</span>
-                                <h3 id="submission-title-{{ $handoff->id }}">{{ $handoff->title }}</h3>
+                                <h3 id="submission-title-{{ $handoff->id }}" data-search-label="{{ $handoff->title }}" data-search-detail="Dean submission">{{ $handoff->title }}</h3>
                             </div>
                             <div class="dean-submission-status">
                                 <span class="dean-submission-label">Status</span>
@@ -115,7 +115,7 @@
                             @if($handoff->status === \App\Models\ResearchHandoff::STATUS_PENDING)
                                 <form method="POST" action="{{ route('admin.coordinator.dean-submissions.receive', $handoff) }}">
                                     @csrf
-                                    <button type="submit" class="coord-btn coord-btn-success">Confirm Received</button>
+                                    <button type="submit" class="coord-btn coord-btn-success">Mark as Received</button>
                                 </form>
                             @endif
                             <a href="{{ route('admin.research-handoffs.add-research', $handoff) }}" class="coord-btn coord-btn-primary">Create Research Record</a>

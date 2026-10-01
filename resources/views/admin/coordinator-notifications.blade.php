@@ -15,28 +15,22 @@
         <div class="coord-stat"><span>Drafts</span><strong>{{ number_format($drafts->count()) }}</strong><small>Coordinator action required.</small></div>
     </section>
 
-    @foreach($groups as $group)
-        <section class="coord-card">
-            <div class="coord-head">
-                <div>
-                    <h2>{{ $group['title'] }}</h2>
-                    <p>{{ number_format($group['items']->count()) }} notification{{ $group['items']->count() === 1 ? '' : 's' }}</p>
-                </div>
-            </div>
-            <div class="coord-list">
-                @forelse($group['items'] as $item)
-                    <article class="coord-item">
-                        <div class="coord-item-main">
-                            <h3>{{ $group['label']($item) }}</h3>
-                            <p>{{ $group['meta']($item) }}</p>
-                        </div>
-                        <a href="{{ $group['route']($item) }}" class="coord-btn coord-btn-primary">{{ $group['action'] }}</a>
-                    </article>
-                @empty
-                    <div class="coord-empty"><strong>{{ $group['empty'] }}</strong></div>
-                @endforelse
-            </div>
-        </section>
-    @endforeach
+    <section class="coord-card" data-notification-view>
+        <div class="coord-head"><h2>Notifications</h2></div>
+        @include('admin.partials.notification-controls')
+    </section>
+    <section class="coord-card">
+        <div class="coord-head"><h2>Research Requiring Coordinator Action</h2></div>
+        <div class="coord-list">
+            @forelse($drafts as $item)
+                <article class="coord-item">
+                    <div class="coord-item-main"><h3>{{ $item->title }}</h3><p>Draft summary not yet submitted</p></div>
+                    <a href="{{ route('admin.coordinator.summaries.edit', $item) }}" class="coord-btn coord-btn-primary">Continue</a>
+                </article>
+            @empty
+                <div class="coord-empty"><strong>No draft summaries waiting for action.</strong></div>
+            @endforelse
+        </div>
+    </section>
 </div>
 @endsection

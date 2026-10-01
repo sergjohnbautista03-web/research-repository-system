@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', 'Semester Management')
-@section('page-title', 'Semester Management')
+@section('title', 'Academic Period Management')
+@section('page-title', 'Academic Period Management')
 
 @section('content')
 @php
@@ -12,8 +12,12 @@
 
     $shownStart = $semesters->firstItem() ?? 0;
     $shownEnd = $semesters->lastItem() ?? 0;
+    $initialSchoolYear = old('school_year', $suggestedSchoolYear);
+    $initialCreationPlan = $semesterCreationPlans[$initialSchoolYear] ?? ['semester' => '1st', 'can_create' => true, 'message' => 'A new academic year starts with 1st Semester.'];
 
-    $semesterModalRecords = $semesters->getCollection()->mapWithKeys(function ($academicSemester) use ($departmentBreakdowns) {
+    $semesterModalRecords = $semesters->getCollection()
+        ->concat($schoolYearGroups->flatMap(fn ($group) => collect([$group['first_semester'], $group['second_semester']])->filter()))
+        ->unique('id')->mapWithKeys(function ($academicSemester) use ($departmentBreakdowns) {
         $isFinished = $academicSemester->hasExpired();
         $isOpen = $academicSemester->isOpen();
         $statusText = $isOpen ? 'Active' : ($isFinished ? 'Finished' : 'Inactive');
@@ -77,11 +81,6 @@
 
 @if(! auth()->user()?->isDepartmentDean())
     <div class="sem-page-head">
-        <div>
-            <span>Academic Terms & Periods</span>
-            <h2>Semester Management</h2>
-            <p class="sem-page-sub">Manage Academic Years, 1st Semester, and 2nd Semester. Expired semesters are automatically finished and locked for historical integrity. Only one semester in the same Academic Year is active at a time.</p>
-        </div>
         @if($canManageSemesters)
             <button type="button" class="sem-btn sem-btn-primary" id="openAddSemesterBtn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -104,11 +103,11 @@
     @if($schoolYearGroups->isEmpty())
         <div class="sem-empty-card">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
-            <strong>No Academic Years Found</strong>
-            <p>Get started by creating a Academic Year and configuring 1st & 2nd Semesters.</p>
+            <strong>No Active or Upcoming Semesters</strong>
+            <p>Create a new semester to continue. Previous semesters remain available in All Semester Records below.</p>
             @if($canManageSemesters)
                 <button type="button" class="sem-btn sem-btn-primary" style="margin-top:12px;" onclick="document.getElementById('openAddSemesterBtn').click()">
-                    + Create First Academic Year
+                    + Add Academic Year / Semester
                 </button>
             @endif
         </div>
@@ -145,6 +144,7 @@
 
                     <div class="sem-terms-grid">
                         {{-- ── 1st Semester Box ─────────────────────────────── --}}
+                        @if($firstSem || ! $group['has_first_semester'])
                         <div class="sem-term-box {{ $firstSemOpen ? 'is-term-active' : ($firstSemFinished ? 'is-term-finished' : ($firstSem ? 'is-term-inactive' : 'is-term-missing')) }}">
                             <div class="sem-term-box-head">
                                 <div>
@@ -263,6 +263,8 @@
                         </div>
 
                         {{-- ── 2nd Semester Box ─────────────────────────────── --}}
+                        @endif
+                        @if($secondSem || ! $group['has_second_semester'])
                         <div class="sem-term-box {{ $secondSemOpen ? 'is-term-active' : ($secondSemFinished ? 'is-term-finished' : ($secondSem ? 'is-term-inactive' : 'is-term-missing')) }}">
                             <div class="sem-term-box-head">
                                 <div>
@@ -372,13 +374,15 @@
                                 <div class="sem-missing-state">
                                     <p>2nd Semester is not yet registered for {{ $group['school_year'] }}.</p>
                                     @if($canManageSemesters)
-                                        <button type="button" class="sem-btn sem-btn-create-missing js-create-missing" data-school-year="{{ $group['school_year'] }}" data-semester="2nd">
+                                        <button type="button" class="sem-btn sem-btn-create-missing js-create-missing" data-school-year="{{ $group['school_year'] }}" data-semester="2nd" @disabled(! $semesterCreationPlans[$group['school_year']]['can_create'])>
                                             + Initialize 2nd Semester
                                         </button>
+                                        @unless($semesterCreationPlans[$group['school_year']]['can_create'])<small class="sem-help">{{ $semesterCreationPlans[$group['school_year']]['message'] }}</small>@endunless
                                     @endif
                                 </div>
                             @endif
                         </div>
+                        @endif
                     </div>
                 </div>
             @endforeach
@@ -458,7 +462,6 @@
                     <th>Dates</th>
                     <th>Status</th>
                     <th>Users</th>
-                    <th>Researches</th>
                     <th>Created</th>
                     <th>Actions</th>
                 </tr>
@@ -499,11 +502,6 @@
                                 {{ number_format($academicSemester->users_count) }}
                             </a>
                         </td>
-                        <td data-label="Researches">
-                            <a href="{{ route('admin.researches', ['school_year' => $academicSemester->school_year, 'semester' => $academicSemester->semester]) }}" class="sem-metric-link">
-                                {{ number_format($academicSemester->researches_count) }}
-                            </a>
-                        </td>
                         <td data-label="Created">{{ optional($academicSemester->created_at)->format('M d, Y') ?? 'Legacy' }}</td>
                         <td data-label="Actions">
                             <div class="sem-action-row">
@@ -534,7 +532,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" class="sem-empty-cell">
+                        <td colspan="7" class="sem-empty-cell">
                             <div class="sem-empty-state">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
                                 <strong>No semester records found</strong>
@@ -584,14 +582,14 @@
 
                 <div class="sem-transition-item is-sibling">
                     <span class="sem-trans-label">Will Become Inactive</span>
-                    <strong id="confirmOtherSemesterText">-</strong>
+                    <strong>All other academic years and semesters</strong>
                     <span class="sem-pill-badge is-inactive">INACTIVE</span>
                 </div>
             </div>
 
             <div class="sem-confirm-note">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Only one semester for the same academic year can be active at a time. Active user enrollments will be linked to the newly activated semester.</span>
+                <span>Only one semester can be active across all academic years. Previous records are preserved. Department Deans must activate continuing users for the new semester.</span>
             </div>
         </div>
 
@@ -626,16 +624,15 @@
             <div class="sem-form-body">
                 <div class="sem-form-group">
                     <label for="add_school_year">Academic Year <span class="req">*</span></label>
-                    <input type="text" id="add_school_year" name="school_year" placeholder="e.g. 2026-2027" required class="sem-input" pattern="\d{4}-\d{4}">
+                    <input type="text" id="add_school_year" name="school_year" value="{{ $initialSchoolYear }}" placeholder="e.g. 2026-2027" required class="sem-input" pattern="\d{4}-\d{4}">
                     <small class="sem-help">Format: YYYY-YYYY (e.g. 2026-2027)</small>
                 </div>
 
                 <div class="sem-form-group">
-                    <label for="add_semester">Semester <span class="req">*</span></label>
-                    <select id="add_semester" name="semester" required class="sem-input">
-                        <option value="1st">1st Semester</option>
-                        <option value="2nd">2nd Semester</option>
-                    </select>
+                    <label for="add_semester_display">Next Semester</label>
+                    <input type="hidden" id="add_semester" name="semester" value="{{ $initialCreationPlan['semester'] }}">
+                    <input type="text" id="add_semester_display" class="sem-input" readonly value="{{ $initialCreationPlan['semester'] ? $initialCreationPlan['semester'] . ' Semester' : 'Academic Year Complete' }}" aria-describedby="semesterCreationHelp">
+                    <small id="semesterCreationHelp" class="sem-help" role="status" aria-live="polite">{{ $initialCreationPlan['message'] }}</small>
                 </div>
 
                 <div class="sem-form-row">
@@ -652,15 +649,15 @@
                 <div class="sem-checkbox-wrap">
                     <label class="sem-checkbox-label">
                         <input type="checkbox" name="is_active" value="1" checked>
-                        <span>Set as ACTIVE semester for this academic year</span>
+                        <span>Set as the system's ACTIVE semester</span>
                     </label>
-                    <small class="sem-help" style="margin-left:24px;">If checked, any other semester in this academic year will automatically become Inactive.</small>
+                    <small class="sem-help" style="margin-left:24px;">If checked, all other semesters become inactive. Previous enrollment records stay saved.</small>
                 </div>
             </div>
 
             <div class="sem-modal-actions">
                 <button type="button" class="sem-btn sem-btn-ghost" data-modal-close="addSemesterModal">Cancel</button>
-                <button type="submit" class="sem-btn sem-btn-primary">Save Semester</button>
+                <button type="submit" id="saveSemesterButton" class="sem-btn sem-btn-primary" @disabled(! $initialCreationPlan['can_create'])>Save Semester</button>
             </div>
         </form>
     </section>
@@ -826,7 +823,8 @@
 .sem-inactive-dot{width:8px;height:8px;border-radius:50%;background:#9ca3af;display:inline-block}
 
 /* ── 1st & 2nd Term Grid ── */
-.sem-terms-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.sem-terms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px}
+.sem-btn:disabled{opacity:.5;cursor:not-allowed}
 .sem-term-box{display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(180deg,#faf8fe,#fff);border:1.5px solid #ebdff8;border-radius:16px;padding:18px 20px;transition:all .2s ease}
 .sem-term-box.is-term-active{background:linear-gradient(180deg,#f0fdf4,#fff);border-color:#86efac;box-shadow:0 8px 20px rgba(34,197,94,.09)}
 .sem-term-box.is-term-finished{background:linear-gradient(180deg,#fffbeb,#fff);border-color:#fde68a}
@@ -1033,6 +1031,8 @@ body.sem-modal-open{overflow:hidden}
 @endsection
 
 @push('scripts')
+<script type="application/json" id="semester-creation-plans">@json($semesterCreationPlans)</script>
+<script src="{{ asset('js/semester-creation.js') }}?v={{ filemtime(public_path('js/semester-creation.js')) }}"></script>
 <script>
 (function() {
     const semesterRecords = @json($semesterModalRecords);
@@ -1146,12 +1146,10 @@ body.sem-modal-open{overflow:hidden}
         btn.addEventListener('click', function() {
             const semesterName = this.dataset.semesterName;
             const schoolYear = this.dataset.schoolYear;
-            const otherSemester = this.dataset.otherSemester;
             const activateUrl = this.dataset.activateUrl;
 
             setText('confirmSchoolYearText', schoolYear);
             setText('confirmTargetSemesterText', semesterName + ' (' + schoolYear + ')');
-            setText('confirmOtherSemesterText', otherSemester + ' (' + schoolYear + ')');
 
             const form = document.getElementById('activateSemesterForm');
             if (form) form.action = activateUrl;
@@ -1165,11 +1163,7 @@ body.sem-modal-open{overflow:hidden}
     if (openAddBtn) {
         openAddBtn.addEventListener('click', function() {
             const syInput = document.getElementById('add_school_year');
-            if (syInput && !syInput.value) {
-                const now = new Date();
-                const year = now.getFullYear();
-                syInput.value = year + '-' + (year + 1);
-            }
+            window.SemesterCreation?.update();
             openModal('addSemesterModal');
         });
     }
@@ -1178,13 +1172,11 @@ body.sem-modal-open{overflow:hidden}
     document.querySelectorAll('.js-create-missing').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const schoolYear = this.dataset.schoolYear;
-            const semester = this.dataset.semester;
 
             const syInput = document.getElementById('add_school_year');
-            const semSelect = document.getElementById('add_semester');
 
             if (syInput) syInput.value = schoolYear;
-            if (semSelect) semSelect.value = semester;
+            window.SemesterCreation?.update();
 
             openModal('addSemesterModal');
         });

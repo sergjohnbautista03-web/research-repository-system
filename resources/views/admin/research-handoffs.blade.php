@@ -1,6 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Research Handoffs')
 @section('page-title', 'Research Handoffs')
+@section('body-class', auth()->user()->isDepartmentDean() ? 'dean-handoffs-page' : '')
 
 @section('content')
 @php
@@ -32,6 +33,9 @@
     }
 @endphp
 
+@if($isDean)
+    @include('admin.partials.dean-handoffs')
+@else
 <div class="rh-shell">
     <section class="rh-list">
         @forelse($handoffs as $handoff)
@@ -97,6 +101,7 @@
 
     <div class="rh-pagination">{{ $handoffs->links() }}</div>
 </div>
+@endif
 
 @if($isCoordinator && $firstPendingHandoff)
     <button type="button" class="rh-btn rh-btn-primary rh-fab" id="addResearchFab" onclick="openAddResearchModal()">
@@ -274,6 +279,25 @@
                         <input type="text" id="handoff_title" name="title" value="{{ old('title') }}" required maxlength="500" placeholder="Enter the defended research title">
                     </div>
 
+                    <div class="rh-submit-grid">
+                        <div class="rh-submit-field">
+                            <label for="handoff_category">Submission Category <span>*</span></label>
+                            <select id="handoff_category" name="submission_category" required>
+                                @foreach($submissionCategories as $value => $label)
+                                    <option value="{{ $value }}" @selected(old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL) === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="rh-submit-field">
+                            <label for="handoff_year">Year <span>*</span></label>
+                            <select id="handoff_year" name="year_published" required>
+                                @foreach($yearOptions as $year)
+                                    <option value="{{ $year }}" @selected((string) old('year_published', max(2026, now('Asia/Manila')->year)) === (string) $year)>{{ $year }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="rh-submit-field">
                         <label for="handoff_file">Final Defended PDF <span>*</span></label>
                         <label class="rh-file-upload">
@@ -379,6 +403,7 @@
 @if($isDean)
     @push('scripts')
     <script>
+    let submitFileOpener = null;
     function openSubmitFileModal() {
         const modal = document.getElementById('submitFileModal');
 
@@ -386,6 +411,8 @@
             return;
         }
 
+        submitFileOpener = document.activeElement;
+        document.body.style.overflow = 'hidden';
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
         document.getElementById('handoff_title')?.focus();
@@ -398,8 +425,10 @@
             return;
         }
 
+        document.body.style.overflow = '';
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
+        submitFileOpener?.focus();
     }
 
     const handoffFileInput = document.getElementById('handoff_file');
@@ -419,6 +448,14 @@
     });
 
     document.addEventListener('keydown', function (event) {
+        const modal = document.getElementById('submitFileModal');
+        if (event.key === 'Tab' && modal?.classList.contains('is-open')) {
+            const controls = Array.from(modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), a[href]'));
+            const first = controls[0];
+            const last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+            if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }
         if (event.key === 'Escape' && document.getElementById('submitFileModal')?.classList.contains('is-open')) {
             closeSubmitFileModal();
         }

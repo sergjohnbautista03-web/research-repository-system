@@ -89,12 +89,14 @@
     @endforeach
 </div>
 
-<div class="ra-dashboard-grid">
+<div class="ra-dashboard-grid{{ auth()->user()->isDepartmentDean() ? ' ra-dashboard-grid-dean' : '' }}">
     <section id="research-views-panel" class="ra-panel ra-chart-panel" tabindex="-1">
         <div class="ra-panel-header">
             <div>
-                <h3>Yearly Research Views per Department</h3>
-                <span>X-axis: years | Y-axis: views</span>
+                <h3>{{ auth()->user()->isDepartmentDean() ? 'Number of Research Views per Year' : 'Yearly Research Views per Department' }}</h3>
+                @if(! auth()->user()->isDepartmentDean())
+                    <span>X-axis: years | Y-axis: views</span>
+                @endif
             </div>
         </div>
 
@@ -143,11 +145,11 @@
         <div class="ra-x-title">Years</div>
     </section>
 
+    @if(! auth()->user()->isDepartmentDean())
     <aside class="ra-panel ra-side-panel">
         <div class="ra-panel-header">
             <div>
                 <h3>Departments</h3>
-                <span>{{ $analyticsDepartments->count() }} tracked</span>
             </div>
         </div>
         <div class="ra-legend-list">
@@ -160,6 +162,7 @@
             @endforeach
         </div>
     </aside>
+    @endif
 
     <section class="ra-panel ra-wide-panel">
         <div class="ra-panel-header">
@@ -183,7 +186,7 @@
                     @forelse($topResearches as $research)
                         <tr>
                             <td>
-                                <a href="{{ route('admin.research.show', $research) }}" class="ra-table-link">{{ $research->title }}</a>
+                                <a href="{{ route('admin.research.show', ['research' => $research, 'from' => 'dashboard']) }}" class="ra-table-link">{{ $research->title }}</a>
                                 <span>{{ $research->author_name }}</span>
                             </td>
                             <td>{{ $research->department ?: 'Unassigned Department' }}</td>
@@ -202,25 +205,29 @@
 </div>
 
 <div id="summaryCardModal" class="ra-modal ra-summary-modal" aria-hidden="true">
-    <div class="ra-modal-dialog ra-summary-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="summaryCardModalTitle" aria-describedby="summaryCardModalDescription" tabindex="-1">
+    <div class="ra-modal-dialog ra-summary-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="summaryCardModalTitle" tabindex="-1">
         <div class="ra-modal-header">
             <div>
                 <span class="ra-eyebrow">Dashboard Summary</span>
                 <h3 id="summaryCardModalTitle">Summary Detail</h3>
-                <p id="summaryCardModalDescription">Metric description</p>
             </div>
             <button type="button" class="ra-close-btn" onclick="closeSummaryCardModal()" aria-label="Close summary detail">
                 &times;
             </button>
         </div>
         <div class="ra-summary-modal-body">
-            <div class="ra-summary-modal-metric">
-                <span id="summaryCardModalNote">Current scope</span>
-                <strong id="summaryCardModalValue">0</strong>
+            <div id="summaryViewsFilter" class="ra-views-filter" hidden>
+                <label for="summaryViewsYear">Publication Year</label>
+                <select id="summaryViewsYear" onchange="updateSummaryViewsYear()">
+                    <option value="all">All years</option>
+                    @foreach($analyticsYears as $year)
+                        <option value="{{ $year }}">{{ $year }}</option>
+                    @endforeach
+                </select>
+                <p id="summaryYearHint">Totals for research published in the selected year.</p>
             </div>
-            <div class="ra-summary-modal-actions">
-                <button type="button" class="ra-modal-secondary-btn" onclick="closeSummaryCardModal()">Close</button>
-                <a id="summaryCardModalAction" href="#" class="ra-modal-primary-btn">Open Page</a>
+            <div class="ra-summary-modal-metric">
+                <strong id="summaryCardModalValue" aria-live="polite">0</strong>
             </div>
         </div>
     </div>
@@ -289,6 +296,7 @@
 .ra-summary-icon{width:46px;height:46px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;border-radius:12px;color:var(--accent,#6d28d9);background:color-mix(in srgb,var(--accent,#6d28d9) 12%,#fff);border:1px solid color-mix(in srgb,var(--accent,#6d28d9) 18%,#fff)}
 .ra-summary-icon svg{width:22px;height:22px}
 .ra-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px}
+.ra-dashboard-grid.ra-dashboard-grid-dean{grid-template-columns:minmax(0,1fr)}
 .ra-panel{background:#fff;border:1px solid rgba(109,40,217,.1);border-radius:16px;box-shadow:0 8px 28px rgba(46,16,101,.06);overflow:hidden}
 .ra-panel:focus{outline:3px solid rgba(109,40,217,.18);outline-offset:3px}
 .ra-panel-header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 20px;background:#fbf9ff;border-bottom:1px solid rgba(109,40,217,.08)}
@@ -362,6 +370,12 @@
 @media (max-width:760px){.ra-toolbar{align-items:stretch;flex-direction:column}.ra-print-btn{width:100%}.ra-summary-grid{grid-template-columns:1fr}.ra-chart-wrap{grid-template-columns:18px 44px minmax(0,1fr);padding:18px 14px 6px;min-height:330px}.ra-year-groups{grid-template-columns:repeat({{ max(1, $analyticsChartData->count()) }},minmax(76px,1fr));gap:8px;padding:0 8px}.ra-bar{width:10px}.ra-detail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.ra-modal{padding:10px}.ra-modal-header,.ra-modal-body,.ra-summary-modal-body{padding:18px}.ra-modal-header h3{font-size:19px}.ra-summary-modal-actions{flex-direction:column}.ra-modal-primary-btn,.ra-modal-secondary-btn{width:100%}}
 @media (max-width:520px){.ra-summary-card{min-height:112px}.ra-summary-copy strong{font-size:30px}.ra-panel-header{align-items:flex-start;flex-direction:column}.ra-detail-metrics{grid-template-columns:1fr}.ra-legend-row{grid-template-columns:14px 42px minmax(0,1fr)}}
 @media (prefers-reduced-motion:reduce){.ra-summary-card,.ra-summary-action svg,.ra-bar,.ra-print-btn,.ra-link-btn,.ra-modal-primary-btn,.ra-modal-secondary-btn{transition:none}.ra-modal.is-open,.ra-modal.is-open .ra-modal-dialog{animation:none}}
+.ra-views-filter{margin-bottom:20px}
+.ra-views-filter[hidden]{display:none}
+.ra-views-filter label{display:block;margin-bottom:8px;color:#533176;font-size:13px;font-weight:700}
+.ra-views-filter select{width:100%;min-height:46px;padding:10px 14px;border:1px solid #d9c8ef;border-radius:10px;background:#faf7ff;color:#352047;font:inherit}
+.ra-views-filter select:focus-visible{outline:2px solid #8b5ac5;outline-offset:2px}
+.ra-views-filter p{margin:8px 0 0;color:#827091;font-size:12px;line-height:1.5}
 </style>
 
 @endsection
@@ -469,6 +483,8 @@ function keepFocusInModal(event) {
     }
 }
 
+let activeSummaryKey = 'views';
+
 function openSummaryCardModal(key) {
     const card = summaryCardData[key];
 
@@ -477,20 +493,32 @@ function openSummaryCardModal(key) {
     }
 
     document.getElementById('summaryCardModalTitle').textContent = card.label;
-    document.getElementById('summaryCardModalDescription').textContent = card.description;
-    document.getElementById('summaryCardModalNote').textContent = card.note;
     document.getElementById('summaryCardModalValue').textContent = formatNumber(card.value);
-
-    const action = document.getElementById('summaryCardModalAction');
-    action.textContent = card.actionLabel;
-    action.href = card.actionUrl;
+    activeSummaryKey = key;
+    document.getElementById('summaryViewsFilter').hidden = false;
+    document.getElementById('summaryViewsYear').value = 'all';
+    document.getElementById('summaryYearHint').textContent = {
+        papers: 'Number of research papers published in the selected year.',
+        views: 'Total accumulated views of research published in the selected year.',
+        citations: 'Total citation copies of research published in the selected year.',
+    }[key];
+    updateSummaryViewsYear();
 
     const modal = document.getElementById('summaryCardModal');
-    openRaModal(modal, action);
+    openRaModal(modal, document.getElementById('summaryViewsYear'));
 }
 
 function closeSummaryCardModal() {
     closeRaModal(document.getElementById('summaryCardModal'));
+}
+
+function updateSummaryViewsYear() {
+    const year = document.getElementById('summaryViewsYear').value;
+    const totalsByYear = analyticsSummary[`${activeSummaryKey}_by_year`];
+    const value = year === 'all'
+        ? summaryCardData[activeSummaryKey].value
+        : (totalsByYear?.[year] ?? 0);
+    document.getElementById('summaryCardModalValue').textContent = formatNumber(Number(value));
 }
 
 function openAnalyticsDetail(department, year) {
@@ -537,18 +565,6 @@ function closeAnalyticsDetailModal() {
 document.getElementById('summaryCardModal').addEventListener('click', event => {
     if (event.target === event.currentTarget) {
         closeSummaryCardModal();
-    }
-});
-
-document.getElementById('summaryCardModalAction').addEventListener('click', event => {
-    const hash = event.currentTarget.hash;
-
-    if (hash && document.querySelector(hash)) {
-        closeSummaryCardModal();
-
-        window.setTimeout(() => {
-            document.querySelector(hash)?.focus();
-        }, 80);
     }
 });
 
@@ -695,21 +711,7 @@ function printAnalyticsReport() {
 }
 
 function printHtml(html) {
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;border:0;visibility:hidden;';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    iframe.onload = function() {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        iframe.contentWindow.onafterprint = function() {
-            document.body.removeChild(iframe);
-            URL.revokeObjectURL(url);
-        };
-    };
+    window.ReportPrint.printHtml(html);
 }
 </script>
 @endpush

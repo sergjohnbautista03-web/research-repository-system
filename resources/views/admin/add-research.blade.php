@@ -5,7 +5,7 @@
 @section('content')
 @php
     $submissionCategories = \App\Models\Research::adminSubmissionCategories();
-    $defaultCategory = old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL);
+    $defaultCategory = old('submission_category', ($handoff ?? null)?->submission_category ?? \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL);
     $departmentOptions = \App\Models\Research::departmentOptions();
     $programOptions = \App\Models\Research::programsByDepartment();
     $journalTypes = \App\Models\Research::journalTypeOptions();
@@ -97,7 +97,7 @@
                         <select name="year_published" id="year_published" required>
                             <option value="">Select year</option>
                             @foreach($yearOptions as $year)
-                                <option value="{{ $year }}" {{ (string) old('year_published', 2026) === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
+                                <option value="{{ $year }}" {{ (string) old('year_published', ($handoff ?? null)?->year_published ?? 2026) === (string) $year ? 'selected' : '' }}>{{ $year }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -105,7 +105,7 @@
 
                 <div class="ar-form-row">
                     <div class="ar-form-group">
-                        <label for="school_year">School Year</label>
+                        <label for="school_year">Academic Year</label>
                         <select name="school_year" id="school_year">
                             <option value="">Not set</option>
                             @foreach($schoolYears as $schoolYear)
@@ -114,17 +114,7 @@
                         </select>
                     </div>
 
-                    <div class="ar-form-group">
-                        <label for="semester">Semester</label>
-                        <select name="semester" id="semester">
-                            <option value="">Not set</option>
-                            @foreach($semesterOptions as $semester)
-                                <option value="{{ $semester }}" {{ $selectedSemester === $semester ? 'selected' : '' }}>
-                                    {{ \App\Models\Semester::semesterLabels()[$semester] ?? $semester }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+                    <input type="hidden" name="semester" id="semester" value="{{ $selectedSemester }}">
                 </div>
 
                 <div class="ar-form-group">

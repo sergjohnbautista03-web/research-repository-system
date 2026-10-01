@@ -22,7 +22,7 @@
                     <span class="rd-type-badge">{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</span>
                     <span class="rd-status-badge rd-status-{{ $research->status }}">{{ $research->coordinatorStageLabel() }}</span>
                 </div>
-                <a href="{{ route('admin.researches') }}" class="rd-back-btn">
+                <a href="{{ request('from') === 'dashboard' ? route('admin.dashboard') : route('admin.researches') }}" class="rd-back-btn">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
                     Back
                 </a>
@@ -67,12 +67,6 @@
                 <div class="rd-meta-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></div>
                 <div><span class="rd-meta-label">Views</span><span class="rd-meta-value">{{ number_format($research->view_count) }}</span></div>
             </div>
-            @if($research->issn)
-                <div class="rd-meta-item">
-                    <div class="rd-meta-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/></svg></div>
-                    <div><span class="rd-meta-label">ISSN</span><span class="rd-meta-value">{{ $research->issn }}</span></div>
-                </div>
-            @endif
         </div>
 
         {{-- ABSTRACT --}}
@@ -100,7 +94,7 @@
                     <span class="rd-file-name">{{ $research->file_name }}</span>
                     <div class="rd-file-actions">
                         {{-- View button — toggles inline PDF viewer, NO new tab --}}
-                        <button type="button" onclick="togglePdfViewer()" id="viewerBtn" class="rd-btn rd-btn-outline">
+                        <button type="button" onclick="togglePdfViewer()" id="viewerBtn" class="rd-btn rd-btn-outline" aria-controls="pdfViewer" aria-expanded="false">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                             View
                         </button>
@@ -108,16 +102,16 @@
                 </div>
 
                 {{-- Inline PDF Viewer — hidden by default, loads on click --}}
-                <div id="pdfViewer" style="display:none; margin-top:14px; border:1.5px solid #e8dff5; border-radius:12px; overflow:hidden;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 16px; background:#faf8ff; border-bottom:1px solid #e8dff5;">
-                        <span style="font-size:13px; font-weight:600; color:#5b3d8a;">{{ $research->file_name }}</span>
-                        <button type="button" onclick="togglePdfViewer()" style="background:none; border:none; cursor:pointer; font-size:13px; color:#a090bc; font-weight:600; padding:0;">✕ Close</button>
+                <div id="pdfViewer" data-protected-document style="display:none; margin-top:14px; border:1.5px solid #e8dff5; border-radius:12px; overflow:hidden;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; background:#faf8ff; border-bottom:1px solid #e8dff5;">
+                        <span style="min-width:0; overflow-wrap:anywhere; font-size:13px; font-weight:600; color:#5b3d8a;">{{ $research->file_name }}</span>
+                        <button type="button" onclick="togglePdfViewer()" style="flex-shrink:0; min-height:44px; background:none; border:none; cursor:pointer; font-size:13px; color:#a090bc; font-weight:600; padding:0;">✕ Close</button>
                     </div>
                     <iframe
                         id="pdfFrame"
-                        src=""
+                        title="Protected full research document"
                         data-src="{{ route('admin.research.view-file', $research) }}"
-                        style="width:100%; height:80vh; border:none; display:block;"
+                        style="width:100%; height:80vh; height:80dvh; border:none; display:block;"
                         allowfullscreen>
                     </iframe>
                 </div>
@@ -271,25 +265,9 @@
 </style>
 
 @push('scripts')
+<script src="{{ asset('js/document-protection.js') }}?v={{ filemtime(public_path('js/document-protection.js')) }}"></script>
 <script>
-function togglePdfViewer() {
-    const viewer = document.getElementById('pdfViewer');
-    const frame  = document.getElementById('pdfFrame');
-    const btn    = document.getElementById('viewerBtn');
-
-    if (viewer.style.display === 'none') {
-        // Load the PDF only once — lazy load
-        if (!frame.src || frame.src === window.location.href) {
-            frame.src = frame.getAttribute('data-src');
-        }
-        viewer.style.display = 'block';
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Close';
-        viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } else {
-        viewer.style.display = 'none';
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> View';
-    }
-}
+function togglePdfViewer() { window.toggleProtectedDocument?.(); }
 
 function openRejectModal(id) {
     document.getElementById('rejectForm').action = '/admin/researches/' + id + '/reject';

@@ -87,6 +87,15 @@ class User extends Authenticatable implements CanResetPassword
         return $this->belongsToMany(Research::class, 'research_pins')->withTimestamps();
     }
 
+    public function recentlyViewedResearches()
+    {
+        return $this->belongsToMany(Research::class, 'research_views')
+            ->withPivot('last_viewed_at')
+            ->where('researches.status', 'approved')
+            ->orderByPivot('last_viewed_at', 'desc')
+            ->orderBy('researches.id', 'desc');
+    }
+
     public function researcherApprovedBy()
     {
         return $this->belongsTo(User::class, 'researcher_approved_by');
@@ -203,7 +212,7 @@ class User extends Authenticatable implements CanResetPassword
      * Who can view the full PDF/document of a research paper:
      * - Admins
      * - Approved researchers
-     * - PhilCST students (role=user with student_id)
+     * - Active, approved users imported by a Dean with an active semester enrollment
      *
      * Guests / unauthenticated users cannot — enforce this in your
      * ResearchController@viewFile method via auth middleware.
@@ -211,6 +220,14 @@ class User extends Authenticatable implements CanResetPassword
     public function canViewFullDocument(): bool
     {
         if (! $this->is_active) return false;
+
+        if ($this->isDeanImportedMember()) {
+            $isApprovedMember = $this->is_approved
+                && in_array($this->role, ['user', 'researcher'], true)
+                && ! empty($this->student_id);
+
+            return $isApprovedMember && $this->hasActiveSemesterEnrollment();
+        }
 
         return match ($this->role) {
             'admin'      => true,
@@ -262,24 +279,20 @@ class User extends Authenticatable implements CanResetPassword
 
     public function canSubmitResearch(): bool
     {
-        if (! in_array($this->role, ['user', 'researcher'], true)) return false;
-        if (! $this->is_active)           return false;
-        if (! $this->is_approved)         return false;
-        if (! $this->hasActiveSemesterEnrollment()) return false;
-        return true;
+        // Research is submitted through the staff handoff and admin workflows.
+        return false;
     }
 
     public function hasActiveSemesterEnrollment(): bool
     {
-        $semester = $this->currentSemester;
-
-        if (! $semester || ! $semester->isOpen()) {
+        if (! $this->current_semester_id) {
             return false;
         }
 
         return $this->semesterEnrollments()
-            ->where('semester_id', $semester->id)
+            ->where('semester_id', $this->current_semester_id)
             ->where('status', SemesterEnrollment::STATUS_ACTIVE)
+            ->whereHas('semester', fn ($query) => $query->open())
             ->exists();
     }
 

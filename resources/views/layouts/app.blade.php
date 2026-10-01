@@ -22,9 +22,6 @@
         'College of Hospitality Management' => 'CHM',
         'College of Teacher Education' => 'CTE',
     ];
-    $adminPortalLabel = auth()->check() && $authUser->isAdmin()
-        ? ($authUser->isDepartmentDean() ? 'Dean' : ($authUser->isResearchCoordinator() ? 'Research Coordinator' : 'Admin'))
-        : null;
     $isFacultyAccount = auth()->check()
         && $authUser->role === 'researcher'
         && is_null($authUser->graduation_year);
@@ -46,23 +43,14 @@
         </span>
     </a>
 
-    <button class="nav-toggle" type="button" aria-label="Toggle navigation" onclick="document.querySelector('.main-nav').classList.toggle('open')">☰</button>
-    <nav class="main-nav">
-        <button class="nav-toggle" onclick="document.querySelector('.main-nav').classList.toggle('open')">☰</button>
+    <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-controls="mainNavigation" aria-expanded="false" onclick="this.setAttribute('aria-expanded', document.getElementById('mainNavigation').classList.toggle('open'))">☰</button>
+    <nav class="main-nav" id="mainNavigation">
         <a href="{{ route('home') }}" class="{{ request()->routeIs('home') ? 'active' : '' }}">Home</a>
         <a href="{{ route('about') }}" class="{{ request()->routeIs('about') ? 'active' : '' }}">About</a>
         <a href="{{ route('faq') }}" class="{{ request()->routeIs('faq') ? 'active' : '' }}">FAQ</a>
         <a href="{{ route('contact') }}" class="{{ request()->routeIs('contact') ? 'active' : '' }}">Contact</a>
 
         @if(auth()->check())
-            @if(auth()->user()->isAdmin())
-                <a href="{{ route('admin.dashboard') }}" class="nav-badge admin">
-            ⚙ {{ $adminPortalLabel }}
-            </a>
-            @else
-            <a href="{{ route('user.dashboard') }}" class="{{ request()->routeIs('user.dashboard') ? 'active' : '' }}">Dashboard</a>
-            @endif
-
             <div class="user-menu">
     <button type="button" class="user-btn" aria-haspopup="menu">
         @if(auth()->user()->profile_photo)
@@ -70,11 +58,29 @@
         @else
             <span class="user-avatar">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
         @endif
-        {{ Str::limit(auth()->user()->name, 14) }}
+        {{ Str::before(trim(auth()->user()->name), ' ') }}
         <span class="caret">▾</span>
     </button>
     <div class="user-dropdown">
     <div class="dd-actions">
+        <a href="{{ $authUser->isAdmin() ? route('admin.dashboard') : route('user.dashboard') }}" class="dropdown-item">
+            <span class="dd-item-icon dd-icon-profile" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </span>
+            <span class="dd-item-copy">
+                <span class="dd-item-label">Dashboard</span>
+                <span class="dd-item-sub">Go to your dashboard</span>
+            </span>
+        </a>
+        <a href="{{ route('profile.edit') }}" class="dropdown-item">
+            <span class="dd-item-icon dd-icon-profile" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>
+            </span>
+            <span class="dd-item-copy">
+                <span class="dd-item-label">Profile Settings</span>
+                <span class="dd-item-sub">Manage your photo and password</span>
+            </span>
+        </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="dropdown-item dd-signout">
@@ -90,7 +96,6 @@
     </div>
    </div>
 </div>
-            </div>
         @else
             <a
                 href="{{ route('login') }}"
@@ -260,13 +265,6 @@
                     <li><a href="{{ route('faq') }}">FAQ</a></li>
                     <li><a href="{{ route('contact') }}">Contact</a></li>
                     <li><a href="{{ route('policy.show') }}">Repository Policy</a></li>
-                    @auth
-                    @unless(auth()->user()->isAdmin())
-                        @if(auth()->user()->canSubmitResearch())
-                        <li><a href="{{ route('research.submit') }}">Submit Research</a></li>
-                        @endif
-                    @endunless
-                    @endauth
                 </ul>
             </div>
 
@@ -295,5 +293,6 @@
 
 <script src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
 @stack('scripts')
+@include('components.live-search')
 </body>
 </html>

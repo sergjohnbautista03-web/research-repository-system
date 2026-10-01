@@ -1,0 +1,36 @@
+
+.member-form-card{max-width:940px;padding:28px;background:#fff;border:1px solid #e8ddf5;border-radius:20px}.member-form-card h2{margin:0 0 8px;color:#392053}.member-form-card p{color:#806b95;line-height:1.6}.member-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:24px}.member-fields label{display:grid;gap:8px;color:#573572;font-size:13px;font-weight:600}.member-fields input,.member-fields select{box-sizing:border-box;width:100%;min-height:46px;border:1px solid #ddceef;border-radius:10px;padding:10px 12px;background:#fcfaff;font:inherit;color:#30203e}.member-fields label[hidden]{display:none}.member-actions{display:flex;justify-content:flex-end;align-items:center;gap:18px;margin-top:24px}.member-actions button{border:0;border-radius:12px;background:#6b2fa0;color:white;padding:13px 24px;font:inherit;cursor:pointer}.member-actions button:disabled{opacity:.5;cursor:not-allowed}.member-form-card .member-error{color:#b42335}@media(max-width:600px){.member-fields{grid-template-columns:1fr}.member-form-card{padding:20px}}
+
+.member-dialog{margin:auto;padding:0;width:min(760px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #e8ddf5;border-radius:20px;background:#fff;box-shadow:0 30px 90px rgba(26,6,56,.32)}
+.member-dialog::backdrop{background:rgba(19,8,38,.58);backdrop-filter:blur(4px)}
+.member-dialog .member-form-card{border:0;border-radius:0}
+.member-dialog-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.member-dialog-header h2{margin:0}
+.member-actions .member-cancel{background:#f5effb;color:#573572;border:1px solid #ddceef}
+.member-fields input:focus-visible,.member-fields select:focus-visible{outline:2px solid #8b5cc0;outline-offset:2px}
+body:has(.member-dialog[open]){overflow:hidden}
+.member-fields [aria-invalid="true"]{border-color:#b42335}
+.member-field-error{color:#b42335;font-size:12px;font-weight:400;line-height:1.4}
+.member-field-error:empty{display:none}
+
+/* Keep fields aligned when validation messages appear. */
+.member-form-card{padding:24px}
+.member-form-card>p{margin:8px 0 0;font-size:13px}
+.member-dialog{width:min(740px,calc(100% - 32px))}
+.member-dialog-header h2{font-size:23px;line-height:1.3}
+.member-dialog-header [data-close-add-user]{display:grid;place-items:center;width:34px;height:34px;min-height:0;padding:0;font-size:20px;border:1px solid #e4d6f0;border-radius:10px;background:#faf7fd;color:#683891;cursor:pointer}
+.member-fields{gap:16px 20px;margin-top:20px;align-items:start}
+.member-fields label,.member-access-fields label{display:grid;align-content:start;gap:7px;font-size:13px;line-height:1.4;color:#573572;font-weight:600}
+.member-fields input,.member-fields select,.member-access-fields input{box-sizing:border-box;width:100%;height:44px;min-height:44px;padding:10px 12px;border:1px solid #ddceef;border-radius:10px;background:#fcfaff;color:#30203e;font:inherit}
+.member-fields input:focus-visible,.member-fields select:focus-visible,.member-access-fields input:focus-visible{outline:2px solid #8b5cc0;outline-offset:2px}
+.member-fields [aria-invalid="true"]{border-color:#b42335;background:#fffafb}
+.member-span-full{grid-column:1/-1}
+.member-access{margin-top:20px;padding:16px;border:1px solid #e4d6f0;border-radius:14px;background:#faf7fd}
+.member-access h3{margin:0;font-size:14px;color:#492365}
+.member-access p{margin:5px 0 14px;font-size:12px;line-height:1.5;color:#806b95}
+.member-access-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.member-access-fields input{background:#fff;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.member-form-card .member-notice{margin:16px 0 0;padding:11px 13px;border:1px solid #f1dbb3;border-radius:10px;background:#fff8eb;color:#89611e;font-size:12px;line-height:1.5}
+.member-actions{gap:12px;margin-top:20px;padding-top:16px;border-top:1px solid #eee5f6}
+.member-actions button{padding:11px 20px;font-size:13px;font-weight:600}
+@media(max-width:600px){.member-form-card{padding:20px}.member-fields,.member-access-fields{grid-template-columns:1fr}.member-dialog{width:calc(100% - 24px)}.member-span-full{grid-column:auto}}
