@@ -129,7 +129,7 @@ function attach(input, index) {
                 }
                 return true;
             });
-            show(candidates.slice(0, 8).map(card => ({label: card.querySelector('h3')?.textContent.trim() || card.dataset.title, detail: card.dataset.author, url: card.querySelector('h3 a')?.href || ''})));
+            show(candidates.slice(0, 8).map(card => ({label: card.querySelector('h3')?.textContent.trim() || card.dataset.title, detail: card.dataset.author || '', url: card.querySelector('h3 a')?.href || ''})));
             return;
         }
         controller = new AbortController();

@@ -122,7 +122,11 @@ class SavedResearchesPaginationTest extends TestCase
             $this->get(route('research.show', $papers[0]))->assertOk();
 
             $this->assertSame(2, $user->recentlyViewedResearches()->count());
-            $response = $this->get(route('user.dashboard'))->assertOk()->assertSee('Recently Viewed');
+            $response = $this->get(route('user.dashboard'))->assertOk()->assertSee('Recently Viewed')
+                ->assertDontSee('Research ID')->assertDontSee('data-research-id', false);
+            foreach ($papers as $paper) {
+                $response->assertDontSee($paper->research_id);
+            }
             $this->assertSame([$papers[0]->id, $papers[1]->id], $response->viewData('recentlyViewedResearches')->pluck('id')->all());
 
             $papers[0]->update(['status' => 'archived']);
@@ -242,6 +246,7 @@ class SavedResearchesPaginationTest extends TestCase
             ->assertSee('Profile Settings')
             ->assertSee('Change Password');
         $response->assertSee('5 saved research papers in your account.');
+        $response->assertDontSee('Research ID')->assertDontSee('RES-0001')->assertDontSee('data-research-id', false);
         $response->assertDontSee('id="savedFilterToolbar"', false);
     }
 
@@ -275,6 +280,7 @@ class SavedResearchesPaginationTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertSee('14 saved research papers in your account.');
+        $response->assertDontSee('Research ID')->assertDontSee('RES-0001')->assertDontSee('data-research-id', false);
         $response->assertSee('id="savedFilterToolbar"', false);
         $response->assertSee('id="savedSearchInput"', false);
         $response->assertSee('id="savedDeptFilter"', false);

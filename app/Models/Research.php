@@ -13,6 +13,8 @@ class Research extends Model
     use HasFactory, SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
+    public const STATUS_DEAN_REVIEW = 'dean_review';
+    public const STATUS_DEAN_APPROVED = 'dean_approved';
     public const STATUS_PENDING = 'pending';
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
@@ -62,10 +64,54 @@ class Research extends Model
 
     protected $table = 'researches';
 
+    protected $appends = ['research_id'];
+
+    protected static function booted(): void
+    {
+        static::updating(function (Research $research) {
+            if ($research->isDirty($research->getKeyName())) {
+                throw new \LogicException('The permanent research number cannot be changed.');
+            }
+        });
+    }
+
+    public function getResearchIdAttribute(): ?string
+    {
+        // The database allocates unique, increasing primary keys, including across deletions.
+        // Deriving the public ID preserves existing records and never renumbers a paper.
+        return $this->getKey() === null ? null : 'RES-'.str_pad((string) $this->getKey(), 4, '0', STR_PAD_LEFT);
+    }
+
+    public function setResearchIdAttribute($value): void
+    {
+        throw new \LogicException('Research IDs are generated automatically and cannot be edited.');
+    }
+
+    public static function keyForResearchId(?string $value): ?string
+    {
+        if (! preg_match('/^RES-(\d+)$/i', trim((string) $value), $matches)) {
+            return null;
+        }
+
+        $key = ltrim($matches[1], '0');
+
+        return $key === '' ? null : $key;
+    }
+
+    public function scopeOrWhereResearchId($query, string $term)
+    {
+        if ($key = static::keyForResearchId($term)) {
+            $query->orWhere($this->qualifyColumn($this->getKeyName()), $key);
+        }
+
+        return $query;
+    }
+
     protected $fillable = [
         'title', 'abstract', 'author_name', 'authors', 'user_id', 'submitted_by_dean_id', 'coordinator_id',
         'research_handoff_id', 'submission_category', 'issn', 'type',
         'semester_id', 'academic_semester_id',
+        'school_year', 'dean_approved_by', 'submitted_to_dean_at', 'dean_approved_at', 'forwarded_to_admin_at',
         'department', 'course', 'program', 'year_published', 'keywords',
         'file_path', 'file_name', 'status', 'rejection_reason',
         'view_count', 'citation_copy_count', 'approved_by', 'approved_at',
@@ -73,6 +119,9 @@ class Research extends Model
 
     protected $casts = [
         'approved_at' => 'datetime',
+        'submitted_to_dean_at' => 'datetime',
+        'dean_approved_at' => 'datetime',
+        'forwarded_to_admin_at' => 'datetime',
         'year_published' => 'integer',
         'authors' => 'array',
     ];
@@ -107,6 +156,31 @@ class Research extends Model
         return $this->belongsTo(User::class, 'coordinator_id');
     }
 
+    public function deanApprovedBy()
+    {
+        return $this->belongsTo(User::class, 'dean_approved_by');
+    }
+
+    public function scopeForAdmin($query)
+    {
+        return $query->where(function ($inner) {
+            $inner->where(fn ($direct) => $direct->whereNull('coordinator_id')->whereNull('research_handoff_id'))
+                ->orWhereIn('status', [self::STATUS_APPROVED, self::STATUS_ARCHIVED])
+                ->orWhere(fn ($forwarded) => $forwarded->where('status', self::STATUS_PENDING)
+                    ->whereNotNull('forwarded_to_admin_at'));
+        });
+    }
+
+    public static function maxPublicationYear(): int
+    {
+        return max(2026, now('Asia/Manila')->year + 1);
+    }
+
+    public function academicYearLabel(): string
+    {
+        return $this->school_year ?: ($this->semester?->school_year ?? 'Not set');
+    }
+
     public function handoff()
     {
         return $this->belongsTo(ResearchHandoff::class, 'research_handoff_id');
@@ -133,6 +207,10 @@ class Research extends Model
 
         if ($term === '') {
             return $query;
+        }
+
+        if ($key = static::keyForResearchId($term)) {
+            return $query->whereKey($key);
         }
 
         if (static::canUseFullTextSearch()) {
@@ -347,7 +425,9 @@ class Research extends Model
     {
         return match ($this->status) {
             self::STATUS_DRAFT => 'Preparing',
-            self::STATUS_PENDING => 'Submitted to Admin',
+            self::STATUS_DEAN_REVIEW => 'Submitted to Dean',
+            self::STATUS_DEAN_APPROVED => 'Awaiting Forwarding to Admin',
+            self::STATUS_PENDING => 'Forwarded to Admin for Publishing',
             self::STATUS_REJECTED => 'Needs Correction',
             self::STATUS_APPROVED => 'Published',
             self::STATUS_ARCHIVED => 'Archived',
@@ -359,7 +439,9 @@ class Research extends Model
     {
         return [
             self::STATUS_DRAFT => 'Preparing',
-            self::STATUS_PENDING => 'Submitted to Admin',
+            self::STATUS_DEAN_REVIEW => 'Submitted to Dean',
+            self::STATUS_DEAN_APPROVED => 'Awaiting Forwarding to Admin',
+            self::STATUS_PENDING => 'Forwarded to Admin for Publishing',
             self::STATUS_APPROVED => 'Published',
             self::STATUS_REJECTED => 'Needs Correction',
             self::STATUS_ARCHIVED => 'Archived',

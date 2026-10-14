@@ -50,6 +50,13 @@
                 link.href = item.url;
                 const message = document.createElement('strong');
                 message.textContent = item.message;
+                if (item.published_at && !item.is_read) {
+                    link.addEventListener('click', async event => {
+                        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button > 0) return;
+                        event.preventDefault();
+                        if (await markRead(item.id)) window.location.assign(item.url);
+                    });
+                }
                 const date = document.createElement('small');
                 date.textContent = new Date(item.date).toLocaleString('en-PH', { timeZone: 'Asia/Manila' });
                 link.append(message, date);
@@ -113,7 +120,7 @@
     }
 
     async function markRead(id = null) {
-        if (busy) return;
+        if (busy) return false;
         busy = true;
         loading = false;
         ++revision;
@@ -135,8 +142,10 @@
             totalCount = data.total_count;
             loaded = true;
             render();
+            return true;
         } catch (error) {
             showError(error.message || 'Unable to mark notifications as read. Please try again.');
+            return false;
         } finally {
             busy = false;
             updateControls();

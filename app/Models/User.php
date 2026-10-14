@@ -14,7 +14,7 @@ class User extends Authenticatable implements CanResetPassword
 
     protected $fillable = [
         'name', 'middle_name', 'verification_documents', 'research_documents', 'email', 'password', 'role',
-        'department', 'current_semester_id', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
+        'department', 'program', 'current_semester_id', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
         'is_active', 'is_approved', 'student_approved_by', 'student_approved_at', 'researcher_approved_by', 'researcher_approved_at',
         'is_department_dean', 'is_research_coordinator', 'last_seen_at', 'capture_logs_seen_log_id',
         'policy_accepted_at', 'policy_version', 'policy_accepted_ip', 'policy_accepted_user_agent',
@@ -146,6 +146,28 @@ class User extends Authenticatable implements CanResetPassword
     public function isResearcher(): bool
     {
         return $this->role === 'researcher';
+    }
+
+    public function scopePublicationRecipients(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        $today = now('Asia/Manila');
+
+        return $query->whereIn('role', ['user', 'researcher'])
+            ->where('is_active', true)->where('is_approved', true)
+            ->whereNotNull('department')->where('department', '!=', '')
+            // Graduation year is an expected year; active students in the current cohort remain eligible.
+            ->where(fn ($users) => $users->whereNull('graduation_year')->orWhere('graduation_year', '>=', $today->year))
+            ->where(fn ($users) => $users->whereNull('researcher_end_date')->orWhereDate('researcher_end_date', '>=', $today->toDateString()));
+    }
+
+    public function canReceivePublicationNotifications(): bool
+    {
+        $today = now('Asia/Manila');
+
+        return in_array($this->role, ['user', 'researcher'], true)
+            && $this->is_active && $this->is_approved && filled($this->department)
+            && ($this->graduation_year === null || (int) $this->graduation_year >= $today->year)
+            && ($this->researcher_end_date === null || $this->researcher_end_date->toDateString() >= $today->toDateString());
     }
 
     public function isGlobalAdmin(): bool

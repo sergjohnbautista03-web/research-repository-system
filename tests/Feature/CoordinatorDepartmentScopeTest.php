@@ -26,7 +26,7 @@ class CoordinatorDepartmentScopeTest extends TestCase
                 $table->softDeletes();
             });
             DB::table($name)->insert([
-                ['id' => 1, 'department' => 'BSIT', 'coordinator_id' => 99, 'status' => 'pending'],
+                ['id' => 1, 'department' => 'BSIT', 'coordinator_id' => 7, 'status' => 'pending'],
                 ['id' => 2, 'department' => 'BSHM', 'coordinator_id' => 7, 'status' => 'pending'],
             ]);
         }

@@ -16,14 +16,6 @@
     $citation = $authorListLabel . ' (' . $citationYear . '). ' . trim($research->title) . '. Ube Repository. ' . route('research.show', $research);
 @endphp
 <div class="page-container page-narrow">
-    <div class="breadcrumb-nav">
-        <a href="{{ route('home') }}">Home</a>
-        <span>&rsaquo;</span>
-        <a href="{{ route('research.department', rawurlencode($research->department)) }}">{{ $research->department }}</a>
-        <span>&rsaquo;</span>
-        <span>{{ Str::limit($research->title, 50) }}</span>
-    </div>
-
     <div class="rd-card">
         <div class="rd-header">
             <div class="rd-header-top">
@@ -64,8 +56,17 @@
                     <span class="rd-meta-icon">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                     </span>
-                    <span class="rd-meta-val">{{ $research->year_published }}</span>
+                    <span class="rd-meta-val">Publication Year: {{ $research->year_published }}</span>
                 </div>
+                @if($research->school_year)
+                    <div class="rd-meta-sep">&middot;</div>
+                    <div class="rd-meta-item">
+                        <span class="rd-meta-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m2 10 10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                        </span>
+                        <span class="rd-meta-val">Academic Year: {{ $research->school_year }}</span>
+                    </div>
+                @endif
             </div>
 
             @if($research->keywords)

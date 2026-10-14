@@ -6,8 +6,7 @@
 @section('content')
 @php
     $isFacultyAccount = $user->role === 'researcher' && is_null($user->graduation_year);
-    $isStudentResearcher = $user->role === 'researcher' && ! is_null($user->graduation_year);
-    $dashboardRoleLabel = $isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : 'Student');
+    $dashboardRoleLabel = $isFacultyAccount ? 'Faculty' : 'Student';
     $firstName = Str::before($user->name, ' ');
     $departmentUrl = $user->department ? route('research.department', $user->department) : route('home');
     $dashboardHour = now('Asia/Manila')->hour;
@@ -20,8 +19,6 @@
     <div class="wd-banner">
         @if($user->profile_photo)
             <img src="{{ asset('storage/' . $user->profile_photo) }}" alt="{{ $user->name }}" class="wd-banner-avatar-img">
-        @else
-            <span class="wd-banner-avatar">{{ strtoupper(substr($firstName, 0, 1)) }}</span>
         @endif
         <div class="wd-banner-copy">
             <span>Welcome Back</span>
@@ -149,7 +146,7 @@
         <div class="sr-search-toolbar" id="srSearchToolbar">
             <div class="sr-search-box">
                 <svg class="sr-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                <input type="text" id="srSearchInput" class="sr-search-input" aria-label="Search saved researches" placeholder="Search by title, author, or keyword..." autocomplete="off">
+                <input type="text" id="srSearchInput" class="sr-search-input" aria-label="Search saved researches" placeholder="Search by title or author..." autocomplete="off">
                 <button type="button" id="srSearchClear" class="sr-search-clear" aria-label="Clear search" style="display:none;">&times;</button>
             </div>
             <div class="sr-filter-status" id="srFilterStatus" style="display:none;">
@@ -225,7 +222,7 @@
             <div class="ud-filter-toolbar" id="savedFilterToolbar">
                 <div class="ud-search-box">
                     <svg class="ud-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                    <input type="text" id="savedSearchInput" class="ud-filter-input" placeholder="Search by title, author, keyword..." autocomplete="off">
+                    <input type="text" id="savedSearchInput" class="ud-filter-input" placeholder="Search by title or author..." autocomplete="off">
                     <button type="button" id="savedSearchClear" class="ud-search-clear" aria-label="Clear search" style="display:none;">&times;</button>
                 </div>
                 <div class="ud-filter-controls">
@@ -303,8 +300,7 @@
 .student-dashboard-section{display:grid;gap:18px}
 .student-dashboard-section[hidden]{display:none!important}
 .wd-banner{display:flex;align-items:center;gap:16px;padding:18px 20px;border-radius:16px;background:linear-gradient(135deg,#fff 0%,#fbf8ff 100%);border:1px solid rgba(109,40,217,.1);box-shadow:0 8px 28px rgba(46,16,101,.06)}
-.wd-banner-avatar,.wd-banner-avatar-img{width:54px;height:54px;border-radius:16px;flex:0 0 auto}
-.wd-banner-avatar{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6d28d9,#43216f);color:#fff;font-size:20px;font-weight:900;box-shadow:0 10px 20px rgba(67,33,111,.16)}
+.wd-banner-avatar-img{width:54px;height:54px;border-radius:16px;flex:0 0 auto}
 .wd-banner-avatar-img{object-fit:cover;border:2px solid #fff;box-shadow:0 10px 20px rgba(67,33,111,.16)}
 .wd-banner-copy{min-width:0;flex:1}
 .wd-banner-copy>span{display:block;margin-bottom:3px;color:#7a5ca8;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;line-height:1.25}

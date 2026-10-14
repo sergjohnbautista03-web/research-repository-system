@@ -2,7 +2,7 @@
     const form = document.getElementById('dh-filters');
     if (!form) return;
     const feedback = document.getElementById('dh-feedback');
-    let timer, controller, revision = 0;
+    let controller, revision = 0;
 
     function filterUrl() {
         const target = new URL(form.action);
@@ -11,7 +11,6 @@
     }
 
     async function refresh(target = filterUrl()) {
-        clearTimeout(timer);
         controller?.abort();
         controller = new AbortController();
         const current = ++revision;
@@ -32,14 +31,13 @@
         }
     }
 
-    form.addEventListener('input', event => {
-        if (event.target.name !== 'search' || event.isComposing) return;
-        clearTimeout(timer);
-        timer = setTimeout(() => refresh(), 250);
-    });
-    form.addEventListener('change', event => { if (event.target.name !== 'search') refresh(); });
+    form.addEventListener('change', () => refresh());
     form.addEventListener('submit', event => { event.preventDefault(); refresh(); });
-    document.getElementById('dh-clear').addEventListener('click', event => { event.preventDefault(); form.reset(); refresh(); });
+    document.getElementById('dh-clear').addEventListener('click', event => {
+        event.preventDefault();
+        form.querySelectorAll('select').forEach(select => { select.value = ''; });
+        refresh();
+    });
     document.addEventListener('click', event => {
         const link = event.target.closest('#dh-results .dh-pagination a');
         if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

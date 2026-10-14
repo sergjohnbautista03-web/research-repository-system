@@ -7,54 +7,54 @@
 $colleges = [
     'College of Accountancy and Business Education' => [
         'short' => 'CABE',
-        'description' => 'Prepares students for careers in business, accounting, and hospitality through rigorous academic training and practical experience.',
+        'description' => 'Browse published research and journals connected to accountancy, business, hospitality, and tourism.',
         'program' => [
-            'Accountancy' => 'Covers financial accounting, auditing, taxation, and management advisory services preparing students for the CPA board exam.',
-            'Business Administration-Marketing Mngt.' => 'Focuses on marketing strategies, consumer behavior, brand management, and business development.',
-            'Hospitality Management' => 'Trains students in hotel operations, food and beverage management, and hospitality industry practices.',
-            'Tourism Management' => 'Covers travel and tour operations, tourism planning, and sustainable tourism development.',
+            'Accountancy' => 'Find studies related to accounting practices, financial reporting, auditing, and taxation.',
+            'Business Administration-Marketing Mngt.' => 'Explore research on marketing, consumer behavior, business strategies, and enterprise development.',
+            'Hospitality Management' => 'Browse studies on hospitality services, hotel operations, food service, and customer experience.',
+            'Tourism Management' => 'Explore research on tourism services, destinations, travel operations, and sustainable tourism.',
         ],
     ],
     'College of Computer Studies' => [
         'short' => 'CCS',
-        'description' => 'Produces competent IT professionals equipped with the latest knowledge in computing, software development, and information systems.',
+        'description' => 'Browse computing research, software projects, and journals under Computer Science and Information Technology.',
         'program' => [
-            'Computer Science' => 'Focuses on algorithms, software engineering, artificial intelligence, and advanced computing concepts.',
-            'Information Technology' => 'Covers network administration, database management, web development, and IT infrastructure.',
+            'Computer Science' => 'Explore studies on algorithms, software development, artificial intelligence, and computing applications.',
+            'Information Technology' => 'Find research on information systems, web applications, databases, networks, and technology services.',
         ],
     ],
     'College of Criminal Justice Education' => [
         'short' => 'CCJE',
-        'description' => 'Trains future law enforcement officers, criminologists, and justice professionals dedicated to public safety and crime prevention.',
+        'description' => 'Explore published work related to criminology, public safety, and the criminal justice system.',
         'program' => [
-            'Criminology' => 'Studies crime, criminal behavior, law enforcement, forensic science, and the criminal justice system.',
+            'Criminology' => 'Browse research on crime prevention, law enforcement, criminal behavior, and community safety.',
         ],
     ],
     'College of Education' => [
         'short' => 'COE',
-        'description' => 'Develops highly competent and values-driven educators committed to delivering quality education at all levels.',
+        'description' => 'Find education research and journals on teaching, learning, and classroom practice.',
         'program' => [
-            'Elementary Education' => 'Prepares teachers for grades 1-6, covering curriculum development, child psychology, and teaching strategies.',
-            'Secondary Education-General Science' => 'Focuses on science education methodologies, preparing teachers for high school science subjects.',
+            'Elementary Education' => 'Explore studies on elementary teaching, learner development, instructional materials, and classroom strategies.',
+            'Secondary Education-General Science' => 'Browse research on science teaching, student learning, and instructional approaches in secondary education.',
         ],
     ],
     'College of Engineering and Architecture' => [
         'short' => 'CEA',
-        'description' => 'Produces world-class engineers equipped with technical knowledge and practical skills to address real-world engineering challenges.',
+        'description' => 'Browse engineering research and technical studies across the programs listed in the repository.',
         'program' => [
-            'Civil Engineering' => 'Covers structural design, construction management, geotechnical engineering, and infrastructure development.',
-            'Computer Engineering' => 'Combines hardware and software engineering, covering embedded systems, digital electronics, and computer architecture.',
-            'Electrical Engineering' => 'Focuses on power systems, electrical machines, control systems, and renewable energy technologies.',
-            'Electronics Engineering' => 'Covers analog and digital electronics, telecommunications, microprocessors, and signal processing.',
-            'Mechanical Engineering' => 'Studies thermodynamics, fluid mechanics, machine design, and manufacturing processes.',
+            'Civil Engineering' => 'Find studies on structures, construction, materials, and infrastructure.',
+            'Computer Engineering' => 'Explore research on computer hardware, embedded systems, electronics, and integrated software solutions.',
+            'Electrical Engineering' => 'Browse studies on electrical systems, power, control, and energy applications.',
+            'Electronics Engineering' => 'Find research on electronic systems, communications, circuits, and signal processing.',
+            'Mechanical Engineering' => 'Explore studies on machines, thermal systems, manufacturing, and mechanical design.',
         ],
     ],
     'College of Maritime Studies' => [
         'short' => 'CMS',
-        'description' => 'Trains future maritime professionals and seafarers with the technical expertise and competence required by international maritime standards.',
+        'description' => 'Explore published maritime research related to ship systems, navigation, and transport operations.',
         'program' => [
-            'Marine Engineering' => 'Covers marine diesel engines, ship systems, naval architecture, and maritime safety operations.',
-            'Transportation' => 'Focuses on navigation, ship handling, maritime law, and transport logistics management.',
+            'Marine Engineering' => 'Browse studies on marine machinery, ship systems, maintenance, and operational safety.',
+            'Transportation' => 'Find research on navigation, maritime transport, ship operations, and logistics.',
         ],
     ],
 ];
@@ -66,7 +66,7 @@ $colleges = [
         <div class="hero-inner">
             <span class="hero-kicker">About the Repository</span>
             <h1 class="hero-title">About Ube Repository</h1>
-            <p class="hero-sub">The official PhilCST research portal for preserving, reviewing, and sharing academic work across the institution.</p>
+            <p class="hero-sub">Discover published PhilCST research and journals, understand how publications reach the repository, and learn how account access works.</p>
         </div>
     </div>
 
@@ -76,11 +76,12 @@ $colleges = [
                 <span class="info-kicker">Overview</span>
                 <h2>What is Ube Repository?</h2>
                 <p>Ube Repository is the official digital research portal of the <strong>Philippine College of Science and Technology (PhilCST)</strong>, located in Calasiao, Pangasinan, Philippines.</p>
-                <p>It organizes approved research outputs, supports researcher submissions, and provides role-based access for students, researchers, deans, and administrators across the institution.</p>
+                <p>It brings published research, <strong>Student Research Journals</strong>, and <strong>Faculty Research Journals</strong> into a searchable collection. Visitors can browse titles, authors, abstracts, and publication details; eligible signed-in users can open full documents in the protected viewer.</p>
+                <p>Department Deans manage Student and Faculty accounts and assign journal preparation tasks by Academic Year and program. Research Coordinators prepare the completed journals, submit them to the Dean, and the Dean forwards the batch to Admin for publication.</p>
                 <div class="about-focus-list" aria-label="Repository focus areas">
                     <span>Research preservation</span>
-                    <span>Structured review flow</span>
-                    <span>Responsible access</span>
+                    <span>Academic Year journal batches</span>
+                    <span>Semester-based member access</span>
                 </div>
             </div>
 
@@ -90,7 +91,7 @@ $colleges = [
             </figure>
         </section>
 
-        <section class="ab-mv-grid" aria-label="Mission and vision">
+        <section class="ab-mv-grid" aria-label="Repository purpose and workflow">
             <div class="ab-mv-card info-card">
                 <span class="info-icon-box teal" aria-hidden="true">
                     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -103,8 +104,8 @@ $colleges = [
                     </svg>
                 </span>
                 <div>
-                    <h3>Mission</h3>
-                    <p>To provide a reliable and structured platform for preserving, reviewing, and sharing PhilCST research outputs while supporting responsible access to academic work.</p>
+                    <h3>Repository Purpose</h3>
+                    <p>Preserve PhilCST research and journals in an organized collection so readers can find published work, identify its authors, and use it as a reference for academic study.</p>
                 </div>
             </div>
             <div class="ab-mv-card info-card">
@@ -115,8 +116,8 @@ $colleges = [
                     </svg>
                 </span>
                 <div>
-                    <h3>Vision</h3>
-                    <p>To become a trusted academic repository that helps PhilCST strengthen research culture, institutional memory, and secure access to scholarly output.</p>
+                    <h3>How the Repository Works</h3>
+                    <p>Keep account access, journal preparation, and publication assigned to the responsible roles. Organize records by department, program, Academic Year, and publication year while guiding readers through the Repository Use Policy.</p>
                 </div>
             </div>
         </section>
@@ -127,7 +128,7 @@ $colleges = [
                     <span class="info-kicker">Features</span>
                     <h2>What You Can Do</h2>
                 </div>
-                <p>Core repository workflows are grouped into focused tools for discovery, submission, saving, and protected viewing.</p>
+                <p>Browse published work, save useful references, and understand the staff workflow that brings journals into the collection.</p>
             </div>
 
             <div class="ab-features-grid">
@@ -139,11 +140,11 @@ $colleges = [
                         </svg>
                     </span>
                     <h4>Search & Browse</h4>
-                    <p>Explore approved research by keyword, department, program, year, or type.</p>
+                    <p>Find published research and journals using keywords, college links, and publication year filters.</p>
                     <div class="feature-expand" hidden>
                         <ul>
-                            <li>Search by title, author, abstract, or keyword</li>
-                            <li>Filter by department and publication year</li>
+                            <li>Search titles, authors, abstracts, and keywords; use Search By to narrow the field</li>
+                            <li>Filter Home results by department and a publication year range</li>
                             <li>Browse research by college and program</li>
                             <li>Open research details before entering the protected viewer</li>
                         </ul>
@@ -158,13 +159,15 @@ $colleges = [
                             <line x1="12" y1="3" x2="12" y2="15"/>
                         </svg>
                     </span>
-                    <h4>Submit Research</h4>
-                    <p>Department deans submit research through the staff review and publication workflow. Students and faculty should contact their dean.</p>
+                    <h4>Journal Preparation & Publication</h4>
+                    <p>Journals move through a Dean-assigned task, Coordinator preparation, Dean forwarding, and Admin publication.</p>
                     <div class="feature-expand" hidden>
                         <ul>
-                            <li>Fill in title, abstract, keywords, department, and course details</li>
-                            <li>Upload a PDF copy of the research</li>
-                            <li>Submitted research is reviewed before appearing on the portal</li>
+                            <li>The Dean assigns an Academic Year, program, category, and instructions</li>
+                            <li>The Coordinator adds journal details and completed PDFs to the batch</li>
+                            <li>The Coordinator submits the completed batch to the Dean, who forwards it to Admin</li>
+                            <li>Admin publishes the whole batch; each journal appears as a separate repository entry</li>
+                            <li>Students and Faculty coordinate with their Department Dean instead of uploading directly</li>
                         </ul>
                     </div>
                 </div>
@@ -176,13 +179,13 @@ $colleges = [
                         </svg>
                     </span>
                     <h4>Save Research</h4>
-                    <p>Keep important papers in a pinned list for quick return access.</p>
+                    <p>Bookmark useful publications and return to them from Saved Research in your dashboard.</p>
                     <div class="feature-expand" hidden>
                         <ul>
                             <li>Save any research paper from its details page</li>
-                            <li>Access all saved papers from the Saved Research page</li>
-                            <li>Unpin anytime when no longer needed</li>
-                            <li>Available to logged-in non-admin users</li>
+                            <li>Open Dashboard and select Saved Research to find your saved papers</li>
+                            <li>Select the saved button again to remove a paper from your list</li>
+                            <li>Available to signed-in Student and Faculty accounts</li>
                         </ul>
                     </div>
                 </div>
@@ -194,13 +197,13 @@ $colleges = [
                         </svg>
                     </span>
                     <h4>Protected Viewing</h4>
-                    <p>Full documents open in a protected viewer with access controls and PhilCST overlays.</p>
+                    <p>Eligible accounts can read full PDFs through the protected viewer after accepting the Repository Use Policy.</p>
                     <div class="feature-expand" hidden>
                         <ul>
-                            <li>PhilCST access is controlled through active approved user accounts</li>
-                            <li>Protected viewer limits easy browser actions such as save, print, and copy where possible</li>
-
-                            <li>Approved files remain organized inside the portal flow</li>
+                            <li>Student and Faculty access requires an active, approved account and active semester enrollment</li>
+                            <li>Authorized staff use their assigned account permissions</li>
+                            <li>Full documents carry PhilCST watermarks and open with viewer controls that restrict printing and copying</li>
+                            <li>Public visitors can read publication details and abstracts without signing in</li>
                         </ul>
                     </div>
                 </div>
@@ -215,10 +218,10 @@ $colleges = [
                         </svg>
                     </span>
                     <h4>Browse by Department</h4>
-                    <p>Research outputs are grouped by college, department, and program for easier discovery.</p>
+                    <p>Use college and program links to find published work connected to your academic area.</p>
                     <div class="feature-expand" hidden>
                         <ul>
-                            <li>Browse the available colleges and academic programs of PhilCST</li>
+                            <li>Browse the colleges and programs listed in the repository</li>
                             <li>Filter by specific program within each college</li>
                             <li>Follow department-based organization across the repository</li>
                             <li>Quickly find studies related to your field</li>
@@ -233,14 +236,14 @@ $colleges = [
                             <polyline points="22,4 12,14.01 9,11.01"/>
                         </svg>
                     </span>
-                    <h4>Quality Assured</h4>
-                    <p>Submissions are screened by authorized admins before they appear in the repository.</p>
+                    <h4>Research Details & Citations</h4>
+                    <p>Read a publication's abstract, authors, keywords, and year, then copy its repository citation.</p>
                     <div class="feature-expand" hidden>
                         <ul>
-                            <li>Every submission is reviewed before publishing</li>
-                            <li>Rejected submissions receive a reason for rejection</li>
-                            <li>Status can be tracked through the submitter's submissions page</li>
-                            <li>Helps keep repository records organized and relevant</li>
+                            <li>Open a published entry to view its authors and abstract</li>
+                            <li>Check the department, program, category, and publication year</li>
+                            <li>Academic Year is shown when recorded and is separate from publication year</li>
+                            <li>Use Copy citation on the details page to copy the reference text</li>
                         </ul>
                     </div>
                 </div>
@@ -253,7 +256,7 @@ $colleges = [
                     <span class="info-kicker">Colleges</span>
                     <h2>Colleges & Departments</h2>
                 </div>
-                <p>Browse academic areas represented in the repository and open research connected to each program.</p>
+                <p>These are the college and program groupings used by the repository. Open View Research to see the published entries available for a program.</p>
             </div>
 
             <div class="colleges-accordion">

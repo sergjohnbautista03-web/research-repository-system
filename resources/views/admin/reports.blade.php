@@ -18,7 +18,7 @@
             @if($isDepartmentScoped)
                 <div class="rr-fixed-department">{{ $fixedDepartment ?: 'Assigned Department' }}</div>
             @else
-                <select name="department">
+                <select name="department" id="reportDepartment">
                     <option value="">All Departments</option>
                     @foreach($departments as $dept)
                         <option value="{{ $dept }}" {{ request('department') == $dept ? 'selected' : '' }}>{{ $dept }}</option>
@@ -27,12 +27,22 @@
             @endif
         </div>
 
+        <div class="rr-filter-group rr-filter-program">
+            <label for="reportProgram">Program</label>
+            <select name="program" id="reportProgram">
+                <option value="">All Programs</option>
+                @foreach($programs as $program)
+                    <option value="{{ $program }}" @selected(request('program') === $program)>{{ $program }}</option>
+                @endforeach
+            </select>
+        </div>
+
         <div class="rr-filter-group rr-filter-sm">
-            <label>Academic Year / Year</label>
-            <select name="year">
-                <option value="">All Years</option>
+            <label>Academic Year</label>
+            <select name="school_year">
+                <option value="">All Academic Years</option>
                 @foreach($years as $year)
-                    <option value="{{ $year }}" {{ request('year') == $year ? 'selected' : '' }}>{{ $year }}</option>
+                    <option value="{{ $year }}" {{ request('school_year') == $year ? 'selected' : '' }}>{{ $year }}</option>
                 @endforeach
             </select>
         </div>
@@ -136,9 +146,10 @@
                         <td class="rr-row-num">{{ $i + 1 }}</td>
                         <td>
                             <a href="{{ route('admin.research.show', $r) }}" class="rr-title-link">{{ $r->title }}</a>
+                            @include('components.research-id', ['research' => $r])
                         </td>
                         <td class="rr-author">{{ $r->author_name }}</td>
-                        <td class="rr-program">{{ $r->course ?? $r->program ?? '—' }}</td>
+                        <td class="rr-program">{{ $r->program ?: $r->course ?: '—' }}</td>
                         <td>
                             <span class="rr-type-pill" style="
                                 background:{{ ($typeColors[$r->type] ?? ['bg'=>'#f3f4f6'])['bg'] }};
@@ -187,14 +198,23 @@
                         </select>
                     @endif
                 </div>
+                <div class="rr-export-field">
+                    <label for="reportExportProgram">Program</label>
+                    <select id="reportExportProgram">
+                        <option value="">All Programs</option>
+                        @foreach($programs as $program)
+                            <option value="{{ $program }}" @selected(request('program') === $program)>{{ $program }}</option>
+                        @endforeach
+                    </select>
+                </div>
             </div>
 
             @php
-                $initialReportYear = request('year');
+                $initialReportYear = request('school_year');
                 $initialAllReportYears = $initialReportYear === null || $initialReportYear === '';
             @endphp
             <div class="rr-export-field">
-                <label id="reportYearDropdownFieldLabel">Academic Year / Year</label>
+                <label id="reportYearDropdownFieldLabel">Academic Year</label>
                 <div class="rr-year-dropdown" id="reportYearDropdown">
                     <button
                         type="button"
@@ -205,15 +225,15 @@
                         aria-labelledby="reportYearDropdownFieldLabel reportYearDropdownValue"
                         onclick="toggleReportYearDropdown()"
                     >
-                        <span class="rr-year-trigger-text" id="reportYearDropdownValue">All Years</span>
+                        <span class="rr-year-trigger-text" id="reportYearDropdownValue">All Academic Years</span>
                         <span class="rr-year-trigger-icon" aria-hidden="true"></span>
                     </button>
                     <div class="rr-year-menu" id="reportYearDropdownMenu">
                         <label class="rr-year-check rr-year-check-all">
                             <input type="checkbox" id="reportExportAllYears" value="" {{ $initialAllReportYears ? 'checked' : '' }}>
                             <span>
-                                <strong>All Years</strong>
-                                <small>2022 onwards, based on available records</small>
+                                <strong>All Academic Years</strong>
+                                <small>Latest to oldest academic year</small>
                             </span>
                         </label>
                         @forelse($years as $year)
@@ -222,7 +242,7 @@
                                 <span>{{ $year }}</span>
                             </label>
                         @empty
-                            <div class="rr-year-empty">No report years available yet.</div>
+                            <div class="rr-year-empty">No academic years available yet.</div>
                         @endforelse
                     </div>
                 </div>
@@ -249,7 +269,8 @@
 .rr-filter-card{background:#fff;border-radius:16px;border:1px solid rgba(107,47,160,.1);box-shadow:0 2px 16px rgba(59,15,122,.05);padding:20px 24px;margin-bottom:20px;}
 .rr-filter-form{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
 .rr-filter-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px;}
-.rr-filter-group.rr-filter-sm{flex:0 0 150px;min-width:150px;}
+.rr-filter-group.rr-filter-sm{flex:0 0 220px;min-width:220px;}
+.rr-filter-program{min-width:220px;}
 .rr-filter-group label,.rr-filter-actions label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#a090bc;}
 .rr-filter-label-hidden{visibility:hidden;display:block;font-size:11px;margin-bottom:5px;}
 .rr-filter-group select,.rr-fixed-department{padding:9px 13px;border:1.5px solid #e8dff5;border-radius:10px;background:#faf8ff;font-size:13.5px;color:#1a0638;box-sizing:border-box;font-family:inherit;width:100%;min-height:39px;}
@@ -351,8 +372,9 @@
         return [
             'department' => trim((string) $research->department) !== '' ? $research->department : 'Unassigned Department',
             'title' => $research->title ?: 'Untitled Research',
+            'researchId' => $research->research_id,
             'author' => $research->author_name ?: 'Unknown Author',
-            'program' => $research->course ?? $research->program ?? '-',
+            'program' => $research->program ?: $research->course ?: '-',
             'type' => $research->type ?: 'N/A',
             'year' => $research->year_published ?: 'N/A',
         ];
@@ -372,7 +394,8 @@
 function printReport() {
     const filters = {
         department: @json($fixedDepartment ?: (request('department') ?: 'All Departments')),
-        year:       @json(request('year') ?: 'All Years'),
+        program: @json(request('program') ?: 'All Programs'),
+        year:       @json(request('school_year') ?: 'All Academic Years'),
         page:       @json(method_exists($researches, 'currentPage') ? $researches->currentPage() : 1),
         total:      @json(method_exists($researches, 'total') ? $researches->total() : $researchRows->count()),
     };
@@ -407,7 +430,7 @@ function printReport() {
         <h1>Ube Repository — Research Inventory Report</h1>
         <div class="subtitle">Philippine College of Science and Technology</div>
         <div class="subtitle">Printed on: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</div>
-        <div class="filters"><strong>Filters:</strong> Department: ${filters.department} | Year: ${filters.year} | Page: ${filters.page} | Total: ${filters.total} matching paper(s)</div>`;
+        <div class="filters"><strong>Filters:</strong> Department: ${filters.department} | Program: ${filters.program} | Academic Year: ${filters.year} | Page: ${filters.page} | Total: ${filters.total} matching paper(s)</div>`;
 
     @foreach($grouped as $department => $deptResearches)
     html += `<div class="dept-title"><span>{{ $department }}</span><span>{{ (int) ($departmentTotals[$department] ?? $deptResearches->count()) }} matching paper(s)</span></div>
@@ -415,9 +438,9 @@ function printReport() {
     @foreach($deptResearches->sortByDesc('year_published') as $i => $r)
     html += `<tr>
         <td>{{ $i + 1 }}</td>
-        <td>{{ addslashes($r->title) }}</td>
+        <td>{{ addslashes($r->title) }}<br>Research ID: {{ $r->research_id }}</td>
         <td>{{ addslashes($r->author_name) }}</td>
-        <td>{{ addslashes($r->course ?? $r->program ?? '—') }}</td>
+        <td>{{ addslashes($r->program ?: $r->course ?: '—') }}</td>
         <td><strong>{{ $r->year_published }}</strong></td>
     </tr>`;
     @endforeach
@@ -432,7 +455,8 @@ function printReport() {
 const reportPrintData = {
     filters: {
         department: @json($fixedDepartment ?: (request('department') ?: 'All Departments')),
-        year: @json(request('year') ?: 'All Years'),
+        program: @json(request('program') ?: 'All Programs'),
+        year: @json(request('school_year') ?: 'All Academic Years'),
         page: @json(method_exists($researches, 'currentPage') ? $researches->currentPage() : 1),
         total: @json(method_exists($researches, 'total') ? $researches->total() : $researchRows->count()),
     },
@@ -566,7 +590,7 @@ function buildResearchTables(rows) {
         const body = groups[department].map((row, index) => `
             <tr>
                 <td>${index + 1}</td>
-                <td>${escapeHtml(row.title)}</td>
+                <td>${escapeHtml(row.title)}<br>Research ID: ${escapeHtml(row.researchId || '')}</td>
                 <td>${escapeHtml(row.author)}</td>
                 <td>${escapeHtml(row.program)}</td>
                 <td><strong>${escapeHtml(row.year)}</strong></td>
@@ -620,7 +644,8 @@ function printReport(scope) {
         <div class="filters">
             <strong>Filters:</strong>
             Department: ${escapeHtml(reportPrintData.filters.department)} |
-            Year: ${escapeHtml(reportPrintData.filters.year)} |
+            Program: ${escapeHtml(reportPrintData.filters.program)} |
+            Academic Year: ${escapeHtml(reportPrintData.filters.year)} |
             ${escapeHtml(totalLabel)}
         </div>
         ${bodyContent}
@@ -651,10 +676,22 @@ document.addEventListener('keydown', event => {
 });
 
 const reportExportRows = @json($reportFilterRows);
+const reportProgramsByDepartment = @json($programsByDepartment);
 const reportExportUrls = {
     pdf: @json(route('admin.reports.export.pdf')),
     excel: @json(route('admin.reports.export.excel')),
 };
+
+function updateReportPrograms(department, fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    const selected = field.value;
+    const programs = department
+        ? (reportProgramsByDepartment[department] ?? [])
+        : [...new Set(Object.values(reportProgramsByDepartment).flat())].sort();
+    field.replaceChildren(new Option('All Programs', ''), ...programs.map(program => new Option(program, program)));
+    field.value = programs.includes(selected) ? selected : '';
+}
 
 function reportYearInputs() {
     return Array.from(document.querySelectorAll('.report-export-year'));
@@ -663,9 +700,9 @@ function reportYearInputs() {
 function checkedReportYearValues() {
     return reportYearInputs()
         .filter(input => input.checked)
-        .map(input => Number(input.value))
-        .filter(year => Number.isInteger(year))
-        .sort((a, b) => a - b);
+        .map(input => input.value)
+        .filter(year => /^\d{4}-\d{4}$/.test(year))
+        .sort((a, b) => b.localeCompare(a));
 }
 
 function toggleReportYearDropdown(forceOpen = null) {
@@ -694,11 +731,11 @@ function updateReportYearLabel() {
     }
 
     if (allYears?.checked) {
-        label.textContent = 'All Years';
+        label.textContent = 'All Academic Years';
         return;
     }
 
-    label.textContent = years.length ? years.join(', ') : 'Select years';
+    label.textContent = years.length ? years.join(', ') : 'Select academic years';
 }
 
 function selectedReportYears() {
@@ -719,6 +756,7 @@ function reportExportDepartmentValue() {
 
 function matchingReportExportRows() {
     const department = reportExportDepartmentValue();
+    const program = document.getElementById('reportExportProgram')?.value ?? '';
     const years = selectedReportYears();
     const allYears = document.getElementById('reportExportAllYears')?.checked ?? true;
 
@@ -728,20 +766,22 @@ function matchingReportExportRows() {
 
     return reportExportRows.filter(row => {
         const matchesDepartment = !department || row.department === department;
-        const matchesYear = allYears || years.includes(Number(row.year));
+        const matchesYear = allYears || years.includes(row.year);
+        const matchesProgram = !program || row.program === program;
 
-        return matchesDepartment && matchesYear;
+        return matchesDepartment && matchesYear && matchesProgram;
     });
 }
 
 function reportExportSummaryText(count) {
     const department = reportExportDepartmentValue() || 'All Departments';
+    const program = document.getElementById('reportExportProgram')?.value || 'All Programs';
     const years = selectedReportYears();
     const yearText = document.getElementById('reportExportAllYears')?.checked
-        ? 'All Years'
-        : (years.length ? years.join(', ') : 'No year selected');
+        ? 'All Academic Years'
+        : (years.length ? years.join(', ') : 'No academic year selected');
 
-    return `${department} | ${yearText} | ${count.toLocaleString()} record${count === 1 ? '' : 's'}`;
+    return `${department} | ${program} | ${yearText} | ${count.toLocaleString()} record${count === 1 ? '' : 's'}`;
 }
 
 function updateReportExportCount() {
@@ -762,7 +802,7 @@ function updateReportExportCount() {
     if (summaryEl) {
         summaryEl.textContent = hasSelectedYear
             ? reportExportSummaryText(count)
-            : 'Select at least one year or choose All Years.';
+            : 'Select at least one academic year or choose All Academic Years.';
     }
 
     if (pdfBtn) {
@@ -836,7 +876,7 @@ function exportFilteredReport(format) {
 
     if (!allYears && years.length === 0) {
         if (validation) {
-            validation.textContent = 'Select at least one year or choose All Years.';
+            validation.textContent = 'Select at least one academic year or choose All Academic Years.';
         }
         return;
     }
@@ -860,13 +900,24 @@ function exportFilteredReport(format) {
     if (department) {
         params.set('department', department);
     }
+    const program = document.getElementById('reportExportProgram')?.value;
+    if (program) {
+        params.set('program', program);
+    }
 
-    years.forEach(year => params.append('years[]', year));
+    years.forEach(year => params.append('school_years[]', year));
 
     window.location.href = `${url}?${params.toString()}`;
 }
 
-document.getElementById('reportExportDepartment')?.addEventListener('change', updateReportExportCount);
+document.getElementById('reportDepartment')?.addEventListener('change', event => {
+    updateReportPrograms(event.currentTarget.value, 'reportProgram');
+});
+document.getElementById('reportExportDepartment')?.addEventListener('change', () => {
+    updateReportPrograms(reportExportDepartmentValue(), 'reportExportProgram');
+    updateReportExportCount();
+});
+document.getElementById('reportExportProgram')?.addEventListener('change', updateReportExportCount);
 document.getElementById('reportExportAllYears')?.addEventListener('change', event => syncReportYearSelection(event.currentTarget));
 reportYearInputs().forEach(input => {
     input.addEventListener('change', event => syncReportYearSelection(event.currentTarget));

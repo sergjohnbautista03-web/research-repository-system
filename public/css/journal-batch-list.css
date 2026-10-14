@@ -1,0 +1,40 @@
+.jbl-page{display:grid;gap:18px;min-width:0;color:#35154e}
+.jbl-filters{display:grid;grid-template-columns:minmax(240px,1.4fr) repeat(2,minmax(160px,1fr)) auto;align-items:end;gap:14px;padding:18px 22px;border:1px solid #e8dcf3;border-radius:16px;background:#fff}
+.jbl-filters-dean{grid-template-columns:repeat(2,minmax(160px,1fr)) auto}
+.jbl-field{display:grid;gap:7px;min-width:0}
+.jbl-field label{font-size:13px;font-weight:600;color:#72578f}
+.jbl-field select{width:100%;height:44px;padding:0 12px;border:1px solid #decdef;border-radius:10px;background:#fcfaff;color:#35154e;font:inherit;font-size:14px}
+.jbl-clear{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border:1px solid #decdef;border-radius:10px;background:#faf7fd;color:var(--purple-main);font-size:14px;font-weight:600;text-decoration:none}
+.jbl-clear:hover{background:#f0e7fa;border-color:#cbb0e5}
+.jbl-feedback{margin:0;color:#72578f;font-size:13px}
+.jbl-feedback:empty{display:none}
+.jbl-results{min-width:0;border:1px solid #e8dcf3;border-radius:18px;background:#fff;overflow:hidden}
+.jbl-results[aria-busy=true]{opacity:.65}
+.jbl-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:20px 24px;background:#fbf8fe;border-bottom:1px solid #eee5f6}
+.jbl-heading h2{margin:0;font-family:var(--font-body);font-size:18px;font-weight:600;color:#35154e}
+.jbl-count{flex-shrink:0;padding:6px 12px;border-radius:999px;background:#f0e7fa;color:var(--purple-main);font-size:13px;font-weight:600}
+.jbl-item{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px;border-bottom:1px solid #eee5f6}
+.jbl-item:last-child{border-bottom:0}
+.jbl-item-main{min-width:0;flex:1}
+.jbl-item-heading{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap}
+.jbl-item-heading h3{margin:0;font-size:17px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.jbl-status{display:inline-flex;align-items:center;max-width:100%;padding:5px 10px;border:1px solid #e3d7f4;border-radius:999px;background:#f2edf9;color:#5b248c;font-size:12px;font-weight:600;line-height:1.5}
+.jbl-status-draft{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.jbl-status-pending{background:#fff7e6;color:#92400e;border-color:#fde68a}
+.jbl-status-approved{background:#ecfdf3;color:#166534;border-color:#bbf7d0}
+.jbl-status-rejected{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+.jbl-meta{display:flex;flex-wrap:wrap;gap:16px 36px;margin:16px 0 0}
+.jbl-meta>div{min-width:100px;max-width:100%}
+.jbl-meta dt{margin-bottom:4px;color:#806b91;font-size:12px}
+.jbl-meta dd{margin:0;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.jbl-action{display:inline-flex;align-items:center;justify-content:center;gap:9px;flex-shrink:0;min-height:42px;padding:10px 16px;border:1px solid var(--purple-main);border-radius:10px;background:var(--purple-main);color:#fff;font:inherit;font-size:14px;font-weight:600;line-height:1.3;text-decoration:none;cursor:pointer}
+.jbl-action:hover{background:var(--purple-deep);border-color:var(--purple-deep);color:#fff}
+.jbl-action svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.jbl-page :is(a,button,select):focus-visible{outline:3px solid #c5a5e6;outline-offset:3px}
+.jbl-empty{padding:48px 24px;text-align:center;color:#806b91;font-size:14px;line-height:1.6}
+.jbl-empty strong{color:#35154e;font-size:17px;font-weight:600}
+.jbl-empty p{margin:8px 0 0}
+.jbl-pagination{padding:16px 24px;border-top:1px solid #eee5f6}
+@media(max-width:1000px){.jbl-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.jbl-clear{justify-self:start}}
+@media(max-width:720px){.jbl-filters{padding:16px;gap:12px}.jbl-heading{padding:18px}.jbl-heading h2{font-size:16px}.jbl-item{align-items:stretch;flex-direction:column;padding:18px;gap:18px}.jbl-item-heading h3{font-size:16px}.jbl-meta{gap:14px 24px}.jbl-action{align-self:flex-start}.jbl-pagination{padding:14px 18px}}
+@media(max-width:440px){.jbl-filters{grid-template-columns:1fr}.jbl-clear{justify-self:stretch}.jbl-item-heading{align-items:flex-start;flex-direction:column}}

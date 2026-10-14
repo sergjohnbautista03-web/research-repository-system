@@ -18,6 +18,13 @@
 @media(max-width:650px){#importUserModal{padding:10px}#importUserModal .mu-import-modal-card{max-height:calc(100dvh - 20px)}#importUserModal .mu-modal-head,#importUserModal .mu-create-form{padding:20px}.iu-semester-grid{grid-template-columns:1fr}.iu-heading-icon{display:none}#importUserModal .mu-modal-title{font-size:21px}.iu-info{padding:15px;gap:12px}#importUserModal .mu-create-actions{flex-wrap:wrap}#importUserModal .mu-create-actions button{flex:1}.iu-upload .iu-file-icon{width:42px;height:48px}}
 
 /* Reference-style upload panel and column guide. */
+#importUserModal .iu-member-types{display:flex;flex-wrap:wrap;gap:12px;margin:0;padding:0;border:0;}
+#importUserModal .iu-member-types legend{margin-bottom:9px;color:#35105f;font-size:13px;font-weight:700;}
+#importUserModal .iu-member-types label{display:flex;align-items:center;gap:9px;flex:1;padding:12px 16px;border:1px solid #e5d9fc;border-radius:12px;background:#faf7ff;color:#542294;font-size:14px;cursor:pointer;}
+#importUserModal .iu-member-types label:has(input:checked){border-color:#8844e5;background:#efe6fc;font-weight:700;}
+#importUserModal .iu-member-types input{accent-color:#7933e4;}
+#importUserModal [data-import-guide][hidden]{display:none;}
+#importUserModal .iu-template-link{display:inline-flex;margin:12px 0;color:#6227d4;font-size:13px;font-weight:700;text-underline-offset:3px;}
 #importUserModal .iu-upload-panel{padding:16px;border:1px solid #e5d9fc;border-radius:22px;background:linear-gradient(135deg,#fff,#faf7ff);box-shadow:0 12px 32px rgba(93,47,154,.06)}
 #importUserModal .iu-upload{flex-direction:column;justify-content:center;gap:10px;min-height:190px;padding:18px 16px;border:2px dashed #bd98ff;border-radius:20px;background:linear-gradient(135deg,#fcfaff,#f7f1ff);text-align:center;transition:background .18s,border-color .18s}
 #importUserModal .iu-upload:hover,#importUserModal .iu-upload:focus-within{background:#f1e8ff;border-color:#8844e5}

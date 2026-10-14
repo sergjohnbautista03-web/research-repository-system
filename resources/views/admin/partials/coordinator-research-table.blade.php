@@ -8,11 +8,10 @@
             <thead>
                 <tr>
                     <th>Research</th>
-                    <th>Department</th>
+                    <th>Program</th>
                     <th>Type</th>
-                    <th>Year</th>
+                    <th>Publication Year</th>
                     <th>Academic Year</th>
-                    <th>Status / Stage</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -26,7 +25,7 @@
                                 <span class="coord-muted">Return reason: {{ Str::limit($research->rejection_reason, 120) }}</span>
                             @endif
                         </td>
-                        <td>{{ $research->department ?: 'Unassigned' }}</td>
+                        <td>{{ $research->program ?: $research->course ?: 'Unassigned' }}</td>
                         <td>
                             {{ $research->getTypeLabel() }}
                             <span class="coord-muted">{{ $research->getSubmissionCategoryLabel() }}</span>
@@ -34,33 +33,32 @@
                         <td>
                             {{ $research->year_published ?: 'No year' }}
                         </td>
-                        <td>{{ $research->semester?->school_year ?? 'Not assigned' }}</td>
-                        <td>
-                            <span class="coord-pill coord-pill-{{ $research->status }}">{{ $research->coordinatorStageLabel() }}</span>
-                        </td>
+                        <td>{{ $research->academicYearLabel() }}</td>
                         <td>
                             <div class="coord-actions">
                                 @if($research->file_path)
                                     <a href="{{ route('admin.research.view-file', $research) }}" target="_blank" rel="noopener" class="coord-btn coord-btn-soft">View File</a>
                                 @endif
 
-                                @if(in_array($research->status, [\App\Models\Research::STATUS_DRAFT, \App\Models\Research::STATUS_REJECTED], true))
-                                    <a href="{{ route('admin.coordinator.summaries.edit', $research) }}" class="coord-btn coord-btn-primary">Edit Summary</a>
+                                @if($research->handoff?->is_batch)
+                                    <a href="{{ route('admin.journal-batches.show', $research->research_handoff_id) }}" class="coord-btn coord-btn-primary">Open Batch</a>
+                                @elseif(in_array($research->status, [\App\Models\Research::STATUS_DRAFT, \App\Models\Research::STATUS_REJECTED], true))
+                                    <a href="{{ route('admin.coordinator.summaries.edit', $research) }}" class="coord-btn coord-btn-primary">Edit Journal</a>
                                     <form method="POST" action="{{ route('admin.coordinator.summaries.submit', $research) }}">
                                         @csrf
-                                        <button type="submit" class="coord-btn coord-btn-success">Submit to Admin</button>
+                                        <button type="submit" class="coord-btn coord-btn-success">Submit to Dean</button>
                                     </form>
                                 @elseif($mode === 'archive')
                                     <span class="coord-muted">Processed {{ optional($research->approved_at ?? $research->updated_at)->format('M d, Y') }}</span>
                                 @elseif($research->status !== \App\Models\Research::STATUS_APPROVED)
-                                    <span class="coord-muted">{{ $research->status === \App\Models\Research::STATUS_PENDING ? 'Waiting for Admin review' : $research->coordinatorStageLabel() }}</span>
+                                    <span class="coord-muted">{{ $research->status === \App\Models\Research::STATUS_PENDING ? 'Waiting for Admin to publish' : $research->coordinatorStageLabel() }}</span>
                                 @endif
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7">
+                        <td colspan="6">
                             <div class="coord-empty">
                                 <strong>No research records found.</strong>
                                 <span>Try changing the filters or check another module.</span>

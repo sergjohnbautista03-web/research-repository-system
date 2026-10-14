@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', 'Research Summarization')
-@section('page-title', 'Research Summarization')
+@section('title', 'Journal Preparation')
+@section('page-title', 'Journal Preparation')
 
 @section('content')
 @include('admin.partials.coordinator-styles')
@@ -9,14 +9,14 @@
     <div class="coord-card">
         <div class="coord-head">
             <div>
-                <h2>Research Summarization</h2>
-                <p>Edit draft summaries, fix returned summaries, preview details, and submit them to Admin.</p>
+                <h2>Journal Preparation</h2>
+                <p>Prepare draft journals, revise returned journals, preview details, and submit completed journals to the Department Dean.</p>
             </div>
-            <a href="{{ route('admin.coordinator.dean-submissions') }}" class="coord-btn coord-btn-primary">Open Dean Submissions</a>
+            <a href="{{ route('admin.coordinator.dean-submissions') }}" class="coord-btn coord-btn-primary">Open Assigned Journal Tasks</a>
         </div>
     </div>
 
-    @include('admin.partials.coordinator-research-filters', ['showStatusFilter' => false])
+    @include('admin.partials.coordinator-research-filters')
     @include('admin.partials.coordinator-research-table', ['mode' => 'summaries'])
 </div>
 @endsection

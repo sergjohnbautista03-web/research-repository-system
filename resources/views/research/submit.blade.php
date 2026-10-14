@@ -72,7 +72,7 @@
 
             <div class="ar-form-row">
                 <div class="ar-form-group">
-                    <label>Submission Category <span class="ar-required">*</span></label>
+                    <label>Journal Category <span class="ar-required">*</span></label>
                     <select name="submission_category" id="submission_category" required onchange="updateCoursesAndTypes()">
                         @foreach($submissionCategories as $value => $label)
                             <option value="{{ $value }}" {{ old('submission_category', \App\Models\Research::SUBMISSION_CATEGORY_JOURNAL) === $value ? 'selected' : '' }}>{{ $label }}</option>

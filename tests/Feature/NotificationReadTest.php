@@ -10,48 +10,16 @@ use App\Notifications\AcademicPeriodActivated;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
+use Tests\Concerns\JournalWorkflowSchema;
 
 class NotificationReadTest extends TestCase
 {
+    use JournalWorkflowSchema;
     protected function setUp(): void
     {
         parent::setUp();
-        Schema::create('users', function (Blueprint $table) {
-            $table->id();
-            foreach (['name', 'email', 'password', 'role'] as $field) $table->string($field);
-            $table->string('department')->nullable();
-            $table->boolean('is_department_dean')->default(false);
-            $table->boolean('is_research_coordinator')->default(false);
-            $table->boolean('is_active')->default(true);
-            $table->boolean('is_approved')->default(true);
-            $table->timestamp('last_seen_at')->nullable();
-            $table->timestamp('policy_accepted_at')->nullable();
-            $table->string('policy_version')->nullable();
-            $table->rememberToken();
-            $table->timestamps();
-        });
-        Schema::create('researches', function (Blueprint $table) {
-            $table->id();
-            $table->string('title');
-            $table->string('department');
-            $table->string('status');
-            $table->unsignedBigInteger('coordinator_id')->nullable();
-            $table->text('rejection_reason')->nullable();
-            $table->timestamp('approved_at')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
-        Schema::create('research_handoffs', function (Blueprint $table) {
-            $table->id();
-            $table->string('title');
-            $table->string('department');
-            $table->string('status');
-            $table->unsignedBigInteger('dean_id');
-            $table->timestamp('received_at')->nullable();
-            $table->timestamps();
-        });
-        (require database_path('migrations/2026_10_02_000001_create_notifications_table.php'))->up();
-        (require database_path('migrations/2026_10_02_000002_create_notification_reads_table.php'))->up();
+        $this->createJournalWorkflowSchema();
+
     }
 
     private function member(array $attributes = []): User
@@ -71,10 +39,13 @@ class NotificationReadTest extends TestCase
             Research::create([
                 'title' => 'Ready for Review', 'department' => $user->department,
                 'status' => Research::STATUS_PENDING, 'coordinator_id' => 99,
+                'school_year' => '2026-2027', 'dean_approved_by' => $user->id,
+                'dean_approved_at' => now(), 'forwarded_to_admin_at' => now(),
             ]);
         } else {
             ResearchHandoff::create([
                 'title' => 'Dean Paper', 'department' => $user->department, 'dean_id' => $user->id,
+                'coordinator_id' => $user->isResearchCoordinator() ? $user->id : null, 'school_year' => '2026-2027',
                 'status' => $user->isDepartmentDean() ? ResearchHandoff::STATUS_RECEIVED : ResearchHandoff::STATUS_PENDING,
                 'received_at' => $user->isDepartmentDean() ? now() : null,
             ]);
@@ -160,7 +131,7 @@ class NotificationReadTest extends TestCase
         $research = Research::firstOrFail();
         $this->actingAs($admin)->postJson(route('admin.notifications.read-all'))->assertJsonPath('unread_count', 0);
         $this->travel(1)->minutes();
-        $research->update(['status' => Research::STATUS_REJECTED, 'rejection_reason' => 'Correct the references.']);
+        $research->update(['status' => Research::STATUS_REJECTED, 'coordinator_id' => $coordinator->id, 'rejection_reason' => 'Correct the references.']);
         $this->actingAs($coordinator)->getJson(route('admin.notifications.feed'))
             ->assertJsonPath('unread_count', 1)->assertSee('Correct the references.');
         $this->postJson(route('admin.notifications.read-all'))->assertJsonPath('unread_count', 0);
@@ -169,7 +140,7 @@ class NotificationReadTest extends TestCase
         $this->actingAs($admin)->getJson(route('admin.notifications.feed'))->assertJsonPath('unread_count', 1);
         $research->update(['status' => Research::STATUS_APPROVED, 'approved_at' => now()]);
         $this->actingAs($coordinator)->getJson(route('admin.notifications.feed'))
-            ->assertJsonPath('unread_count', 1)->assertSee('accepted by Admin');
+            ->assertJsonPath('unread_count', 1)->assertSee('Published:');
     }
 
     public function test_guests_students_faculty_and_unassigned_staff_cannot_use_notification_controls(): void

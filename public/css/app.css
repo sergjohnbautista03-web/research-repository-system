@@ -4,6 +4,10 @@
    ========================================================= */
 
 :root {
+    --brand-violet:        #5b2a86;
+    --brand-violet-dark:   #32104f;
+    --brand-violet-accent: #7b4ba3;
+
     --purple-deep:  #52297a;
     --purple-main:  #6b2fa0;
     --purple-mid:   #8b44be;
@@ -53,7 +57,7 @@ body { font-family: var(--font-body); background: var(--purple-ghost); color: va
 
 /* ── TOP NAV ──────────────────────────────────────────── */
 .top-nav {
-    background: linear-gradient(90deg, #9b59b6 0%, #2a0d4a 100%);
+    background: linear-gradient(90deg, var(--brand-violet) 0%, var(--brand-violet-dark) 100%);
     padding: 0 40px;
     display: flex;
     align-items: center;
@@ -81,13 +85,13 @@ body { font-family: var(--font-body); background: var(--purple-ghost); color: va
 .logo-text {
     display: grid;
     gap: 2px;
-    color: #25083c;
+    color: var(--white);
     line-height: 1;
     text-rendering: geometricPrecision;
 }
 .logo-text strong {
     max-width: 270px;
-    color: #25083c;
+    color: inherit;
     font-size: 13.5px;
     font-weight: 900;
     letter-spacing: .7px;
@@ -95,7 +99,7 @@ body { font-family: var(--font-body); background: var(--purple-ghost); color: va
     text-transform: uppercase;
 }
 .logo-text span {
-    color: #32134b;
+    color: inherit;
     font-size: 9.5px;
     font-weight: 800;
     letter-spacing: .35px;
@@ -107,7 +111,7 @@ body { font-family: var(--font-body); background: var(--purple-ghost); color: va
 
 .main-nav { display: flex; align-items: center; gap: 4px; }
 .main-nav a { color: rgba(255,255,255,.85); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: var(--radius-sm); transition: all .2s; }
-.main-nav a:hover, .main-nav a.active { background: rgba(255,255,255,.15); color: white; }
+.main-nav a:hover, .main-nav a.active { background: var(--brand-violet-accent); color: white; }
 .nav-badge.admin { background: rgba(255,200,60,.2); color: #ffd700; border: 1px solid rgba(255,200,60,.3); }
 .nav-submit { background: var(--purple-mid) !important; color: white !important; border-radius: var(--radius-sm); font-weight: 600 !important; }
 .nav-login  { border: 1px solid rgba(255,255,255,.3) !important; }
@@ -377,6 +381,7 @@ body { font-family: var(--font-body); background: var(--purple-ghost); color: va
 .card-abstract { font-size: 13px; color: #555; flex: 1; line-height: 1.6; }
 .card-footer { display: flex; align-items: center; gap: 10px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border); flex-wrap: wrap; }
 .card-year { font-size: 12px; color: var(--muted); font-weight: 600; }
+.card-years { display: grid; gap: 4px; }
 .card-stats { display: flex; gap: 10px; font-size: 12px; color: var(--muted); margin-left: auto; }
 
 .type-thesis     { background: #ede9fe; color: #5b21b6; }
@@ -666,7 +671,7 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     align-items: center;
     color: white;
     background:
-        linear-gradient(90deg, rgba(43,12,73,.96) 0%, rgba(71,28,100,.9) 48%, rgba(20,126,123,.74) 100%),
+        linear-gradient(90deg, rgba(50,16,79,.92) 0%, rgba(91,42,134,.80) 48%, rgba(123,75,163,.68) 100%),
         url("../images/First-Section-1.jpg") center / cover no-repeat;
     box-shadow: inset 0 -1px 0 rgba(255,255,255,.12);
 }
@@ -1382,59 +1387,89 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .login-modal-panel {
     position: relative;
     z-index: 1;
-    width: min(440px, 100%);
+    width: min(480px, 100%);
     max-height: calc(100vh - 40px);
     max-height: calc(100dvh - 40px);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 34px 28px 28px;
-    border: 1px solid #e4d6f2;
-    border-radius: 8px;
-    background: white;
-    box-shadow: 0 28px 80px rgba(24,9,41,.32);
+    padding: 48px 28px 34px;
+    border: 1px solid #9d56d5;
+    border-radius: 20px;
+    background: url('../images/login-waves.svg') center / 100% 100% no-repeat,
+        linear-gradient(145deg, #fff 35%, #fdfaff 100%);
+    box-shadow: 0 28px 80px rgba(24,9,41,.32), inset 0 1px 0 rgba(255,255,255,.9);
 }
 
 .login-modal-close {
     position: absolute;
     top: 14px;
     right: 14px;
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border: 0;
     border-radius: 8px;
-    background: #f6effd;
-    color: #7a668b;
+    background: rgba(247,239,255,.8);
+    color: #55118b;
     cursor: pointer;
     z-index: 2;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    transition: background .2s;
+}
+
+.login-modal-close:hover {
+    background: #ead7fb;
+}
+
+.login-modal-close svg {
+    width: 20px;
+    height: 20px;
 }
 
 .login-modal-header {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     margin-bottom: 26px;
 }
 
+.login-modal-header > div:last-child {
+    min-width: 0;
+}
+
 .login-modal-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
     color: white;
-    background: linear-gradient(135deg, var(--purple-main), var(--teal));
+    background: linear-gradient(135deg, #cb6bff 0%, #9227eb 42%, #57218a 100%);
+    box-shadow: 0 12px 26px rgba(138,43,211,.16), inset 0 1px 2px rgba(255,255,255,.5);
+}
+
+.login-modal-icon svg {
+    width: 30px;
+    height: 30px;
 }
 
 .login-modal-header h2 {
     margin: 0;
-    color: var(--purple-deep);
-    font-family: var(--font-head);
-    font-size: 30px;
-    line-height: 1;
+    color: #4c0d7d;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.1;
 }
 
 .login-modal-header p,
 .login-modal-policy {
-    color: var(--muted);
-    font-size: 13px;
+    color: #827098;
+    line-height: 1.5;
+}
+
+.login-modal-header p {
+    margin-top: 5px;
+    font-size: 14px;
 }
 
 .login-modal-error {
@@ -1450,7 +1485,15 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 .login-modal-group {
     display: grid;
     gap: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
+}
+
+.login-modal-group label {
+    color: #55118b;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    line-height: 1.4;
 }
 
 .login-modal-input-wrap {
@@ -1458,8 +1501,24 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 }
 
 .login-modal-input-wrap input {
-    padding-left: 42px;
-    padding-right: 44px;
+    min-height: 48px;
+    padding: 10px 48px 10px 52px;
+    border: 1.5px solid #d9b7f7;
+    border-radius: 8px;
+    background: rgba(255,255,255,.88);
+    color: #402055;
+    font-size: 16px;
+    box-shadow: 0 4px 12px rgba(138,43,211,.06);
+}
+
+.login-modal-input-wrap input::placeholder {
+    color: #998aaa;
+    opacity: 1;
+}
+
+.login-modal-input-wrap input:focus {
+    border-color: #bd86f0;
+    box-shadow: 0 0 0 3px rgba(177,112,235,.18);
 }
 
 .login-modal-input-icon,
@@ -1470,17 +1529,25 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #806b90;
+    color: #827098;
 }
 
 .login-modal-input-icon {
-    left: 13px;
+    left: 16px;
+    color: #55118b;
+    pointer-events: none;
+}
+
+.login-modal-input-icon svg,
+.login-modal-toggle svg {
+    width: 22px;
+    height: 22px;
 }
 
 .login-modal-toggle {
-    right: 10px;
-    width: 30px;
-    height: 30px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
     border: 0;
     border-radius: 6px;
     background: transparent;
@@ -1491,8 +1558,26 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     display: flex;
     align-items: center;
     gap: 9px;
-    color: #6b587c;
-    font-size: 13px;
+    color: #827098;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.login-modal-remember input {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    margin: 0;
+    border: 1.5px solid #827098;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+}
+
+.login-modal-remember input:checked {
+    border-color: #7720b9;
+    background: #7720b9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='m4 9 3 3 7-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .login-modal-options {
@@ -1501,13 +1586,13 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin: 4px 0 18px;
+    margin: 0 0 22px;
 }
 
 .login-modal-forgot {
-    color: var(--purple-main);
-    font-size: 13px;
-    font-weight: 800;
+    color: #7720b9;
+    font-size: 14px;
+    font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
 }
@@ -1518,33 +1603,92 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
 .login-modal-submit {
     width: 100%;
-    min-height: 46px;
+    min-height: 50px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
     border: 0;
-    border-radius: 8px;
-    background: var(--purple-main);
+    border-radius: 11px;
+    background: radial-gradient(ellipse at 0% 0%, rgba(218,141,255,.32) 0 24%, transparent 24.5%),
+        radial-gradient(ellipse at 110% 120%, rgba(192,102,255,.25) 0 25%, transparent 25.5%),
+        linear-gradient(115deg, #a22df0, #59208a);
     color: white;
-    font-weight: 800;
+    font-size: 18px;
+    font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 14px 28px rgba(107,47,160,.22);
+    box-shadow: 0 14px 28px rgba(107,47,160,.22), inset 0 1px 1px rgba(255,255,255,.4);
+    transition: filter .2s, box-shadow .2s;
 }
 
 .login-modal-submit:hover {
-    background: var(--purple-deep);
+    filter: brightness(1.08);
+    box-shadow: 0 16px 30px rgba(107,47,160,.3);
+}
+
+.login-modal-submit svg {
+    width: 22px;
+    height: 22px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .login-modal-policy {
     margin-top: 16px;
+    font-size: 12px;
     text-align: center;
 }
 
 .login-modal-policy a {
-    color: var(--purple-main);
-    font-weight: 800;
+    color: #7720b9;
+    font-weight: 700;
     text-decoration: none;
+}
+
+.login-modal-policy a:hover {
+    text-decoration: underline;
+}
+
+.login-modal-header .login-modal-forgot-title {
+    font-size: 30px;
+}
+
+.login-modal-status {
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    border: 1px solid #d9b7f7;
+    border-radius: 8px;
+    background: #f7efff;
+    color: #55118b;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.login-modal-submit:disabled {
+    opacity: .7;
+    cursor: wait;
+    filter: none;
+}
+
+.login-modal-back {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 18px;
+    padding: 8px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #7720b9;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.login-modal-back:hover {
+    background: #f4e9fc;
 }
 
 .modal-open {
@@ -1636,8 +1780,75 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
         height: 320px;
     }
 
+}
+
+@media (max-width: 600px) {
+    .login-modal {
+        padding: 16px;
+    }
+
     .login-modal-panel {
-        padding: 30px 20px 22px;
+        max-height: calc(100vh - 32px);
+        max-height: calc(100dvh - 32px);
+        padding: 52px 20px 28px;
+        border-radius: 18px;
+    }
+
+    .login-modal-close {
+        top: 14px;
+        right: 14px;
+        width: 36px;
+        height: 36px;
+    }
+
+    .login-modal-header {
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .login-modal-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 14px;
+    }
+
+    .login-modal-icon svg {
+        width: 26px;
+        height: 26px;
+    }
+
+    .login-modal-header h2 {
+        font-size: 32px;
+    }
+
+    .login-modal-header .login-modal-forgot-title {
+        font-size: 26px;
+    }
+
+    .login-modal-header p {
+        font-size: 14px;
+    }
+
+    .login-modal-input-wrap input {
+        padding-left: 52px;
+        font-size: 16px;
+    }
+
+    .login-modal-input-icon {
+        left: 16px;
+    }
+
+    .login-modal-remember,
+    .login-modal-forgot {
+        font-size: 14px;
+    }
+
+    .login-modal-remember {
+        gap: 8px;
+    }
+
+    .login-modal-policy {
+        font-size: 12px;
     }
 }
 body,
@@ -1663,4 +1874,14 @@ a,
 button,
 svg {
     -webkit-user-drag: none;
+}
+
+.research-id {
+    display: block;
+    margin: 4px 0;
+    color: #756887;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
 }

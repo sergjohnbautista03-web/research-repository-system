@@ -31,6 +31,7 @@ class UserActivityLogsTest extends TestCase
             $table->string('user_name'); $table->string('role'); $table->string('action'); $table->text('details');
             $table->timestamp('created_at');
         });
+        (require database_path('migrations/2026_10_06_000002_add_client_details_to_user_activity_logs.php'))->up();
     }
 
     public function test_dean_only_sees_students_and_faculty_in_assigned_department(): void
@@ -135,6 +136,70 @@ class UserActivityLogsTest extends TestCase
             'role' => 'faculty', 'department' => 'CCS', 'year_level' => 1,
         ]));
         $this->assertSame([$faculty->id], $view->getData()['logs']->pluck('user_id')->all());
+    }
+
+    public function test_client_details_are_saved_for_each_activity_and_shown_in_both_histories(): void
+    {
+        $student = $this->user('Student', 'user', 'CCS');
+        $agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0';
+        $this->app->instance('request', Request::create('/login', 'POST', [], [], [], [
+            'REMOTE_ADDR' => '203.0.113.42', 'HTTP_USER_AGENT' => $agent,
+            'HTTP_SEC_CH_UA_PLATFORM_VERSION' => '"19.0.0"',
+        ]));
+        UserActivity::record($student, 'login', 'Login');
+        $this->assertDatabaseHas('user_activity_logs', [
+            'user_id' => $student->id, 'ip_address' => '203.0.113.42',
+            'user_agent' => $agent, 'platform_version' => '19.0.0',
+        ]);
+
+        $this->app->instance('request', Request::create('/research/1', 'GET', [], [], [], [
+            'REMOTE_ADDR' => '2001:db8::42',
+            'HTTP_USER_AGENT' => 'Mozilla/5.0 (Linux; Android 10; K) Chrome/140.0.0.0 Mobile Safari/537.36',
+        ]));
+        UserActivity::record($student, 'viewed_research', 'Viewed research');
+        $this->assertDatabaseHas('user_activity_logs', [
+            'action' => 'viewed_research', 'ip_address' => '2001:db8::42', 'platform_version' => null,
+        ]);
+
+        $dean = $this->user('Dean', 'admin', 'CCS', ['is_department_dean' => true]);
+        $this->actingAs($dean);
+        $html = app(UserActivityLogController::class)->index(Request::create('/admin/user-activity-logs'))
+            ->with('errors', new \Illuminate\Support\ViewErrorBag())->render();
+        foreach (['IP Address', 'Device &amp; OS', '203.0.113.42', '2001:db8::42', 'Windows 11', 'Microsoft Edge', 'Mobile', 'Android'] as $label) {
+            $this->assertStringContainsString($label, $html);
+        }
+
+        Schema::create('researches', function (Blueprint $table) {
+            $table->id();
+            $table->string('status');
+            $table->softDeletes();
+        });
+        $this->actingAs($this->user('Admin', 'admin', null));
+        $html = app(UserActivityLogController::class)->systemIndex(Request::create('/admin/activity-logs'))
+            ->with('errors', new \Illuminate\Support\ViewErrorBag())->render();
+        $this->assertStringContainsString('203.0.113.42', $html);
+        $this->assertStringContainsString('Windows 11', $html);
+        $this->assertStringNotContainsString('2001:db8::42', $html);
+    }
+
+    public function test_legacy_logs_display_missing_client_details_without_changing_history(): void
+    {
+        $student = $this->user('Student', 'user', 'CCS');
+        UserActivityLog::create([
+            'user_id' => $student->id, 'user_name' => $student->name, 'department' => 'CCS',
+            'role' => 'student', 'action' => 'login', 'details' => 'Historical login', 'created_at' => now(),
+        ]);
+        $this->actingAs($this->user('Dean', 'admin', 'CCS', ['is_department_dean' => true]));
+        $html = app(UserActivityLogController::class)->index(Request::create('/admin/user-activity-logs'))
+            ->with('errors', new \Illuminate\Support\ViewErrorBag())->render();
+        $this->assertStringContainsString('Not recorded', $html);
+        $this->assertStringContainsString('Historical login', $html);
+        $this->assertSame(1, UserActivityLog::count());
+    }
+
+    public function test_login_page_requests_platform_version_from_supported_browsers(): void
+    {
+        $this->get('/login')->assertRedirect(route('home'))->assertHeader('Accept-CH', 'Sec-CH-UA-Platform-Version');
     }
 
     private function user(string $name, string $role, ?string $department, array $extra = []): User

@@ -22,6 +22,8 @@ class UserActivity
         };
 
         try {
+            $request = request();
+            $platformVersion = trim((string) $request->header('Sec-CH-UA-Platform-Version'), '" ');
             UserActivityLog::create([
                 'user_id' => $user->id,
                 'department' => $user->department ?? '',
@@ -29,6 +31,10 @@ class UserActivity
                 'role' => $role,
                 'action' => $action,
                 'details' => $details,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'platform_version' => strlen($platformVersion) <= 32 && preg_match('/^\d+\.\d+\.\d+$/D', $platformVersion)
+                    ? $platformVersion : null,
                 'created_at' => now(),
             ]);
         } catch (\Throwable $error) {

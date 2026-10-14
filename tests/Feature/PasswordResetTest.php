@@ -7,6 +7,7 @@ use Illuminate\Auth\Notifications\ResetPassword as ResetPasswordNotification;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -135,6 +136,60 @@ class PasswordResetTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_modal_request_sends_a_reset_link_and_returns_json_without_redirecting(): void
+    {
+        Notification::fake();
+        $student = $this->createUser(['email' => 'modal-student@example.com']);
+
+        $this->postJson(route('password.email'), ['email' => $student->email])
+            ->assertOk()
+            ->assertExactJson(['message' => 'If that email is registered, a password reset link has been sent.']);
+
+        Notification::assertSentTo($student, ResetPasswordNotification::class);
+    }
+
+    public function test_modal_request_does_not_reveal_whether_an_email_is_registered(): void
+    {
+        Notification::fake();
+
+        $this->postJson(route('password.email'), ['email' => 'unknown@example.com'])
+            ->assertOk()
+            ->assertExactJson(['message' => 'If that email is registered, a password reset link has been sent.']);
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_modal_request_returns_email_validation_errors_as_json(): void
+    {
+        Notification::fake();
+
+        $this->postJson(route('password.email'), ['email' => 'invalid-email'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+
+        Notification::assertNothingSent();
+    }
+
+    public function test_modal_request_returns_throttle_feedback_without_redirecting(): void
+    {
+        Password::shouldReceive('sendResetLink')->once()
+            ->with(['email' => 'student@example.com'])->andReturn(Password::RESET_THROTTLED);
+
+        $this->postJson(route('password.email'), ['email' => 'student@example.com'])
+            ->assertStatus(429)
+            ->assertExactJson(['message' => 'Please wait before requesting another password reset link.']);
+    }
+
+    public function test_modal_request_returns_mail_failure_feedback_without_redirecting(): void
+    {
+        Password::shouldReceive('sendResetLink')->once()
+            ->andThrow(new \RuntimeException('Mail transport unavailable'));
+
+        $this->postJson(route('password.email'), ['email' => 'student@example.com'])
+            ->assertStatus(503)
+            ->assertExactJson(['message' => 'Password reset email could not be sent right now. Please try again later.']);
+    }
+
     public function test_forgot_password_screen_can_be_rendered(): void
     {
         $response = $this->get(route('password.request'));
@@ -142,6 +197,10 @@ class PasswordResetTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Forgot Password');
         $response->assertSee('Back to Login');
+        $response->assertSee('data-forgot-password-trigger', false);
+        $response->assertSee('data-auth-view="forgot" hidden', false);
+        $response->assertSee('id="modal-reset-email"', false);
+        $response->assertSee('Back to Sign In');
     }
 
     public function test_reset_password_screen_can_be_rendered_with_prefilled_email(): void

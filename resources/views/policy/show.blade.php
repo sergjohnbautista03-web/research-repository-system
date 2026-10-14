@@ -15,68 +15,85 @@
         <span class="policy-kicker">Ube Research Repository</span>
         <h1>Repository Use Policy</h1>
         <p>
-            This policy protects registered accounts, research documents, authors, departments, and the academic integrity of the repository.
+            Use published PhilCST research and journals responsibly, protect account access, and follow the responsibilities assigned to your role in the repository.
         </p>
         <div class="policy-meta">
             <span>Version {{ $policyVersion }}</span>
-            <span>Applies to students, faculty, deans, administrators, and researchers</span>
+            <span>Applies to visitors, Students, Faculty, Department Deans, Research Coordinators, and Admin</span>
         </div>
     </div>
 
     <div class="policy-layout">
         <article class="policy-card">
-            <h2>Acceptable Use</h2>
+            <h2>Academic Use & Public Browsing</h2>
             <p>
-                Access to the Ube Research Repository is provided for authorized academic, research, review, and administrative purposes only. Users may browse, view, submit, review, approve, or manage research materials only within the permissions assigned to their account.
+                The Ube Research Repository supports academic reference, journal preparation, review, publication, and authorized administration. Visitors may browse published titles, authors, abstracts, and publication details. Full-document viewing, saving research, and staff actions require the appropriate signed-in account and permissions.
             </p>
 
-            <h2>Account Responsibility</h2>
+            <h2>Account Creation, Activation & Responsibility</h2>
             <p>
-                Your account is issued for your personal or official school role. You must not share your username, password, session access, or any other login credential with another person. You are responsible for activity performed through your account.
+                Department Deans create or import Student and Faculty accounts for their assigned department and program. There is no public self-registration. Student and Faculty access to full documents requires an active, approved account and active enrollment in an open semester. Contact your Department Dean if your account is inactive or has not been activated for the current semester. Resetting a password or accepting this policy does not activate an account or grant additional permissions.
+            </p>
+            <p>
+                Use only the account issued to you. Keep your password and signed-in session private, and do not allow another person to use them. Obtain your initial login details from your Department Dean, change your password through Profile Settings when needed, and sign out after using a shared device.
             </p>
 
-            <h2>Research Material Protection</h2>
+            <h2>Authorship, Citations & Protected Materials</h2>
             <p>
-                Research files, abstracts, documents, previews, watermarked pages, and repository records must not be copied, sold, uploaded elsewhere, distributed through messaging apps, posted on social media, or given to unauthorized users. Materials may be used only for legitimate school-related academic reference, review, or administrative work.
+                Credit the recorded authors when using a publication as an academic reference. You may use the publication details and Copy citation feature to identify and cite an entry; check the reference against the citation style required for your work. Do not claim another author's work as your own, falsify author names, or remove attribution.
+            </p>
+            <p>
+                Access to a full document is permission to read it for authorized academic, review, or administrative work. It does not grant permission to sell, repost, upload elsewhere, distribute through messaging apps or social media, or give protected PDFs or captured pages to unauthorized persons. Do not remove PhilCST watermarks or use another account to obtain restricted material.
             </p>
 
-            <h2>Student and Faculty Users</h2>
+            <h2>Student & Faculty Access</h2>
             <p>
-                Students and faculty members may use repository access to support learning, citation, research review, and approved academic work. They must not claim another author's work as their own, remove attribution, bypass viewing restrictions, or share viewed materials outside authorized channels.
+                Students and Faculty may browse publications, save research to their dashboard, and view full documents when eligible. Saving a publication does not change full-document permissions. Students and Faculty do not upload research or publish journals directly through the portal; coordinate with your Department Dean about including completed work in a journal.
             </p>
 
-            <h2>Researcher Submissions</h2>
+            <h2>Department Dean Responsibilities</h2>
             <p>
-                Users who apply as researchers or submit research must provide accurate information and upload documents that they are allowed to submit. Submitted research should respect authorship, citation rules, department requirements, and school review procedures.
+                Deans must verify Student and Faculty account details, assign the correct department and program, and manage activation for the current semester. Provide initial login details only to the verified account holder. Do not grant access to unauthorized persons or disclose another user's credentials.
+            </p>
+            <p>
+                For journal publication, the Dean assigns a preparation task to the department's Research Coordinator for a specified Academic Year and program. The Dean reviews the completed batch and its PDFs, then forwards it to Admin for publication. Deans must work within their assigned department and task responsibilities.
             </p>
 
-            <h2>Dean and Administrator Responsibilities</h2>
+            <h2>Research Coordinator Responsibilities</h2>
             <p>
-                Deans and administrators are trusted to manage accounts and handle research records carefully. They must not approve unverified accounts, disclose credentials, or provide repository access to unauthorized persons.
+                Coordinators prepare completed Student or Faculty research journals for the tasks assigned to them. Record accurate titles, authors, abstracts, categories, research types, and publication years, and upload only PDFs that the department is authorized to submit. Use the department, program, and Academic Year assigned by the Dean; Academic Year and publication year are separate details.
+            </p>
+            <p>
+                Check every journal's details and completed PDF before submitting the whole batch to the Dean. Details may be edited during preparation; submitted batches are locked for review. Coordinators must not bypass the Dean's forwarding step or publish journals using another role's account.
+            </p>
+
+            <h2>Admin Publication Responsibilities</h2>
+            <p>
+                Admin handles repository administration and publication of completed journal batches forwarded by the Dean. Each journal must have complete details and an available PDF before the batch can be published. Journals are published together as a batch, and each journal appears as a separate repository entry. Handle records and account information only for authorized institutional work.
             </p>
 
             <h2>Protected Viewer and Security Controls</h2>
             <p>
-                The repository may use watermarking, access logs, screenshot or print detection, copy blocking, and other security controls. Attempting to bypass these controls, extract protected files, or hide unauthorized activity is not allowed.
+                Full documents open through the protected viewer with PhilCST watermarks and controls that restrict printing and copying. The repository records account activity and document-access events for authorized administrative review. Do not bypass access checks or viewer restrictions, extract protected files, alter records to conceal activity, or use another person's session.
             </p>
 
-            <h2>Violations</h2>
+            <h2>Access Concerns & Violations</h2>
             <p>
-                Violations may result in account deactivation, loss of repository access, rejection of researcher privileges, administrative review, or referral to the appropriate school office for disciplinary action.
+                Report incorrect account details, access problems, or publication concerns to your Department Dean or the repository administrator. Misuse may result in account deactivation, loss of repository access, administrative review, or referral to the appropriate school office. Account activation and journal publication remain subject to the responsible staff's review.
             </p>
         </article>
 
         <aside class="policy-action-card">
             <h2>Agreement</h2>
             <p>
-                Before continuing, confirm that you understand and agree to follow this policy.
+                Signed-in users must accept the current policy before continuing to account features. Acceptance does not change your role, semester activation, or document permissions.
             </p>
 
             @auth
                 @if($hasAcceptedCurrentPolicy)
                     <div class="policy-accepted-box">
                         <strong>Policy accepted</strong>
-                        <span>You accepted version {{ $user->policy_version }} on {{ $user->policy_accepted_at->format('F j, Y h:i A') }}.</span>
+                        <span>You accepted version {{ $user->policy_version }} on {{ $user->policy_accepted_at->timezone('Asia/Manila')->format('F j, Y h:i A') }} (Philippine time).</span>
                     </div>
                     <a href="{{ $user->isAdmin() ? route('admin.dashboard') : route('user.dashboard') }}" class="policy-btn">
                         Continue
@@ -90,7 +107,7 @@
                         <label class="policy-check">
                             <input type="checkbox" name="accept_policy" value="1" required>
                             <span>
-                                I have read, understood, and agree to follow the Repository Use Policy. I will not share my account or protected research materials with unauthorized persons.
+                                I have read and agree to follow the current Repository Use Policy, use only my assigned permissions, credit authors, and keep my account and protected materials private.
                             </span>
                         </label>
                         <button type="submit" class="policy-btn">Accept and Continue</button>
@@ -99,7 +116,7 @@
             @else
                 <div class="policy-accepted-box">
                     <strong>Please sign in</strong>
-                    <span>Registered users must accept this policy before using account features.</span>
+                    <span>Visitors may browse published entries. Sign in with your issued account to accept the policy and use eligible account features.</span>
                 </div>
                 <a href="{{ route('login') }}" class="policy-btn">Sign In</a>
             @endauth
@@ -121,10 +138,12 @@
 .policy-card h2,.policy-action-card h2{margin:0 0 10px;color:#1a0638;font-size:18px;}
 .policy-card h2:not(:first-child){margin-top:28px;}
 .policy-card p,.policy-action-card p{margin:0;color:#625472;line-height:1.75;font-size:14px;}
+.policy-card p + p{margin-top:12px;}
 .policy-action-card{position:sticky;top:18px;padding:24px;}
 .policy-form{display:grid;gap:18px;margin-top:18px;}
 .policy-check{display:flex;align-items:flex-start;gap:10px;padding:14px;border-radius:14px;background:#faf7ff;border:1px solid #e9ddf8;color:#38215b;font-size:13px;line-height:1.65;cursor:pointer;}
-.policy-check input{margin-top:4px;accent-color:#7c3aed;}
+.policy-check input[type="checkbox"]{width:22px;height:22px;min-width:22px;flex:0 0 22px;margin:2px 0 0;accent-color:#7c3aed;cursor:pointer;}
+.policy-check span{flex:1;min-width:0;}
 .policy-btn{display:inline-flex;width:100%;align-items:center;justify-content:center;margin-top:18px;padding:12px 16px;border:0;border-radius:999px;background:#3b0f7a;color:#fff;text-decoration:none;font-weight:800;font-size:14px;cursor:pointer;box-shadow:0 10px 24px rgba(59,15,122,.18);}
 .policy-btn:hover{background:#2d0a5e;}
 .policy-error{margin-top:16px;padding:12px 14px;border-radius:12px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:13px;font-weight:700;}

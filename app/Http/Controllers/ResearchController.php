@@ -17,7 +17,6 @@ use Throwable;
 class ResearchController extends Controller
 {
     private const MIN_RESEARCH_YEAR = 2022;
-    private const MAX_RESEARCH_YEAR = 2026;
 
     private const AUDIT_TIMEZONE = 'Asia/Manila';
     private const PDF_WATERMARK_TEXT = 'PROPERTY OF PHILCST';
@@ -41,12 +40,25 @@ class ResearchController extends Controller
     private function ensureAdminDocumentAccess(?User $user, Research $research): void
     {
         abort_unless($user?->isAdmin(), 403, 'Admins only.');
-        // All admins may read research across departments; management stays scoped separately.
+        if ($research->status === Research::STATUS_APPROVED) {
+            return;
+        }
+        if ($user->isGlobalAdmin()) {
+            abort_unless(Research::forAdmin()->whereKey($research->id)->exists(), 403,
+                'This journal has not been approved and forwarded by the Dean.');
+        } elseif ($research->coordinator_id) {
+            abort_unless(filled($user->department) && $user->department === $research->department
+                && (($user->isResearchCoordinator() && $research->coordinator_id === $user->id)
+                    || ($user->isDepartmentDean() && $research->handoff?->dean_id === $user->id)), 403);
+        }
     }
 
     private function renderProtectedViewer(Request $request, Research $research, bool $adminMode = false)
     {
         $user = auth()->user();
+        if ($user?->isAdmin() && $research->status !== Research::STATUS_APPROVED) {
+            $this->ensureAdminDocumentAccess($user, $research);
+        }
         if (! $adminMode) {
             \App\Services\UserActivity::record($user, 'research_access_attempt', 'Attempted to access full document: ' . $research->title);
         }
@@ -85,7 +97,9 @@ class ResearchController extends Controller
 
         $this->recordRecentView($research);
 
-        return view('research.protected-viewer', compact('research', 'signedUrl', 'adminMode'));
+        $embedded = $adminMode && $request->boolean('embedded');
+
+        return view('research.protected-viewer', compact('research', 'signedUrl', 'adminMode', 'embedded'));
     }
 
     private function viewerIdentityPayload(Request $request, ?object $user, bool $adminMode = false): array
@@ -218,21 +232,26 @@ class ResearchController extends Controller
 
     public function index(Request $request)
     {
+        $minResearchYear = self::MIN_RESEARCH_YEAR;
+        $maxResearchYear = now('Asia/Manila')->year;
+
         $query = Research::approved()
             ->with('user')
-            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR]);
+            ->whereBetween('year_published', [$minResearchYear, $maxResearchYear]);
 
         if ($search = $request->get('search')) {
             $query->search($search);
         }
 
-        if ($field = $request->get('field')) {
+        if (($field = $request->get('field')) && Research::keyForResearchId($request->get('search')) === null) {
             if ($field === 'title') {
                 $query->where('title', 'like', '%' . $request->search . '%');
             } elseif ($field === 'author') {
                 $query->where('author_name', 'like', '%' . $request->search . '%');
             } elseif ($field === 'abstract') {
                 $query->where('abstract', 'like', '%' . $request->search . '%');
+            } elseif ($field === 'research_id') {
+                $query->whereRaw('1 = 0');
             }
         }
 
@@ -241,29 +260,29 @@ class ResearchController extends Controller
         }
 
         if ($yearFrom = $request->integer('year_from')) {
-            $yearFrom = max(self::MIN_RESEARCH_YEAR, min(self::MAX_RESEARCH_YEAR, $yearFrom));
+            $yearFrom = max($minResearchYear, min($maxResearchYear, $yearFrom));
             $query->where('year_published', '>=', $yearFrom);
         }
 
         if ($yearTo = $request->integer('year_to')) {
-            $yearTo = max(self::MIN_RESEARCH_YEAR, min(self::MAX_RESEARCH_YEAR, $yearTo));
+            $yearTo = max($minResearchYear, min($maxResearchYear, $yearTo));
             $query->where('year_published', '<=', $yearTo);
         }
 
         $researches = $query->orderBy('created_at', 'desc')->paginate(12)->withQueryString();
         $departments = Research::approved()
-            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+            ->whereBetween('year_published', [$minResearchYear, $maxResearchYear])
             ->distinct()
             ->pluck('department')
             ->sort()
             ->values();
         $featured = Research::approved()
-            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+            ->whereBetween('year_published', [$minResearchYear, $maxResearchYear])
             ->orderBy('view_count', 'desc')
             ->take(6)
             ->get();
 
-        return view('home', compact('researches', 'departments', 'featured'));
+        return view('home', compact('researches', 'departments', 'featured', 'minResearchYear', 'maxResearchYear'));
     }
 
     public function show(Research $research)
@@ -278,6 +297,15 @@ class ResearchController extends Controller
         $this->recordRecentView($research);
 
         return view('research.show', compact('research'));
+    }
+
+    public function publishedBatch(\App\Models\ResearchHandoff $batch)
+    {
+        abort_unless($batch->is_batch && $batch->batch_stage === Research::STATUS_APPROVED && $batch->batch_published_at, 404);
+        $researches = $batch->journals()->approved()->where('department', $batch->department)
+            ->orderBy('id')->paginate(12);
+
+        return view('research.journal-batch', compact('batch', 'researches'));
     }
 
     public function recordCitationCopy(Research $research)
@@ -324,12 +352,12 @@ class ResearchController extends Controller
 
         if ($user->isDepartmentDean()) {
             return redirect()->route('admin.research-handoffs.create')
-                ->with('error', 'Department Deans must submit final defended research files through the handoff workflow.');
+                ->with('error', 'Assign a journal task for an Academic Year. The Research Coordinator prepares the journal using the approved papers already available to them.');
         }
 
         if ($user->isResearchCoordinator()) {
             return redirect()->route('admin.research-handoffs')
-                ->with('error', 'Research Coordinators can add research only from assigned dean handoffs.');
+                ->with('error', 'Prepare journals from the tasks assigned by your Department Dean.');
         }
 
         if ($user->isGlobalAdmin()) {
@@ -353,7 +381,7 @@ class ResearchController extends Controller
             'author_name'    => 'required|string|max:255',
             'department'     => [$user->isDepartmentDean() ? 'nullable' : 'required', 'string', 'max:255'],
             'course'         => 'required|string|max:255',
-            'year_published' => 'required|integer|min:' . self::MIN_RESEARCH_YEAR . '|max:' . self::MAX_RESEARCH_YEAR,
+            'year_published' => 'required|integer|min:' . self::MIN_RESEARCH_YEAR . '|max:' . Research::maxPublicationYear(),
             'keywords'       => 'nullable|string|max:500',
             'abstract'       => 'required|string',
             'file'           => 'required|file|mimes:pdf|max:30720',
@@ -564,7 +592,7 @@ class ResearchController extends Controller
             'department_researches' => $user->department
                 ? Research::approved()
                     ->where('department', $user->department)
-                    ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+                    ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, Research::maxPublicationYear()])
                     ->count()
                 : 0,
         ];
@@ -574,7 +602,7 @@ class ResearchController extends Controller
         $recentDepartmentResearches = $user->department
             ? Research::approved()
                 ->where('department', $user->department)
-                ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+                ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, Research::maxPublicationYear()])
                 ->latest()
                 ->take(4)
                 ->get()
@@ -590,7 +618,7 @@ class ResearchController extends Controller
 
         $researches = Research::approved()
             ->where('department', $department)
-            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, Research::maxPublicationYear()])
             ->paginate(12);
 
         return view('research.department', compact('researches', 'department'));
@@ -604,7 +632,7 @@ class ResearchController extends Controller
         $researches = Research::approved()
             ->where('department', $department)
             ->where('course', $course)
-            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, self::MAX_RESEARCH_YEAR])
+            ->whereBetween('year_published', [self::MIN_RESEARCH_YEAR, Research::maxPublicationYear()])
             ->paginate(12);
 
         return view('research.department', compact('researches', 'department', 'course'));

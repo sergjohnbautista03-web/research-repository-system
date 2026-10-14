@@ -30,6 +30,12 @@ class PasswordResetController extends Controller
         } catch (\Throwable $e) {
             report($e);
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Password reset email could not be sent right now. Please try again later.',
+                ], 503);
+            }
+
             return back()
                 ->withInput($request->only('email'))
                 ->withErrors([
@@ -38,11 +44,21 @@ class PasswordResetController extends Controller
         }
 
         if ($status === Password::RESET_THROTTLED) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Please wait before requesting another password reset link.',
+                ], 429);
+            }
+
             return back()
                 ->withInput($request->only('email'))
                 ->withErrors([
                     'email' => 'Please wait before requesting another password reset link.',
                 ]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => self::RESET_LINK_RESPONSE]);
         }
 
         return back()->with('status', self::RESET_LINK_RESPONSE);

@@ -9,6 +9,7 @@
             <label><span>{{ $label }}</span><input name="{{ $field }}" value="{{ old($field) }}" maxlength="100" @required($field !== 'middlename') autocomplete="off"><span id="member-error-{{ $field }}" class="member-field-error" aria-live="polite">{{ $errors->addUser->first($field) }}</span></label>
         @endforeach
         <label id="member-year"><span>Year Level</span><select name="year_level" required>@foreach([1 => '1st Year', 2 => '2nd Year', 3 => '3rd Year', 4 => '4th Year'] as $year => $label)<option value="{{ $year }}" @selected(old('year_level') == $year)>{{ $label }}</option>@endforeach</select><span id="member-error-year_level" class="member-field-error" aria-live="polite">{{ $errors->addUser->first('year_level') }}</span></label>
+        <label><span>Program (required)</span><select name="program" required><option value="">Select Program</option>@foreach(\App\Models\Research::programsByDepartment()[auth()->user()->department] ?? [] as $program)<option value="{{ $program }}" @selected(old('program') === $program)>{{ $program }}</option>@endforeach</select><span id="member-error-program" class="member-field-error" aria-live="polite">{{ $errors->addUser->first('program') }}</span></label>
         <label class="member-span-full"><span>Email Address</span><input type="email" name="email" value="{{ old('email') }}" maxlength="255" required autocomplete="off" placeholder="name@example.com"><span id="member-error-email" class="member-field-error" aria-live="polite">{{ $errors->addUser->first('email') }}</span></label>
     </div>
     @php
@@ -23,6 +24,6 @@
             <label><span>Generated Password</span><input id="member-password" value="{{ $generatedPassword }}" readonly placeholder="Enter ID and first name" autocomplete="off"></label>
         </div>
     </section>
-    @if(! $activeSemester)<p class="member-notice">No active semester available. An administrator must activate a semester first.</p>@endif
-    <div class="member-actions">@if($inModal ?? false)<button type="button" class="member-cancel" data-close-add-user>Cancel</button>@else<a href="{{ route('admin.users') }}">Cancel</a>@endif<button type="submit" @disabled(! $activeSemester)>Add User</button></div>
+    @if(! $activeSemester)<p class="member-notice">You can add users now. Activate them once an active semester is available.</p>@endif
+    <div class="member-actions">@if($inModal ?? false)<button type="button" class="member-cancel" data-close-add-user>Cancel</button>@else<a href="{{ route('admin.users') }}">Cancel</a>@endif<button type="submit">Add User</button></div>
 </form>

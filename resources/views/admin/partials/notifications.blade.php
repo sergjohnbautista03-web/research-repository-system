@@ -1,6 +1,6 @@
 <dialog id="notificationPanel" class="notification-panel" aria-labelledby="notificationPanelTitle"
-    data-notification-panel data-feed-url="{{ route('admin.notifications.feed') }}"
-    data-read-url="{{ route('admin.notifications.read') }}" data-read-all-url="{{ route('admin.notifications.read-all') }}"
+    data-notification-panel data-feed-url="{{ route(($notificationRoutePrefix ?? 'admin.notifications') . '.feed') }}"
+    data-read-url="{{ route(($notificationRoutePrefix ?? 'admin.notifications') . '.read') }}" data-read-all-url="{{ route(($notificationRoutePrefix ?? 'admin.notifications') . '.read-all') }}"
     data-notification-view>
     <header class="notification-panel-header">
         <h2 id="notificationPanelTitle">Notifications</h2>

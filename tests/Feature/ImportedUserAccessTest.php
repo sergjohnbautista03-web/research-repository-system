@@ -36,6 +36,7 @@ class ImportedUserAccessTest extends TestCase
             $table->string('password');
             $table->string('role')->default('user');
             $table->string('department')->nullable();
+            $table->string('program')->nullable();
             $table->unsignedBigInteger('current_semester_id')->nullable();
             $table->string('student_id')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
@@ -155,9 +156,9 @@ class ImportedUserAccessTest extends TestCase
         ]);
 
         $csv = implode("\n", [
-            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password',
-            'Ana,Santos,Dela Cruz,College of Education,student,12345678,,2,,',
-            'Ben,Reyes,Faculty,College of Education,faculty,,FAC-001,,,',
+            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password,course',
+            'Ana,Santos,Dela Cruz,College of Education,student,12345678,,2,,,Information Technology',
+            'Ben,Reyes,Faculty,College of Education,faculty,,FAC-001,,,,Computer Science',
         ]);
 
         $response = $this->actingAs($dean)->post(route('admin.import-users'), [
@@ -175,6 +176,8 @@ class ImportedUserAccessTest extends TestCase
         $faculty = User::query()->where('student_id', 'FAC-001')->firstOrFail();
 
         $this->assertSame('College of Computer Studies', $student->department);
+        $this->assertSame('Information Technology', $student->program);
+        $this->assertSame('Computer Science', $faculty->program);
         $this->assertSame($semester->id, $student->current_semester_id);
         $this->assertSame('user', $student->role);
         $this->assertTrue($student->is_active);
@@ -201,7 +204,7 @@ class ImportedUserAccessTest extends TestCase
         }
     }
 
-    public function test_dean_import_requires_an_admin_managed_active_semester(): void
+    public function test_dean_can_import_without_an_active_semester_and_activate_users_later(): void
     {
         $dean = User::create([
             'name' => 'CCS Dean',
@@ -217,17 +220,115 @@ class ImportedUserAccessTest extends TestCase
         ]);
 
         $csv = implode("\n", [
-            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password',
-            'Ana,Santos,Dela Cruz,College of Computer Studies,student,12345678,,2,,',
+            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password,program',
+            'Ana,Santos,Dela Cruz,College of Computer Studies,student,12345678,,2,,,Information Technology',
+            'Ben,Reyes,Faculty,College of Computer Studies,faculty,,FAC-001,,,,Computer Science',
         ]);
 
         $response = $this->actingAs($dean)->from(route('admin.users'))->post(route('admin.import-users'), [
             'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
         ]);
 
-        $response->assertRedirect(route('admin.users'));
-        $response->assertSessionHasErrors(['semester'], errorBag: 'importUsers');
-        $this->assertNull(User::query()->where('student_id', '12345678')->first());
+        $response->assertRedirect(route('admin.users', ['imported' => 1]))->assertSessionHasNoErrors()->assertSessionHas('success');
+        $student = User::where('student_id', '12345678')->firstOrFail();
+        $faculty = User::where('student_id', 'FAC-001')->firstOrFail();
+        foreach ([$student, $faculty] as $member) {
+            $this->assertNull($member->current_semester_id);
+            $this->assertFalse($member->is_active);
+            $this->assertTrue($member->is_approved);
+            $this->assertFalse($member->canViewFullDocument());
+        }
+        $this->assertSame('Information Technology', $student->program);
+        $this->assertSame('Computer Science', $faculty->program);
+        $this->assertDatabaseCount('semester_enrollments', 0);
+        $this->assertDatabaseCount('semesters', 0);
+        $this->get(route('admin.users'))->assertOk()
+            ->assertSee('You can import now and activate users', false)
+            ->assertSee('id="iu_submit_btn" class="mu-btn mu-btn-primary">Import Students', false)
+            ->assertSee('<button type="submit">Add User</button>', false);
+
+        $semester = Semester::create([
+            'school_year' => $this->currentSchoolYear(), 'semester' => Semester::FIRST_SEMESTER,
+            'is_active' => true, 'end_date' => now()->addMonths(2),
+        ]);
+        $this->post(route('admin.users.activate-current'), [
+            'semester_id' => $semester->id, 'user_ids' => [$student->id, $faculty->id],
+        ])->assertSessionHasNoErrors();
+        foreach ([$student, $faculty] as $member) {
+            $this->assertTrue($member->fresh()->is_active);
+            $this->assertSame($semester->id, $member->fresh()->current_semester_id);
+            $this->assertTrue($member->fresh()->hasActiveSemesterEnrollment());
+        }
+        $this->assertDatabaseCount('semester_enrollments', 2);
+    }
+
+    public function test_dean_can_manually_add_student_and_faculty_without_an_active_semester(): void
+    {
+        $dean = User::create([
+            'name' => 'CCS Dean', 'email' => 'no-semester-add@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $this->actingAs($dean)->get(route('admin.create-user'))->assertOk()
+            ->assertSee('<button type="submit">Add User</button>', false);
+        foreach (['student', 'faculty'] as $type) {
+            $this->post(route('admin.store-user'), [
+                'firstname' => 'New', 'lastname' => 'Member', 'member_type' => $type,
+                'student_id' => $type . '-001', 'email' => $type . '@example.com', 'year_level' => 2,
+                'program' => 'Information Technology',
+            ])->assertRedirect(route('admin.users'))->assertSessionHasNoErrors();
+            $member = User::where('student_id', $type . '-001')->firstOrFail();
+            $this->assertSame($dean->department, $member->department);
+            $this->assertSame('Information Technology', $member->program);
+            $this->assertSame($dean->id, $member->created_by);
+            $this->assertNull($member->current_semester_id);
+            $this->assertFalse($member->is_active);
+            $this->assertTrue($member->is_approved);
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($type . '-001_New', $member->password));
+        }
+        $this->assertDatabaseCount('semester_enrollments', 0);
+        $this->assertDatabaseCount('semesters', 0);
+    }
+
+    public function test_import_without_active_semester_preserves_previous_enrollment_and_account_status(): void
+    {
+        $dean = User::create([
+            'name' => 'CCS Dean', 'email' => 'history-import@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $previous = Semester::create(['school_year' => '2025-2026', 'semester' => '1st', 'is_active' => false]);
+        $members = collect([true, false])->map(fn ($active, $index) => User::create([
+            'name' => 'Existing Student', 'email' => 'existing-' . $index . '@example.com', 'password' => 'password',
+            'role' => 'user', 'department' => $dean->department, 'student_id' => '1234567' . $index,
+            'current_semester_id' => $previous->id, 'is_active' => $active, 'is_approved' => true,
+            'program' => 'Information Technology',
+        ]));
+        foreach ($members as $member) {
+            SemesterEnrollment::create([
+                'user_id' => $member->id, 'semester_id' => $previous->id,
+                'status' => SemesterEnrollment::STATUS_ARCHIVED, 'enrolled_at' => now()->subYear(),
+            ]);
+        }
+        $history = \Illuminate\Support\Facades\DB::table('semester_enrollments')->get()->toJson();
+        $passwords = $members->pluck('password', 'id');
+        $csv = "firstname,middlename,lastname,student_id,year_level,program\n"
+            . "Existing,Middle,Student,12345670,3,Computer Science\n"
+            . "Existing,Middle,Student,12345671,3,Computer Science";
+        $this->actingAs($dean)->post(route('admin.import-users'), [
+            'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        foreach ($members as $index => $member) {
+            $saved = $member->fresh();
+            $this->assertSame($previous->id, $saved->current_semester_id);
+            $this->assertSame($index === 0, $saved->is_active);
+            $this->assertSame($passwords[$member->id], $saved->password);
+            $this->assertSame('Computer Science', $saved->program);
+            $this->assertSame(3, (int) $saved->year_level);
+        }
+        $this->assertSame($history, \Illuminate\Support\Facades\DB::table('semester_enrollments')->get()->toJson());
     }
 
     public function test_import_preserves_identity_updates_year_and_keeps_omitted_users_unchanged(): void
@@ -273,11 +374,11 @@ class ImportedUserAccessTest extends TestCase
         $otherDepartment = User::create(['name' => 'Other Student', 'email' => 'other@example.com', 'password' => 'password', 'role' => 'user', 'department' => 'College of Education', 'student_id' => '11223345', 'is_active' => true]);
         $faculty = User::create(['name' => 'Faculty Member', 'email' => 'faculty@example.com', 'password' => 'password', 'role' => 'researcher', 'department' => $dean->department, 'student_id' => 'EMP-1', 'is_active' => true]);
         $csv = implode("\n", [
-            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password',
-            'Approved,Existing,User,College of Computer Studies,student,12345678,,2,existing@example.com,changedpassword',
-            'Ana,Santos,Dela Cruz,College of Computer Studies,student,87654321,,1,ana@example.com,',
-            'Ben,Reyes,Lopez,College of Education,student,87654322,,2,ben@example.com,',
-            'Cara,Mendoza,Santos,College of Maritime Studies,student,87654323,,3,cara@example.com,',
+            'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password,program',
+            'Approved,Existing,User,College of Computer Studies,student,12345678,,2,existing@example.com,changedpassword,Information Technology',
+            'Ana,Santos,Dela Cruz,College of Computer Studies,student,87654321,,1,ana@example.com,,Information Technology',
+            'Ben,Reyes,Lopez,College of Education,student,87654322,,2,ben@example.com,,Computer Science',
+            'Cara,Mendoza,Santos,College of Maritime Studies,student,87654323,,3,cara@example.com,,Computer Science',
         ]);
 
         $response = $this->actingAs($dean)->post(route('admin.import-users'), [
@@ -309,8 +410,8 @@ class ImportedUserAccessTest extends TestCase
         $this->assertTrue($dean->fresh()->is_active);
 
         $conflictCsv = implode("\n", [
-            'firstname,middlename,lastname,student_id,year_level,email,password',
-            'Another,Middle,Student,99887766,3,existing@example.com,password',
+            'firstname,middlename,lastname,student_id,year_level,email,password,program',
+            'Another,Middle,Student,99887766,3,existing@example.com,password,Information Technology',
         ]);
         $this->actingAs($dean)->post(route('admin.import-users'), [
             'semester' => Semester::FIRST_SEMESTER, 'school_year' => $schoolYear,
@@ -475,9 +576,11 @@ class ImportedUserAccessTest extends TestCase
                 'student_id' => $type . '-001', 'email' => $type . '@example.com',
                 'year_level' => 2,
                 'department' => 'Wrong department', 'role' => 'admin',
+                'program' => 'Information Technology',
             ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
             $member = User::where('email', $type . '@example.com')->firstOrFail();
             $this->assertSame($dean->department, $member->department);
+            $this->assertSame('Information Technology', $member->program);
             $this->assertSame($type === 'student' ? 'user' : 'researcher', $member->role);
             $this->assertTrue($member->hasActiveSemesterEnrollment());
             $this->assertSame($semester->id, $member->current_semester_id);
@@ -510,6 +613,7 @@ class ImportedUserAccessTest extends TestCase
         $this->post(route('admin.store-user'), [
             'firstname' => 'SERGIO', 'lastname' => 'Member', 'member_type' => 'student',
             'student_id' => '00037838', 'email' => 'sergio@example.com', 'year_level' => 4,
+            'program' => 'Information Technology',
             'password' => 'TamperedPassword',
         ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
         $member = User::where('student_id', '00037838')->firstOrFail();
@@ -811,23 +915,68 @@ class ImportedUserAccessTest extends TestCase
         $this->actingAs($dean);
         $matching = User::factory()->create([
             'name' => 'Alex Match', 'role' => 'user', 'student_id' => '111',
-            'year_level' => 2, 'department' => $dean->department,
+            'year_level' => 2, 'department' => $dean->department, 'program' => 'Information Technology',
         ]);
         User::factory()->create([
             'name' => 'Alex Wrong Year', 'role' => 'user', 'student_id' => '112',
-            'year_level' => 1, 'department' => $dean->department,
+            'year_level' => 1, 'department' => $dean->department, 'program' => 'Information Technology',
         ]);
         User::factory()->create([
             'name' => 'Alex Other Department', 'role' => 'user', 'student_id' => '113',
-            'year_level' => 2, 'department' => 'Other Department',
+            'year_level' => 2, 'department' => 'Other Department', 'program' => 'Information Technology',
+        ]);
+        User::factory()->create([
+            'name' => 'Alex Other Program', 'role' => 'user', 'student_id' => '114',
+            'year_level' => 2, 'department' => $dean->department, 'program' => 'Computer Science',
         ]);
         $request = \Illuminate\Http\Request::create('/admin/users', 'GET', [
-            'search' => 'Alex', 'role' => 'student', 'year_level' => '2',
-            'school_year' => '', 'semester' => '',
+            'search' => 'Alex', 'role' => 'student', 'year_level' => '2', 'program' => 'Information Technology',
+            'school_year' => '2025-2026', 'semester' => '2nd',
         ]);
         $view = app(\App\Http\Controllers\AdminController::class)->users($request);
         $this->assertSame([$matching->id], $view->getData()['users']->pluck('id')->all());
-        $this->assertStringContainsString('All Year Levels', $view->with('errors', new \Illuminate\Support\ViewErrorBag())->render());
+        $this->assertSame(['Computer Science', 'Information Technology'], $view->getData()['programs']);
+        $html = $view->with('errors', new \Illuminate\Support\ViewErrorBag())->render();
+        $this->assertStringContainsString('All Year Levels', $html);
+        $this->assertStringContainsString('aria-label="Program"', $html);
+        $this->assertStringContainsString('value="Information Technology" selected', $html);
+        $this->assertStringNotContainsString('aria-label="Academic Year"', $html);
+        $this->assertStringNotContainsString('aria-label="Semester"', $html);
+    }
+
+    public function test_program_filter_supports_faculty_and_global_admin_department_filters(): void
+    {
+        $dean = User::factory()->create([
+            'role' => 'admin', 'is_department_dean' => true, 'department' => 'College of Computer Studies',
+        ]);
+        $faculty = User::factory()->create([
+            'role' => 'researcher', 'graduation_year' => null,
+            'department' => $dean->department, 'program' => 'Computer Science',
+        ]);
+        $student = User::factory()->create([
+            'role' => 'user', 'student_id' => '001', 'department' => $dean->department, 'program' => 'Computer Science',
+        ]);
+        User::factory()->create([
+            'role' => 'researcher', 'graduation_year' => null,
+            'department' => $dean->department, 'program' => 'Information Technology',
+        ]);
+        User::factory()->create([
+            'role' => 'researcher', 'graduation_year' => null,
+            'department' => 'Other Department', 'program' => 'Computer Science',
+        ]);
+        $controller = app(\App\Http\Controllers\AdminController::class);
+        $this->actingAs($dean);
+        $view = $controller->users(\Illuminate\Http\Request::create('/admin/users', 'GET', [
+            'role' => 'faculty', 'program' => 'Computer Science',
+        ]));
+        $this->assertSame([$faculty->id], $view->getData()['users']->pluck('id')->all());
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $view = $controller->users(\Illuminate\Http\Request::create('/admin/users', 'GET', [
+            'department' => $dean->department, 'program' => 'Computer Science',
+        ]));
+        $this->assertEqualsCanonicalizing([$faculty->id, $student->id], $view->getData()['users']->pluck('id')->all());
+        $this->assertContains('Civil Engineering', $view->getData()['programs']);
     }
 
     public function test_default_and_cleared_users_include_unassigned_and_archived_members(): void
@@ -855,8 +1004,7 @@ class ImportedUserAccessTest extends TestCase
         $controller = app(\App\Http\Controllers\AdminController::class);
         $default = $controller->users(\Illuminate\Http\Request::create('/admin/users'));
         $this->assertEqualsCanonicalizing([$student->id, $archived->id], $default->getData()['users']->pluck('id')->all());
-        $this->assertEmpty($default->getData()['selectedSchoolYear']);
-        $this->assertEmpty($default->getData()['selectedSemester']);
+        $this->assertEmpty($default->getData()['selectedProgram']);
         $all = $controller->users(\Illuminate\Http\Request::create('/admin/users', 'GET', [
             'school_year' => '', 'semester' => '',
         ]));
@@ -866,7 +1014,7 @@ class ImportedUserAccessTest extends TestCase
         $filtered = $controller->users(\Illuminate\Http\Request::create('/admin/users', 'GET', [
             'school_year' => $semester->school_year, 'semester' => $semester->semester,
         ]));
-        $this->assertSame([$archived->id], $filtered->getData()['users']->pluck('id')->all());
+        $this->assertEqualsCanonicalizing([$student->id, $archived->id], $filtered->getData()['users']->pluck('id')->all());
     }
 
     public function test_dean_report_filters_counts_and_print_data_remain_department_scoped(): void
@@ -916,6 +1064,219 @@ class ImportedUserAccessTest extends TestCase
         $view = app(\App\Http\Controllers\AdminController::class)->reports(\Illuminate\Http\Request::create('/admin/reports'));
         $this->assertCount(0, $view->getData()['allRows']);
         $this->assertCount(0, $view->getData()['programs']);
+    }
+
+    public function test_user_program_can_be_assigned_and_validated_for_the_users_department(): void
+    {
+        $dean = User::create([
+            'name' => 'Program Dean', 'email' => 'program-dean@example.com', 'password' => 'password',
+            'role' => 'admin', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true,
+            'department' => 'College of Computer Studies',
+            'policy_accepted_at' => now(), 'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $student = User::create([
+            'name' => 'Program Student', 'email' => 'program-student@example.com', 'password' => 'password',
+            'role' => 'user', 'department' => $dean->department, 'student_id' => '00078799',
+        ]);
+        $this->actingAs($dean)->get(route('admin.users'))->assertOk()
+            ->assertSee('data-label="Program" title="">Unassigned</td>', false);
+
+        foreach (['Information Technology', 'Computer Science'] as $program) {
+            $this->from(route('admin.users'))->patch(route('admin.user.program', $student), ['program' => $program])
+                ->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
+            $this->assertSame($program, $student->fresh()->program);
+            $this->assertSame($dean->department, $student->fresh()->department);
+            $this->get(route('admin.users'))->assertOk()
+                ->assertSee('data-label="Program" title="' . $program . '">' . $program . '</td>', false);
+        }
+
+        $this->patch(route('admin.user.program', $student), ['program' => 'Civil Engineering'])
+            ->assertSessionHasErrors(['program'], null, 'userProgram');
+        $this->assertSame('Computer Science', $student->fresh()->program);
+        $this->patch(route('admin.user.program', $student), ['program' => ''])
+            ->assertSessionHasErrors(['program'], null, 'userProgram');
+        $this->assertSame('Computer Science', $student->fresh()->program);
+
+        $student->update(['department' => 'College of Education']);
+        $this->patch(route('admin.user.program', $student), ['program' => 'Elementary Education'])->assertForbidden();
+        $this->assertSame('Computer Science', $student->fresh()->program);
+        $this->patch(route('admin.user.program', $dean), ['program' => 'Information Technology'])->assertForbidden();
+    }
+
+    public function test_separate_csv_templates_import_the_selected_member_type_without_a_member_type_column(): void
+    {
+        $dean = User::create([
+            'name' => 'CSV Dean', 'email' => 'csv-dean@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $this->actingAs($dean)->get(route('admin.users'))->assertOk()
+            ->assertSee('Download Student CSV Template')->assertSee('Download Faculty CSV Template');
+        foreach (['student' => 'students', 'faculty' => 'faculty'] as $type => $template) {
+            $header = trim(file_get_contents(public_path('templates/' . $template . '.csv')));
+            $this->assertStringNotContainsString('member_type', $header);
+            $this->assertStringNotContainsString('password', $header);
+            $this->assertStringContainsString($type === 'student' ? 'student_id' : 'employee_id', $header);
+            $row = $type === 'student'
+                ? 'Ana,Santos,Student,00078799,2,Information Technology,student-csv@example.com'
+                : 'Ben,Reyes,Faculty,FAC-001,Computer Science,faculty-csv@example.com';
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type,
+                'file' => UploadedFile::fake()->createWithContent($template . '.csv', $header . "\n" . $row),
+            ])->assertRedirect(route('admin.users', ['imported' => 1]))->assertSessionHasNoErrors()->assertSessionHas('success');
+            $member = User::where('email', $type . '-csv@example.com')->firstOrFail();
+            $this->assertSame($type === 'student' ? 'user' : 'researcher', $member->role);
+            $this->assertSame($type === 'student' ? '00078799' : 'FAC-001', $member->student_id);
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($type === 'student' ? '00078799_Ana' : 'FAC-001_Ben', $member->password));
+            $this->assertSame($type === 'student' ? 'Information Technology' : 'Computer Science', $member->program);
+            $this->assertSame($type === 'student' ? 2 : null, $member->year_level === null ? null : (int) $member->year_level);
+            $this->assertNull($member->graduation_year);
+            $this->assertNull($member->current_semester_id);
+            $this->assertFalse($member->is_active);
+        }
+        $this->assertDatabaseCount('semester_enrollments', 0);
+        $semester = Semester::create([
+            'school_year' => $this->currentSchoolYear(), 'semester' => '1st', 'is_active' => true,
+            'end_date' => now()->addMonths(2),
+        ]);
+        $this->post(route('admin.import-users'), [
+            'import_member_type' => 'faculty',
+            'file' => UploadedFile::fake()->createWithContent('faculty.csv', "firstname,middlename,lastname,employee_id,program\nCara,Middle,Faculty,FAC-002,Computer Science"),
+        ])->assertSessionHasNoErrors()->assertSessionHas('success');
+        $faculty = User::where('student_id', 'FAC-002')->firstOrFail();
+        $this->assertSame('researcher', $faculty->role);
+        $this->assertNull($faculty->graduation_year);
+        $this->assertSame($semester->id, $faculty->current_semester_id);
+        $this->assertTrue($faculty->hasActiveSemesterEnrollment());
+    }
+
+    public function test_separate_import_rejects_mismatched_rows_files_and_existing_account_types(): void
+    {
+        $dean = User::create([
+            'name' => 'CSV Dean', 'email' => 'csv-validation@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $this->actingAs($dean);
+        foreach ([
+            ['student', "firstname,middlename,lastname,student_id,member_type,program\nAna,Middle,Student,12345678,faculty,Information Technology"],
+            ['faculty', "firstname,middlename,lastname,employee_id,role,program\nBen,Middle,Faculty,FAC-001,user,Computer Science"],
+            ['faculty', "firstname,middlename,lastname,student_id,program\nAna,Middle,Student,12345678,Information Technology"],
+            ['student', "firstname,middlename,lastname,employee_id,program\nBen,Middle,Faculty,FAC-001,Computer Science"],
+        ] as [$type, $csv]) {
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type, 'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
+            ])->assertSessionHas('error')->assertSessionHas('import_errors');
+            $this->assertDatabaseCount('users', 1);
+        }
+        $existingFaculty = User::create([
+            'name' => 'Existing Faculty', 'email' => 'existing-faculty-csv@example.com', 'password' => 'password',
+            'role' => 'researcher', 'department' => $dean->department, 'student_id' => '12345678',
+            'is_active' => false, 'is_approved' => true,
+        ]);
+        $this->post(route('admin.import-users'), [
+            'import_member_type' => 'student',
+            'file' => UploadedFile::fake()->createWithContent('students.csv', "firstname,middlename,lastname,student_id,program\nAna,Middle,Student,12345678,Information Technology"),
+        ])->assertSessionHas('error')->assertSessionHas('import_errors');
+        $this->assertSame('Existing Faculty', $existingFaculty->fresh()->name);
+        $this->assertSame('researcher', $existingFaculty->fresh()->role);
+        $this->assertFalse($existingFaculty->fresh()->is_active);
+        $this->post(route('admin.import-users'), [
+            'import_member_type' => 'invalid', 'file' => UploadedFile::fake()->createWithContent('users.csv', 'firstname'),
+        ])->assertSessionHasErrors(['import_member_type'], null, 'importUsers');
+    }
+
+    public function test_student_and_faculty_imports_require_a_valid_program_for_every_row(): void
+    {
+        $dean = User::create([
+            'name' => 'Required Program Dean', 'email' => 'required-program@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $this->actingAs($dean);
+        foreach (['student', 'faculty'] as $type) {
+            $idColumn = $type === 'student' ? 'student_id' : 'employee_id';
+            $firstId = $type === 'student' ? '12345678' : 'FAC-001';
+            $secondId = $type === 'student' ? '12345679' : 'FAC-002';
+            foreach ([null, '', '   ', 'Civil Engineering'] as $program) {
+                $csv = "firstname,middlename,lastname,{$idColumn}";
+                if ($program === null) {
+                    $csv .= "\nAna,Middle,Member,{$firstId}";
+                } else {
+                    $csv .= ",program\nAna,Middle,Member,{$firstId},Information Technology";
+                    $csv .= "\nBen,Middle,Member,{$secondId},{$program}";
+                }
+                $this->post(route('admin.import-users'), [
+                    'import_member_type' => $type,
+                    'file' => UploadedFile::fake()->createWithContent($type . '.csv', $csv),
+                ])->assertSessionHas('error')->assertSessionHas('import_errors', function ($issues) use ($program) {
+                    $message = $program === 'Civil Engineering'
+                        ? 'Invalid program for the assigned department.' : 'Program is required.';
+                    return collect($issues)->contains(fn ($issue) => str_contains($issue['error'], $message));
+                });
+                $this->assertDatabaseCount('users', 1);
+                $this->assertDatabaseCount('semester_enrollments', 0);
+            }
+        }
+        $this->get(route('admin.users'))->assertOk()->assertSee('Program is required for every Student and Faculty row');
+    }
+
+    public function test_manual_student_and_faculty_creation_require_a_valid_program(): void
+    {
+        $dean = User::create([
+            'name' => 'Required Program Dean', 'email' => 'manual-required-program@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $this->actingAs($dean)->get(route('admin.create-user'))->assertOk()
+            ->assertSee('name="program" required', false);
+        foreach (['student', 'faculty'] as $type) {
+            foreach ([null, '', 'Civil Engineering'] as $program) {
+                $data = [
+                    'firstname' => 'New', 'lastname' => 'Member', 'member_type' => $type,
+                    'student_id' => $type . '-001', 'email' => $type . '@example.com', 'year_level' => 2,
+                ];
+                if ($program !== null) {
+                    $data['program'] = $program;
+                }
+                $this->post(route('admin.store-user'), $data)->assertSessionHasErrors(['program'], null, 'addUser');
+                $this->assertDatabaseCount('users', 1);
+            }
+        }
+    }
+
+    public function test_import_always_generates_the_password_from_id_and_first_name_even_with_a_password_column(): void
+    {
+        $dean = User::create([
+            'name' => 'Login Details Dean', 'email' => 'generated-login@example.com', 'password' => 'password',
+            'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+        $this->actingAs($dean);
+        foreach (['student' => '00037838', 'faculty' => 'FAC-003'] as $type => $identifier) {
+            $idColumn = $type === 'student' ? 'student_id' : 'employee_id';
+            $csv = "firstname,middlename,lastname,{$idColumn},program,password\n"
+                . "SE RGIO,Middle,Member,{$identifier},Information Technology,ProvidedPassword123!";
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type,
+                'file' => UploadedFile::fake()->createWithContent($type . '.csv', $csv),
+            ])->assertSessionHasNoErrors()->assertSessionHas('success');
+            $member = User::where('student_id', $identifier)->firstOrFail();
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($identifier . '_Ser', $member->password));
+            $this->assertFalse(\Illuminate\Support\Facades\Hash::check('ProvidedPassword123!', $member->password));
+            $originalPassword = $member->password;
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type,
+                'file' => UploadedFile::fake()->createWithContent($type . '.csv', str_replace('SE RGIO', 'Changed', $csv)),
+            ])->assertSessionHasNoErrors()->assertSessionHas('success');
+            $this->assertSame($originalPassword, $member->fresh()->password);
+        }
     }
 
     private function currentSchoolYear(): string

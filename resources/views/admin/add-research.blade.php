@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', isset($handoff) ? 'Add Research from Handoff' : 'Add Research')
-@section('page-title', isset($handoff) ? 'Add Research from Handoff' : 'Add Research')
+@section('title', isset($handoff) ? 'Prepare Research Journal' : 'Add Research')
+@section('page-title', isset($handoff) ? 'Prepare Research Journal' : 'Add Research')
 
 @section('content')
 @php
@@ -9,14 +9,15 @@
     $departmentOptions = \App\Models\Research::departmentOptions();
     $programOptions = \App\Models\Research::programsByDepartment();
     $journalTypes = \App\Models\Research::journalTypeOptions();
-    $yearOptions = range(2026, 2022);
+    $yearOptions = range(\App\Models\Research::maxPublicationYear(), 2022);
     $semesterOptions = \App\Models\Semester::semesterOptions();
     $schoolYears = \App\Models\Semester::query()->distinct()->orderByDesc('school_year')->pluck('school_year');
     $oldAuthors = old('authors', ['']);
     $handoff = $handoff ?? null;
     $isCoordinatorSubmission = auth()->user()?->isResearchCoordinator() && $handoff;
     $defaultDepartment = old('department', $handoff?->department);
-    $selectedSchoolYear = old('school_year');
+    $selectedSchoolYear = $handoff?->school_year ?? old('school_year');
+    $schoolYears = $schoolYears->push($selectedSchoolYear)->filter()->unique();
     $selectedSemester = old('semester');
 
     if (! is_array($oldAuthors) || $oldAuthors === []) {
@@ -32,9 +33,9 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                 </div>
                 <div>
-                    <h3 class="ar-header-title">{{ $isCoordinatorSubmission ? 'Add Research from Dean Handoff' : 'Add New Research' }}</h3>
+                    <h3 class="ar-header-title">{{ $isCoordinatorSubmission ? 'Prepare Research Journal' : 'Add New Research' }}</h3>
                     <p class="ar-header-sub">
-                        {{ $isCoordinatorSubmission ? 'Complete the metadata and forward it to the Research Office/Admin for review.' : 'Publish a faculty or student research journal entry.' }}
+                        {{ $isCoordinatorSubmission ? 'Compile the approved research papers already available to you into the journal for the assigned Academic Year. Upload the finished journal and submit it to the Department Dean for review.' : 'Publish a faculty or student research journal entry.' }}
                     </p>
                 </div>
             </div>
@@ -84,7 +85,7 @@
 
                 <div class="ar-form-row">
                     <div class="ar-form-group">
-                        <label for="submission_category">Submission Category <span class="ar-required">*</span></label>
+                        <label for="submission_category">Journal Category <span class="ar-required">*</span></label>
                         <select name="submission_category" id="submission_category" required>
                             @foreach($submissionCategories as $value => $label)
                                 <option value="{{ $value }}" {{ $defaultCategory === $value ? 'selected' : '' }}>{{ $label }}</option>
@@ -106,12 +107,13 @@
                 <div class="ar-form-row">
                     <div class="ar-form-group">
                         <label for="school_year">Academic Year</label>
-                        <select name="school_year" id="school_year">
+                        <select name="school_year" id="school_year" @disabled($isCoordinatorSubmission)>
                             <option value="">Not set</option>
                             @foreach($schoolYears as $schoolYear)
                                 <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
                             @endforeach
                         </select>
+                        @if($isCoordinatorSubmission)<input type="hidden" name="school_year" value="{{ $handoff->school_year }}"><small>Academic Year assigned by the Dean.</small>@endif
                     </div>
 
                     <input type="hidden" name="semester" id="semester" value="{{ $selectedSemester }}">
@@ -203,20 +205,7 @@
                 </div>
 
                 <div class="ar-form-group">
-                    @if($isCoordinatorSubmission)
-                        <label>Received Full Paper File</label>
-                        <div class="ar-handoff-file">
-                            <div class="ar-file-icon" aria-hidden="true">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                            </div>
-                            <div>
-                                <strong>{{ $handoff->file_name }}</strong>
-                                <span>Submitted by {{ $handoff->dean?->name ?? 'Department Dean' }}</span>
-                            </div>
-                            <a href="{{ route('admin.research-handoffs.file', $handoff) }}" target="_blank" rel="noopener">View PDF</a>
-                        </div>
-                    @else
-                        <label for="fileInput">Full Paper File <span class="ar-required">*</span></label>
+                        <label for="fileInput">Completed Journal PDF <span class="ar-required">*</span></label>
                         <div class="ar-file-zone" id="fileUploadArea">
                             <input type="file" name="file" id="fileInput" accept="application/pdf,.pdf" required>
                             <div class="ar-file-zone-inner">
@@ -228,7 +217,6 @@
                             </div>
                         </div>
                         <p class="ar-file-error" id="fileError" aria-live="polite"></p>
-                    @endif
                 </div>
             </section>
 
@@ -258,7 +246,7 @@
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                     </div>
                     @if($isCoordinatorSubmission)
-                        <p>This record will be sent to the <strong>Research Office/Admin for review</strong> before publishing.</p>
+                        <p>Submit the completed journal to the <strong>Department Dean for review</strong>. The Dean will approve and forward it to Admin for publishing.</p>
                     @else
                         <p>Research added by admin will be <strong>automatically approved</strong> and visible on the site immediately.</p>
                     @endif
@@ -276,13 +264,13 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
                 @if($isCoordinatorSubmission)
-                    <button type="submit" class="ar-btn ar-btn-ghost" id="saveDraftBtn" hidden data-workflow-action="draft">
+                    <button type="submit" class="ar-btn ar-btn-ghost" id="saveDraftBtn" formnovalidate data-workflow-action="draft">
                         Save Draft
                     </button>
                 @endif
                 <button type="submit" class="ar-btn ar-btn-primary" id="submitResearchBtn" hidden>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    {{ $isCoordinatorSubmission ? 'Submit to Admin' : 'Publish Research' }}
+                    {{ $isCoordinatorSubmission ? 'Submit to Dean' : 'Publish Research' }}
                 </button>
             </div>
         </form>
@@ -644,47 +632,6 @@
     pointer-events: none;
 }
 
-.ar-handoff-file {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    border: 1.5px solid #e2d5f4;
-    border-radius: 14px;
-    background: #faf8ff;
-    padding: 16px;
-}
-
-.ar-handoff-file .ar-file-icon {
-    flex-shrink: 0;
-    margin: 0;
-}
-
-.ar-handoff-file div:nth-child(2) {
-    display: grid;
-    gap: 4px;
-    min-width: 0;
-}
-
-.ar-handoff-file strong {
-    color: #25104d;
-    font-size: 14px;
-    overflow-wrap: anywhere;
-}
-
-.ar-handoff-file span {
-    color: #8a78a8;
-    font-size: 12.5px;
-}
-
-.ar-handoff-file a {
-    margin-left: auto;
-    color: #5b21b6;
-    font-size: 12.5px;
-    font-weight: 800;
-    text-decoration: none;
-    white-space: nowrap;
-}
-
 .ar-file-icon {
     width: 52px;
     height: 52px;
@@ -938,7 +885,6 @@ const researchPrograms = @json($programOptions);
 const facultyCategory = @json(\App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL);
 const studentCategory = @json(\App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL);
 const isCoordinatorSubmission = @json((bool) $isCoordinatorSubmission);
-const handoffFileName = @json($handoff?->file_name);
 const maxPdfBytes = 30 * 1024 * 1024;
 
 const form = document.getElementById('adminResearchForm');
@@ -991,7 +937,7 @@ function setStep(step, shouldScroll = true) {
     nextStepBtn.hidden = currentStep === 5;
     submitResearchBtn.hidden = currentStep !== 5;
     if (saveDraftBtn) {
-        saveDraftBtn.hidden = currentStep !== 5;
+        saveDraftBtn.hidden = false;
     }
 
     if (currentStep === 5) {
@@ -1087,7 +1033,7 @@ function getAuthorNames() {
 }
 
 function validateFileInput() {
-    if (isCoordinatorSubmission || !fileInput) {
+    if (!fileInput) {
         return true;
     }
 
@@ -1095,21 +1041,24 @@ function validateFileInput() {
     fileError.textContent = '';
     fileInput.setCustomValidity('');
 
+    if (!file && workflowAction.value === 'draft' && isCoordinatorSubmission) {
+        return true;
+    }
     if (!file) {
-        fileError.textContent = 'Upload the full paper PDF.';
-        fileInput.setCustomValidity('Upload the full paper PDF.');
+        fileError.textContent = 'Upload the completed journal PDF.';
+        fileInput.setCustomValidity('Upload the completed journal PDF.');
         return false;
     }
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-        fileError.textContent = 'The full paper must be a PDF file.';
-        fileInput.setCustomValidity('The full paper must be a PDF file.');
+        fileError.textContent = 'The completed journal must be a PDF file.';
+        fileInput.setCustomValidity('The completed journal must be a PDF file.');
         return false;
     }
 
     if (file.size > maxPdfBytes) {
-        fileError.textContent = 'The full paper PDF must not exceed 30MB.';
-        fileInput.setCustomValidity('The full paper PDF must not exceed 30MB.');
+        fileError.textContent = 'The completed journal PDF must not exceed 30MB.';
+        fileInput.setCustomValidity('The completed journal PDF must not exceed 30MB.');
         return false;
     }
 
@@ -1161,9 +1110,7 @@ function updatePreview() {
     const program = programSelect.value.trim();
     const year = document.getElementById('year_published').value.trim();
     const abstract = document.getElementById('abstract').value.trim();
-    const file = isCoordinatorSubmission
-        ? (handoffFileName || 'Received PDF file')
-        : (fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '');
+    const file = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0].name : '';
 
     document.getElementById('previewType').textContent = `Research: ${type || 'Journal Type'}`;
     document.getElementById('previewViews').textContent = 'Views 0';

@@ -12,7 +12,7 @@
         : ($profileUser->isResearchCoordinator() ? 'Coordinator ID' : ($profileUser->isAdmin() ? 'Admin ID' : 'Student ID'));
     if (! $profileUser->isAdmin()) {
         $profileRoleLabel = $profileUser->role === 'researcher'
-            ? (is_null($profileUser->graduation_year) ? 'Faculty' : 'Student Researcher')
+            ? (is_null($profileUser->graduation_year) ? 'Faculty' : 'Student')
             : 'Student';
         $profileIdLabel = $profileRoleLabel === 'Faculty' ? 'Faculty ID' : 'Student ID';
     }

@@ -29,8 +29,14 @@ class UserActivityLog extends Model
         'account_activated' => 'User Account Activated',
         'account_deactivated' => 'User Account Deactivated',
         'research_forwarded' => 'Research Forwarded',
+        'journal_task_assigned' => 'Journal Task Assigned',
         'account_created' => 'Account Created',
     ];
 
     public function user() { return $this->belongsTo(User::class); }
+
+    public function clientDetails(): array
+    {
+        return \App\Services\ActivityClient::describe($this->user_agent, $this->platform_version);
+    }
 }

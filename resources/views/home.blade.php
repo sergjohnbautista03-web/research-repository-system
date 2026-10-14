@@ -14,8 +14,6 @@
     ];
     $hasFilters = request()->anyFilled(['search','department','year_from','year_to']);
     $activeDepartment = request('department');
-    $minResearchYear = 2022;
-    $maxResearchYear = 2026;
 @endphp
 
 <div class="home-page">
@@ -64,7 +62,7 @@
 
                     <div class="home-search-row">
                         <label for="side-search">Keyword</label>
-                        <input id="side-search" type="text" name="search" value="{{ request('search') }}" placeholder="Title, author, keyword..." autocomplete="off">
+                        <input id="side-search" type="text" name="search" value="{{ request('search') }}" placeholder="Title, author, keywords..." autocomplete="off">
                     </div>
 
                     <div class="home-search-row">

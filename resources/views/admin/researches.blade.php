@@ -9,7 +9,6 @@
     $assignedDepartment = $adminUser->isDepartmentScopedAdmin() ? $adminUser->department : null;
     $activeFilters = collect([
         request('search') ? 'Search: "' . request('search') . '"' : null,
-        request('status') ? 'Status: ' . ucfirst(request('status')) : null,
         request('year') ? 'Year: ' . request('year') : null,
     ])->filter();
     $shownStart = $researches->firstItem() ?? 0;
@@ -44,36 +43,16 @@
 @endphp
 
 <form method="GET" action="{{ route('admin.researches') }}" class="mr-filter-card" id="mr-filters">
-    @if($adminUser->isGlobalAdmin())
-        <div class="mr-filter-top">
-            <a href="{{ route('admin.add-research') }}" class="mr-add-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Add Research
-            </a>
-        </div>
-    @endif
-
     <div class="mr-filter-grid{{ $isDean ? ' mr-filter-grid-dean' : '' }}">
         <div class="mr-filter-field mr-filter-search">
             <label for="mr-search">Search</label>
             <div class="mr-control-wrap">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input id="mr-search" type="text" name="search" value="{{ request('search') }}" placeholder="Title or author" data-auto-filter autocomplete="off">
+                <input id="mr-search" type="text" name="search" value="{{ request('search') }}" placeholder="{{ $adminUser->isGlobalAdmin() ? 'Research ID, title, or author' : 'Title or author' }}" data-auto-filter autocomplete="off">
             </div>
         </div>
 
         @if(! $isDean)
-        <div class="mr-filter-field">
-            <label for="mr-status">Status</label>
-            <select id="mr-status" name="status">
-                <option value="">All Status</option>
-                <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>For Review</option>
-                <option value="approved" {{ request('status') == 'approved' ? 'selected' : '' }}>Published</option>
-                <option value="archived" {{ request('status') == 'archived' ? 'selected' : '' }}>Archived</option>
-                <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Needs Correction</option>
-            </select>
-        </div>
-
         <div class="mr-filter-field mr-filter-department">
             <label for="mr-department">Department</label>
             @if($adminUser->isDepartmentScopedAdmin())
@@ -89,6 +68,11 @@
         </div>
 
         @endif
+
+        <div class="mr-filter-field">
+            <label for="mr-school-year">Academic Year</label>
+            <select id="mr-school-year" name="school_year"><option value="">All Academic Years</option>@foreach($schoolYears as $schoolYear)<option value="{{ $schoolYear }}" @selected(request('school_year') === $schoolYear)>AY {{ $schoolYear }}</option>@endforeach</select>
+        </div>
 
         <div class="mr-filter-field">
             <label for="mr-year">Year</label>
@@ -119,7 +103,7 @@
     <div class="mr-table-head">
         <div>
             <span>Research Records</span>
-            <h3>Submissions</h3>
+            <h3>Published Researches</h3>
         </div>
         <strong>{{ number_format($shownStart) }}-{{ number_format($shownEnd) }} of {{ number_format($researches->total()) }}</strong>
     </div>
@@ -130,7 +114,7 @@
                 <tr>
                     <th>Title</th>
                     <th>Author</th>
-                    <th>Year</th>
+                    <th>Publication Year</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -141,15 +125,17 @@
                     $departmentCode = $departmentAbbreviation($r->department);
                 @endphp
                 <tr>
-                    <td data-label="Title" class="mr-title-cell" data-search-label="{{ $r->title }}" data-search-detail="{{ $r->author_name }}">
+                    <td data-label="Title" class="mr-title-cell" data-search-label="{{ $r->title }}" data-search-detail="{{ $adminUser->isGlobalAdmin() ? $r->research_id . ' · ' : '' }}{{ $r->author_name }}">
                         <span class="mr-title-link">{{ Str::limit($r->title, 86) }}</span>
+                        @include('components.research-id', ['research' => $r])
                     </td>
                     <td data-label="Author"><span class="mr-author">{{ Str::limit($r->author_name, 46) }}</span></td>
-                    <td data-label="Year">{{ $r->year_published ?: 'N/A' }}</td>
+                    <td data-label="Publication Year">{{ $r->year_published ?: 'N/A' }}</td>
                     <td data-label="Action" class="action-cell">
                         <div class="research-action-row">
                             <button type="button" class="btn-action-view js-open-research-modal" data-research="{{ json_encode([
                                 'id' => $r->id,
+                                ...($adminUser->isGlobalAdmin() ? ['researchId' => $r->research_id] : []),
                                 'title' => $r->title,
                                 'author' => $r->author_name,
                                 'department' => $r->department,
@@ -163,14 +149,16 @@
                                 'adviser' => $r->adviser ?? '',
                                 'fileName' => $r->file_name,
                                 'feedback' => $r->rejection_reason,
-                                'returnUrl' => $r->status === 'pending' && $adminUser->isGlobalAdmin() ? route('admin.research.reject', $r) : null,
+                                'returnUrl' => $r->status === 'pending' && ! $r->coordinator_id && $adminUser->isGlobalAdmin() ? route('admin.research.reject', $r) : null,
                                 'fileUrl' => $r->file_path ? route('admin.research.view-file', $r) : null,
                             ], JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) }}">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                                 View
                             </button>
 
-                            @if($r->status == 'pending' && $adminUser->isGlobalAdmin())
+                            @if($r->handoff?->is_batch)
+                                <a class="btn-action-view" href="{{ route('admin.journal-batches.show', $r->research_handoff_id) }}">{{ $adminUser->isGlobalAdmin() && $r->status === 'pending' ? 'Publish Batch' : 'Open Batch' }}</a>
+                            @elseif($r->status == 'pending' && $adminUser->isGlobalAdmin())
                                 <form method="POST" action="{{ route('admin.research.approve', $r) }}">
                                     @csrf
                                     <button type="submit" class="btn-action-approve">
@@ -180,7 +168,7 @@
                                 </form>
                             @endif
 
-                            @if($r->status == 'pending' || ($adminUser->isGlobalAdmin() && in_array($r->status, ['approved', 'archived'], true)))
+                            @if(! $r->handoff?->is_batch && ($r->status == 'pending' || ($adminUser->isGlobalAdmin() && in_array($r->status, ['approved', 'archived'], true))))
                                 <div class="action-menu-wrap">
                                     <button
                                         type="button"
@@ -1152,7 +1140,7 @@
 /* User Activity Logs-aligned research management layout. */
 .mr-filter-card{padding:16px;border:1px solid #e8dcf3;border-radius:18px;box-shadow:0 8px 24px rgba(64,30,100,.05);margin-bottom:14px}
 .mr-filter-grid,.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:minmax(210px,1.5fr) repeat(3,minmax(140px,1fr)) auto;gap:10px;align-items:end}
-.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:minmax(240px,1.5fr) minmax(160px,.6fr) auto}
+.mr-filter-grid.mr-filter-grid-dean{grid-template-columns:minmax(210px,1.5fr) repeat(2,minmax(140px,1fr)) auto}
 .mr-filter-field label,.mr-table-head span{margin-bottom:6px;color:#65457e;font-size:11px;font-weight:700;letter-spacing:0;text-transform:none}
 .mr-filter-field input,.mr-filter-field select,.mr-fixed-department{height:41px;padding:0 12px;border:1px solid #decdef;border-radius:11px;background:#fcfaff;color:#32144e;font-size:12px}
 .mr-control-wrap svg{left:12px;width:18px;height:18px}.mr-filter-field input{padding-left:39px}
@@ -1312,6 +1300,9 @@ function openResearchDetailModal(research) {
         + ' | Submitted ' + (research.submitted || 'on an unknown date');
 
     meta.innerHTML = '';
+    @if($adminUser->isGlobalAdmin())
+    if (research.researchId) meta.insertAdjacentHTML('beforeend', formatMetaItem('Research ID', research.researchId));
+    @endif
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Authors', research.author || 'Unknown', 'wide'));
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Department', research.department || 'Unknown', 'wide'));
     meta.insertAdjacentHTML('beforeend', formatMetaItem('Type', research.type || 'Unknown'));

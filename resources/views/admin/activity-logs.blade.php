@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', 'Activity Logs')
-@section('page-title', 'Activity Logs')
+@section('title', 'System Logs')
+@section('page-title', 'System Logs')
 @section('body-class', 'system-activity-page')
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/user-activity-logs.css') }}?v={{ filemtime(public_path('css/user-activity-logs.css')) }}">
@@ -19,13 +19,14 @@
 <section id="ual-results" class="ual-card">
     <div class="ual-card-head"><h3>Activity History</h3><span>{{ number_format($logs->total()) }} log(s)</span></div>
     <div class="ual-table-wrap"><table class="ual-table">
-        <thead><tr><th>Date &amp; Time</th><th>User/Role</th><th>Activity</th><th>Details</th></tr></thead>
+        <thead><tr><th>Date &amp; Time</th><th>User/Role</th><th>Activity</th><th>Details</th><th>IP Address</th><th>Device &amp; OS</th></tr></thead>
         <tbody>@forelse($logs as $log)<tr>
             <td><time datetime="{{ $log->created_at?->toIso8601String() }}">{{ $log->created_at?->timezone('Asia/Manila')->format('M d, Y') }}<small>{{ $log->created_at?->timezone('Asia/Manila')->format('g:i A') }}</small></time></td>
             <td><strong>{{ $log->user_name }}</strong><small>{{ ['admin' => 'Admin', 'dean' => 'Department Dean', 'coordinator' => 'Research Coordinator', 'student' => 'Student', 'faculty' => 'Faculty'][$log->role] ?? ucfirst($log->role) }}</small></td>
             <td><span class="ual-action">{{ $actions[$log->action] }}</span></td>
-            <td>{{ match ($log->action) { 'login' => 'User logged in to the system.', 'logout' => 'User logged out of the system.', default => $log->details } }}</td>
-        </tr>@empty<tr><td colspan="4" class="ual-empty">No activities match the selected filters.</td></tr>@endforelse</tbody>
+            <td class="ual-details-cell">{{ match ($log->action) { 'login' => 'User logged in to the system.', 'logout' => 'User logged out of the system.', default => $log->details } }}</td>
+            @include('admin.partials.activity-client-cells', ['log' => $log])
+        </tr>@empty<tr><td colspan="6" class="ual-empty">No activities match the selected filters.</td></tr>@endforelse</tbody>
     </table></div>
     <div class="ual-pagination">{{ $logs->links('vendor.pagination.custom') }}</div>
 </section>

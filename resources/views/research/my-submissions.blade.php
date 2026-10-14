@@ -94,7 +94,6 @@
                     {{ $r->title }}
                 @endif
             </h3>
-
             <div class="mysub-card-meta">
                 <span>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M3 7l9-4 9 4M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11"/></svg>

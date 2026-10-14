@@ -11,7 +11,6 @@
 
 @section('content')
 
-{{-- SUMMARY CARDS --}}
 @php
     $allResearchers = $users->getCollection()->filter(fn($u) => $u->role === 'researcher');
     $approvedStudents = $users->getCollection()->filter(fn($u) => $u->role === 'user' && !empty($u->student_id));
@@ -19,19 +18,6 @@
     $coordinators = $users->getCollection()->filter(fn($u) => $u->role === 'admin' && $u->is_research_coordinator);
     $currentYear = (int) date('Y');
 @endphp
-
-@if(! auth()->user()->isDepartmentDean())
-<div class="summary-grid">
-    <div class="summary-card sc-total">
-        <div class="sc-icon sc-i-total">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div class="sc-info"><div class="sc-val">{{ $users->total() }}</div><div class="sc-lbl">Total Users</div></div>
-    </div>
-
-</div>
-
-@endif
 
 @if(session('success'))
     <div class="mu-alert mu-alert-success">
@@ -54,6 +40,9 @@
             @endforeach
         </div>
     </div>
+@endif
+@if($errors->userProgram->any())
+    <div class="mu-alert mu-alert-error" role="alert">{{ $errors->userProgram->first() }}</div>
 @endif
 @if(session('import_skipped') && count(session('import_skipped')) > 0)
     <div class="mu-import-skip-report">
@@ -131,25 +120,14 @@
             </div>
         @endunless
 
-        @if($isDepartmentScoped)
         <div class="mu-select-wrap">
-            <select name="school_year" aria-label="Academic Year">
-                <option value="">All Academic Years</option>
-                @foreach($schoolYears as $schoolYear)
-                    <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
+            <select name="program" aria-label="Program">
+                <option value="">All Programs</option>
+                @foreach($programs as $program)
+                    <option value="{{ $program }}" @selected($selectedProgram === $program)>{{ $program }}</option>
                 @endforeach
             </select>
         </div>
-
-        <div class="mu-select-wrap">
-            <select name="semester" aria-label="Semester">
-                <option value="">All Semesters</option>
-                @foreach($semesterOptions as $semesterOption)
-                    <option value="{{ $semesterOption }}" {{ $selectedSemester === $semesterOption ? 'selected' : '' }}>{{ $semesterOption }}</option>
-                @endforeach
-            </select>
-        </div>
-        @endif
 
         <div class="mu-select-wrap" data-year-level-filter @if(request('role') !== 'student') hidden @endif>
             <select name="year_level" aria-label="Year Level" @disabled(request('role') !== 'student')>
@@ -162,7 +140,7 @@
     </div>
 
     <div class="mu-filter-actions">
-        <a href="{{ route('admin.users', ['school_year' => '', 'semester' => '']) }}" class="mu-btn mu-btn-ghost" data-clear-filters>Clear</a>
+        <a href="{{ route('admin.users') }}" class="mu-btn mu-btn-ghost" data-clear-filters>Clear</a>
         @if(auth()->user()->canImportUsers())
             <button type="button" class="mu-btn mu-btn-outline" data-open-semester-users aria-haspopup="dialog" aria-controls="activateExistingUsersModal">Activate Existing Users</button>
             <button type="button" class="mu-btn mu-btn-outline" data-open-add-user aria-haspopup="dialog" aria-controls="addUserModal">
@@ -229,7 +207,7 @@
                     <th>Name</th>
                     <th>Email</th>
                     <th>Role</th>
-                    <th>Department</th>
+                    <th>Program</th>
                     <th>ID</th>
                     <th>Actions</th>
                 </tr>
@@ -276,7 +254,7 @@
                         @elseif($isCoordinator)
                             <span class="mu-role-badge mu-role-coordinator">Research Coordinator</span>
                         @elseif($isApprovedStudentResearcher)
-                            <span class="mu-role-badge mu-role-student">Student Researcher</span>
+                            <span class="mu-role-badge mu-role-student">Student</span>
                         @elseif($isStudent)
                             <span class="mu-role-badge mu-role-student">Student</span>
                         @elseif($isApprovedStudentAccount)
@@ -287,8 +265,8 @@
                             <span class="mu-role-badge mu-role-{{ $user->role }}">{{ ucfirst($user->role) }}</span>
                         @endif
                     </td>
-                    <td class="mu-dept" data-label="Department">{{ $user->department ? Str::limit($user->department, 40) : '—' }}</td>
-                    <td class="mu-id" data-label="ID">{{ ($isDean || $user->role === 'admin') ? '—' : ($user->student_id ?? '—') }}</td>
+                    <td class="mu-dept" data-label="Program" title="{{ $user->program }}">{{ $user->program ? Str::limit($user->program, 40) : ($user->role === 'admin' ? '—' : 'Unassigned') }}</td>
+                    <td class="mu-id" data-label="ID">{{ $user->student_id ?: '—' }}</td>
                     
                     <td data-label="Actions">
                         <div class="mu-actions">
@@ -328,6 +306,13 @@
             <button type="button" class="mu-modal-close" onclick="closeUserModal()">&times;</button>
         </div>
         <div id="userModalBody" class="mu-modal-body"></div>
+        <form id="userModalProgramForm" class="mu-program-form" method="POST" hidden>
+            @csrf
+            @method('PATCH')
+            <label for="userModalProgram">Program</label>
+            <select id="userModalProgram" name="program" required></select>
+            <button type="submit" class="mu-btn mu-btn-primary">Save Program</button>
+        </form>
         <div class="mu-modal-actions">
             <form id="userModalToggleForm" method="POST">
                 @csrf
@@ -338,6 +323,9 @@
 </div>
 
 @if(auth()->user() && auth()->user()->canImportUsers())
+@php
+    $importMemberType = old('import_member_type') === 'faculty' ? 'faculty' : 'student';
+@endphp
 <div id="importUserModal" class="mu-modal-overlay" style="display:none;" onclick="closeImportUserModal(event)">
     <div class="mu-modal-card mu-import-modal-card" role="dialog" aria-modal="true" aria-labelledby="importUsersTitle" onclick="event.stopPropagation()">
         <div class="mu-modal-head">
@@ -345,12 +333,12 @@
             <div class="mu-modal-title-wrap">
                 <span class="mu-modal-kicker">Bulk Account Setup</span>
                 <h3 class="mu-modal-title" id="importUsersTitle">Import Users</h3>
-                <p class="iu-subtitle">Upload Student or Faculty accounts. Accounts are automatically assigned to the semester activated by the Admin. Users outside the file stay unchanged.</p>
+                <p class="iu-subtitle">Upload Student or Faculty accounts. @if($activeSemester)Accounts are automatically assigned to {{ $activeSemester->label }}.@else You can import now and activate users once an active semester is available.@endif Users outside the file stay unchanged.</p>
             </div>
             <button type="button" class="mu-modal-close" onclick="closeImportUserModal()" aria-label="Close import users">&times;</button>
         </div>
 
-        <form method="POST" action="{{ route('admin.import-users') }}" class="mu-create-form" enctype="multipart/form-data">
+        <form id="iu_import_form" method="POST" action="{{ route('admin.import-users') }}" class="mu-create-form" enctype="multipart/form-data">
             @csrf
             @if($errors->importUsers->any())
                 <div class="mu-alert mu-alert-error">
@@ -359,13 +347,18 @@
                 </div>
             @endif
 
+            <fieldset class="iu-member-types">
+                <legend>Choose accounts to import</legend>
+                <label><input type="radio" name="import_member_type" value="student" @checked($importMemberType === 'student') required> Students</label>
+                <label><input type="radio" name="import_member_type" value="faculty" @checked($importMemberType === 'faculty') required> Faculty</label>
+            </fieldset>
             <div class="iu-upload-panel">
             <div id="iu_file_section" class="mu-create-field">
                 <label class="iu-upload" for="iu_file">
                     <input type="file" id="iu_file" name="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required aria-label="Choose Excel or CSV file" aria-describedby="iu_file_help">
                     <span class="iu-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7zM14 2v6h5M12 18v-7m-3 3 3-3 3 3"/></svg></span>
                     <span class="iu-upload-copy">
-                        <strong id="iu_filename" aria-live="polite">Upload Excel or CSV File</strong>
+                        <strong id="iu_filename" aria-live="polite">Upload {{ $importMemberType === 'faculty' ? 'Faculty' : 'Student' }} Excel or CSV File</strong>
                         <span>Click to upload or drag and drop</span>
                         <span class="iu-choose-file" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 14v7h16v-7"/></svg>Choose File</span>
                         <small id="iu_file_help">Supported formats: .xlsx, .csv (Maximum 10MB)</small>
@@ -374,14 +367,27 @@
             </div>
             <div id="iu_guide_section" class="iu-info iu-columns">
                 <span class="iu-file-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7zM14 2v6h5M8 12h8M8 16h8"/></svg></span>
-                <div><h4>Required Column Names</h4><p>Use these column names in any order. Email and password can be blank for generated credentials.</p>
-                    <div class="iu-column-tags">@foreach(['firstname', 'middlename', 'lastname', 'student_id', 'year_level', 'email', 'password'] as $column)<span>{{ $column }}</span>@endforeach</div>
+                <div>
+                    <div data-import-guide="student" @if($importMemberType !== 'student') hidden @endif>
+                        <h4>Student CSV</h4>
+                        <p>Use <code>student_id</code> with exactly 8 digits. Member type is automatically set to Student.</p>
+                        <div class="iu-column-tags">@foreach(['firstname', 'middlename', 'lastname', 'student_id', 'year_level', 'program', 'email'] as $column)<span>{{ $column }}</span>@endforeach</div>
+                        <a class="iu-template-link" href="{{ asset('templates/students.csv') }}" download="students.csv">Download Student CSV Template</a>
+                    </div>
+                    <div data-import-guide="faculty" @if($importMemberType !== 'faculty') hidden @endif>
+                        <h4>Faculty CSV</h4>
+                        <p>Use <code>employee_id</code> for the Faculty ID. Member type is automatically set to Faculty.</p>
+                        <div class="iu-column-tags">@foreach(['firstname', 'middlename', 'lastname', 'employee_id', 'program', 'email'] as $column)<span>{{ $column }}</span>@endforeach</div>
+                        <a class="iu-template-link" href="{{ asset('templates/faculty.csv') }}" download="faculty.csv">Download Faculty CSV Template</a>
+                    </div>
+                    <p>Program is required for every Student and Faculty row; use the full program name, such as Information Technology or Computer Science. Email can be blank for a generated address.</p>
+                    <p>Username is the Student or Faculty ID. Password is automatically generated as <code>ID_First3Letters</code> of the first name, with the first letter capitalized. Example: <code>00037838_Ser</code> for Sergio.</p>
                 </div>
             </div>
             </div>
             <div class="mu-create-actions">
                 <button type="button" class="mu-btn mu-btn-ghost" onclick="closeImportUserModal()">Cancel</button>
-                <button type="submit" id="iu_submit_btn" class="mu-btn mu-btn-primary" @disabled(!$activeSemester)>Import Users</button>
+                <button type="submit" id="iu_submit_btn" class="mu-btn mu-btn-primary">Import {{ $importMemberType === 'faculty' ? 'Faculty' : 'Students' }}</button>
             </div>
         </form>
     </div>
@@ -416,7 +422,7 @@
             <div class="mu-create-block">
                 <div class="mu-create-preview-head">
                     <strong id="deptAccountPreviewTitle">New {{ $deptAccountType === 'coordinator' ? 'Research Coordinator' : 'Department Dean' }}</strong>
-                    <span id="deptAccountPreviewText">Create a department-scoped account. Deans submit files; coordinators receive files and add research metadata.</span>
+                    <span id="deptAccountPreviewText">Create a department-scoped account. Deans assign and review journal tasks; coordinators compile approved research papers into journals.</span>
                 </div>
                 <div class="mu-create-grid">
                     <div class="mu-create-field">
@@ -488,6 +494,10 @@
 @endif
 
 <style>
+.mu-program-form{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:0 24px 20px;}
+.mu-program-form[hidden]{display:none;}
+.mu-program-form label{font-size:13px;font-weight:700;color:#655573;}
+.mu-program-form select{flex:1;min-width:0;max-width:100%;padding:9px 12px;border:1px solid #e8dff5;border-radius:10px;background:#fff;color:#35154e;font:inherit;}
 .summary-grid{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px;align-items:flex-start;}
 .summary-card{width:min(260px,100%);background:#fff;border-radius:18px;padding:14px 18px;min-height:78px;display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:12px;border:1px solid rgba(124,58,237,.1);box-shadow:0 12px 28px rgba(57,26,101,.05);position:relative;overflow:hidden;transition:transform .16s ease,box-shadow .16s ease;}
 .summary-card:hover{transform:translateY(-2px);box-shadow:0 18px 34px rgba(57,26,101,.08);}
@@ -771,7 +781,7 @@
         } elseif ($isFaculty) {
             $roleLabel = 'Faculty';
         } elseif ($isApprovedStudentResearcher) {
-            $roleLabel = 'Student Researcher';
+            $roleLabel = 'Student';
         } elseif ($isStudentResearcher || $isApprovedStudentAccount) {
             $roleLabel = 'Student';
         } else {
@@ -816,7 +826,11 @@
                 'name' => $user->name,
                 'email' => $user->email,
                 'department' => $user->department ?: '—',
-                'student_id' => ($isDean || $user->role === 'admin') ? '—' : ($user->student_id ?: '—'),
+                'program' => $user->program ?: 'Unassigned',
+                'program_value' => $user->program,
+                'program_options' => \App\Models\Research::programsByDepartment()[$user->department] ?? [],
+                'program_url' => in_array($user->role, ['user', 'researcher'], true) ? route('admin.user.program', $user) : null,
+                'student_id' => $user->student_id ?: '—',
                 'graduation_year' => $user->graduation_year ?: '—',
                 'researcher_status' => $isResearcher ? ($user->researcher_status_label ?? 'Active') : '—',
                 'last_seen' => $user->isOnline()
@@ -855,6 +869,7 @@
 
 <script type="application/json" id="mu-user-data">@json($userModalData)</script>
 <script src="{{ asset('js/user-filters.js') }}?v={{ filemtime(public_path('js/user-filters.js')) }}" defer></script>
+<script src="{{ asset('js/dean-import-users.js') }}?v={{ filemtime(public_path('js/dean-import-users.js')) }}" defer></script>
 <script>
 setTimeout(function() {
     document.querySelectorAll('.mu-alert').forEach(function(alert) {
@@ -885,8 +900,8 @@ function openUserModal(userId) {
 
     const approvalHtml = user.show_researcher_approval
         ? `
-            <div class="mu-modal-info"><span class="mu-modal-info-label">Researcher Approved By</span><div class="mu-modal-info-value">${user.approved_by}</div></div>
-            <div class="mu-modal-info"><span class="mu-modal-info-label">Researcher Approved At</span><div class="mu-modal-info-value">${user.approved_at}</div></div>
+            <div class="mu-modal-info"><span class="mu-modal-info-label">Approved By</span><div class="mu-modal-info-value">${user.approved_by}</div></div>
+            <div class="mu-modal-info"><span class="mu-modal-info-label">Approved At</span><div class="mu-modal-info-value">${user.approved_at}</div></div>
         `
         : '';
 
@@ -931,6 +946,7 @@ function openUserModal(userId) {
         <div class="mu-modal-grid">
             <div class="mu-modal-info"><span class="mu-modal-info-label">Email</span><div class="mu-modal-info-value">${user.email}</div></div>
             <div class="mu-modal-info"><span class="mu-modal-info-label">Department</span><div class="mu-modal-info-value">${user.department}</div></div>
+            ${user.program_url ? `<div class="mu-modal-info"><span class="mu-modal-info-label">Program</span><div class="mu-modal-info-value">${escapePeriodText(user.program)}</div></div>` : ''}
             <div class="mu-modal-info"><span class="mu-modal-info-label">ID</span><div class="mu-modal-info-value">${user.student_id}</div></div>
             ${approvalHtml}
             <div class="mu-modal-info"><span class="mu-modal-info-label">Account Created By</span><div class="mu-modal-info-value">${user.created_by}</div></div>
@@ -939,6 +955,14 @@ function openUserModal(userId) {
         </div>
         ${academicRecordsHtml}
     `;
+
+    const programForm = document.getElementById('userModalProgramForm');
+    programForm.hidden = !user.program_url;
+    programForm.action = user.program_url || '';
+    const programSelect = document.getElementById('userModalProgram');
+    programSelect.replaceChildren(new Option('Select Program', ''));
+    user.program_options.forEach(program => programSelect.add(new Option(program, program)));
+    programSelect.value = user.program_value || '';
 
     const toggleForm = document.getElementById('userModalToggleForm');
     const toggleButton = document.getElementById('userModalToggleButton');
@@ -963,13 +987,10 @@ function closeUserModal(event) {
 }
 
 let importModalOpener = null;
-document.getElementById('iu_file')?.addEventListener('change', function () {
-    document.getElementById('iu_filename').textContent = this.files[0]?.name || 'Upload Excel or CSV File';
-    this.setCustomValidity(this.files[0]?.size > 10 * 1024 * 1024 ? 'Maximum file size is 10MB.' : '');
-});
 document.getElementById('importUserModal')?.addEventListener('keydown', function (event) {
     if (event.key !== 'Tab') return;
-    const controls = Array.from(this.querySelectorAll('button:not(:disabled), select:not(:disabled), input:not([type=hidden]):not(:disabled)'));
+    const controls = Array.from(this.querySelectorAll('button:not(:disabled), select:not(:disabled), input:not([type=hidden]):not(:disabled), a[href]'))
+        .filter(control => control.getClientRects().length > 0);
     const first = controls[0], last = controls[controls.length - 1];
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
     if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -1028,8 +1049,8 @@ function deptAccountMeta() {
         shortLabel: isCoordinator ? 'Coordinator' : 'Dean',
         idPlaceholder: isCoordinator ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001',
         preview: isCoordinator
-            ? 'Coordinator accounts receive dean-submitted files and add complete research metadata for their assigned department.'
-            : 'Dean accounts submit final defended research files to the assigned department Research Coordinator.',
+            ? 'Coordinator accounts receive journal tasks, compile the approved papers already available, and submit completed journals to the Dean for review.'
+            : 'Dean accounts assign journal tasks by Academic Year, review completed journals, and forward approved journals to Admin for publishing.',
     };
 }
 

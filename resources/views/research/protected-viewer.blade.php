@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ $research->title }}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">s
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
 
@@ -60,6 +60,9 @@
             position: relative;
             z-index: 1;
         }
+
+        .viewer-embedded .viewer-topbar { display: none; }
+        .viewer-embedded .viewer-shell { padding: 12px 14px 24px; }
 
         .viewer-shell.is-obscured .page-canvas,
         .viewer-shell.is-obscured .page-badge {
@@ -204,7 +207,7 @@
         }
     </style>
 </head>
-<body>
+<body class="{{ ($embedded ?? false) ? 'viewer-embedded' : '' }}">
 <div class="viewer-topbar">
     <div class="viewer-title">{{ $research->title }}</div>
     <div class="viewer-note">Authorized academic use only. Do not share, copy, sell, upload, or redistribute this research material.</div>
@@ -316,6 +319,25 @@
 </script>
 
 <script src="{{ asset('js/document-protection.js') }}?v={{ filemtime(public_path('js/document-protection.js')) }}"></script>
+
+@if($embedded ?? false)
+<script>
+    (() => {
+        const shell = document.querySelector('.viewer-shell');
+        if (!shell || window.parent === window) return;
+        function reportHeight() {
+            window.parent.postMessage({ type: 'journal-review-height', height: Math.ceil(shell.getBoundingClientRect().height) }, window.location.origin);
+        }
+        new ResizeObserver(reportHeight).observe(shell);
+        window.addEventListener('message', event => {
+            if (event.origin === window.location.origin && event.source === window.parent && event.data?.type === 'journal-review-measure') {
+                reportHeight();
+            }
+        });
+        reportHeight();
+    })();
+</script>
+@endif
 
 <script type="module">
     import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';

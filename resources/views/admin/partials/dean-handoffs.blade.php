@@ -13,27 +13,11 @@
     <symbol id="dh-reset" viewBox="0 0 24 24"><path d="M20 7a9 9 0 1 0 1 8M20 2v6h-6"/></symbol>
 </defs></svg>
 <div class="dh-page">
-    <section class="dh-stats" aria-label="Handoff summary">
-        @foreach([
-            ['Total Handoffs', $totalCount, 'Files submitted by Dean', 'file', '', 'total'],
-            ['Forwarded', $pendingCount, 'Waiting for Coordinator to receive', 'clock', 'pending', 'pending'],
-            ['Received by Coordinator', $receivedCount, 'Accepted by Coordinator', 'check', 'received', 'received'],
-            ['Submitted to Admin', $submittedCount, 'Awaiting Admin review', 'clock', 'submitted', 'pending'],
-            ['Published', $publishedCount, 'Available in the repository', 'check', 'published', 'received'],
-        ] as [$label, $count, $description, $icon, $filter, $tone])
-            <a class="dh-stat dh-stat-{{ $tone }}" href="{{ route('admin.research-handoffs', $filter ? ['status' => $filter] : []) }}">
-                <span class="dh-stat-icon"><svg><use href="#dh-{{ $icon }}"/></svg></span>
-                <span class="dh-stat-copy"><span>{{ $label }}</span><strong>{{ number_format($count) }}</strong><small>{{ $description }}</small></span>
-                <span class="dh-chevron" aria-hidden="true">&#8250;</span>
-            </a>
-        @endforeach
-    </section>
-
     <form id="dh-filters" class="dh-filters" method="GET" action="{{ route('admin.research-handoffs') }}">
-        <div class="dh-search-field"><label for="dh-search">Search</label><div class="dh-search-input"><svg><use href="#dh-search-icon"/></svg><input id="dh-search" type="search" name="search" value="{{ request('search') }}" placeholder="Search by research title..." data-auto-filter autocomplete="off"></div></div>
-        <div><label for="dh-year">Year</label><select id="dh-year" name="year"><option value="">All Years</option>@foreach($yearOptions as $year)<option value="{{ $year }}" @selected((string) request('year') === (string) $year)>{{ $year }}</option>@endforeach</select></div>
-        <div><label for="dh-category">Submission Category</label><select id="dh-category" name="submission_category"><option value="">All Categories</option>@foreach($submissionCategories as $value => $label)<option value="{{ $value }}" @selected(request('submission_category') === $value)>{{ $label }}</option>@endforeach</select></div>
-        <div><label for="dh-status">Status</label><select id="dh-status" name="status"><option value="">All Status</option>@foreach(\App\Models\ResearchHandoff::workflowLabels() as $value => $label)<option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>@endforeach</select></div>
+        <div><label for="dh-school-year">Academic Year</label><select id="dh-school-year" name="school_year"><option value="">All Academic Years</option>@foreach($schoolYears as $schoolYear)<option value="{{ $schoolYear }}" @selected(request('school_year') === $schoolYear)>{{ $schoolYear }}</option>@endforeach</select></div>
+        <div><label for="dh-program">Program</label><select id="dh-program" name="program"><option value="">All Programs</option>@foreach($programs as $program)<option value="{{ $program }}" @selected(request('program') === $program)>{{ match ($program) { 'Information Technology' => 'BSIT', 'Computer Science' => 'BSCS', default => $program } }}</option>@endforeach</select></div>
+        <div><label for="dh-category">Journal Category</label><select id="dh-category" name="submission_category"><option value="">All Categories</option>@foreach($submissionCategories as $value => $label)<option value="{{ $value }}" @selected(request('submission_category') === $value)>{{ $label }}</option>@endforeach</select></div>
+        <div><label for="dh-status">Status</label><select id="dh-status" name="status"><option value="">All Statuses</option>@foreach(\Illuminate\Support\Arr::only(\App\Models\ResearchHandoff::workflowLabels(), ['pending', 'received', 'submitted', 'forwarded']) as $value => $label)<option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>@endforeach</select></div>
         <a id="dh-clear" class="dh-button dh-clear" href="{{ route('admin.research-handoffs') }}">Clear</a>
     </form>
     <p id="dh-feedback" class="dh-feedback" role="status" aria-live="polite"></p>
@@ -41,27 +25,49 @@
     <section id="dh-results" class="dh-records" aria-labelledby="dh-records-title">
         <header class="dh-records-header">
             <span class="dh-records-icon"><svg><use href="#dh-file"/></svg></span>
-            <div><h2 id="dh-records-title">Handoff Records</h2><p>Research files submitted by the Dean to the Research Coordinator.</p></div>
+            <div><h2 id="dh-records-title">Journal Task Records</h2><p>Assign a task, view the completed journals, and forward them to Admin for publishing.</p></div>
+            <a class="dh-button dh-primary dh-assign-task" href="{{ route('admin.research-handoffs.create') }}" data-open-journal-batch data-batch-mode="assignment" data-batch-title="Assign Journal Task" aria-haspopup="dialog" aria-controls="journalBatchModal">Assign Journal Task</a>
         </header>
         <div class="dh-table-scroll" tabindex="0" role="region" aria-label="Handoff records table">
-            <table class="dh-table">
-                <thead><tr><th scope="col">#</th><th scope="col">Research Title</th><th scope="col">Submission Category</th><th scope="col">Year</th><th scope="col">Date Forwarded</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
+            <table class="dh-table dh-preparation-table">
+                <thead><tr><th scope="col">#</th><th scope="col">Journal Category</th><th scope="col">Program</th><th scope="col">Academic Year</th><th scope="col">Date Assigned</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
                 <tbody>
                 @forelse($handoffs as $handoff)
                     @php
                         $category = $handoff->research?->submission_category ?? $handoff->submission_category;
+                        $program = $handoff->program ?: ($handoff->research?->program ?: $handoff->research?->course);
+                        $programLabel = match ($program) {
+                            'Information Technology' => 'BSIT',
+                            'Computer Science' => 'BSCS',
+                            default => $program ?: ($category === \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL ? 'All Programs' : 'Not assigned'),
+                        };
+                        $stage = $handoff->workflowStage();
+                        $actionLabel = match ($stage) {
+                            'submitted' => 'Review Submission',
+                            'dean_approved' => 'Forward to Admin',
+                            'forwarded', 'published', 'archived' => 'View Details',
+                            default => 'View Task',
+                        };
                     @endphp
                     <tr>
                         <td>{{ $handoffs->firstItem() + $loop->index }}</td>
-                        <td class="dh-title" data-search-label="{{ $handoff->title }}" data-search-detail="{{ $submissionCategories[$category] ?? 'Not yet assigned' }}">{{ $handoff->title }}</td>
-                        <td><span class="dh-category {{ $category === \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL ? 'dh-faculty' : '' }} {{ ! $category ? 'dh-unassigned' : '' }}">{{ $submissionCategories[$category] ?? 'Not yet assigned' }}</span></td>
-                        <td class="dh-muted">{{ $handoff->research?->year_published ?? $handoff->year_published ?? '—' }}</td>
-                        <td class="dh-date"><time datetime="{{ $handoff->created_at->toIso8601String() }}">{{ $handoff->created_at->timezone('Asia/Manila')->format('M d, Y') }}<br>{{ $handoff->created_at->timezone('Asia/Manila')->format('h:i A') }}</time></td>
-                        <td><span class="dh-status dh-stage-{{ $handoff->workflowStage() }}">{{ $handoff->workflowLabel() }}</span></td>
-                        <td><a class="dh-button dh-view" href="{{ route('admin.research-handoffs.file', $handoff) }}" target="_blank" rel="noopener" aria-label="View {{ $handoff->title }} (opens in a new tab)"><svg><use href="#dh-eye"/></svg>View</a></td>
+                        <td>{{ $submissionCategories[$category] ?? 'Not yet assigned' }}@if($handoff->research)@include('components.research-id', ['research' => $handoff->research])@endif</td>
+                        <td title="{{ $program }}">{{ $programLabel }}</td>
+                        <td>{{ $handoff->school_year ?: $handoff->research?->school_year ?: 'Not assigned' }}</td>
+                        <td class="dh-date"><time datetime="{{ $handoff->created_at->toIso8601String() }}">{{ $handoff->created_at->timezone('Asia/Manila')->format('M j, Y') }}</time></td>
+                        <td>{{ $handoff->workflowLabel() }}</td>
+                        <td>
+                            @if($handoff->is_batch)
+                                <a class="dh-task-action" href="{{ route('admin.journal-batches.show', $handoff) }}" data-open-journal-batch data-batch-title="Journal Batch — AY {{ $handoff->school_year }}" aria-haspopup="dialog" aria-controls="journalBatchModal">{{ $actionLabel }}</a>
+                            @elseif($handoff->research)
+                                <a class="dh-task-action" href="{{ route('admin.research.show', $handoff->research) }}">{{ $actionLabel }}</a>
+                            @else
+                                <details class="dh-task-details"><summary class="dh-task-action">View Task</summary><strong>{{ $handoff->title }}</strong><p>{{ $handoff->notes ?: 'No task instructions recorded.' }}</p></details>
+                            @endif
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="dh-empty"><strong>{{ request()->hasAny(['search', 'year', 'submission_category', 'status']) ? 'No matching handoffs.' : 'No research handoffs yet.' }}</strong><p>Submitted research files will appear here. Try clearing the filters to see all records.</p><a class="dh-button" href="{{ route('admin.research-handoffs.create') }}">Submit research file</a></td></tr>
+                    <tr><td colspan="7" class="dh-empty"><strong>{{ request()->anyFilled(['program', 'school_year', 'submission_category', 'status']) ? 'No matching journal tasks.' : 'No journal tasks yet.' }}</strong><p>Assign a journal task for an Academic Year. Your Research Coordinator will use the approved papers already available to prepare the journal.</p><a class="dh-button" href="{{ route('admin.research-handoffs.create') }}" data-open-journal-batch data-batch-mode="assignment" data-batch-title="Assign Journal Task" aria-haspopup="dialog" aria-controls="journalBatchModal">Assign Journal Task</a></td></tr>
                 @endforelse
                 </tbody>
             </table>
@@ -84,3 +90,4 @@
 @push('scripts')
 <script src="{{ asset('js/dean-handoffs.js') }}?v={{ filemtime(public_path('js/dean-handoffs.js')) }}" defer></script>
 @endpush
+@include('admin.partials.journal-batch-modal')

@@ -21,6 +21,19 @@ function initializeLoginModal() {
     if (!modal) return;
 
     const loginInput = modal.querySelector('#modal-login');
+    const loginView = modal.querySelector('[data-auth-view="login"]');
+    const forgotView = modal.querySelector('[data-auth-view="forgot"]');
+    const forgotForm = modal.querySelector('[data-forgot-password-form]');
+    const resetEmail = modal.querySelector('#modal-reset-email');
+
+    function switchAuthView(view, focus = true) {
+        const isForgot = view === 'forgot';
+        if (loginView) loginView.hidden = isForgot;
+        if (forgotView) forgotView.hidden = !isForgot;
+        modal.setAttribute('aria-labelledby', isForgot ? 'forgotModalTitle' : 'loginModalTitle');
+        const input = isForgot ? resetEmail : loginInput;
+        if (focus && input) input.focus();
+    }
 
     function openLoginModal(event) {
         if (event) {
@@ -30,6 +43,7 @@ function initializeLoginModal() {
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
+        switchAuthView('login', false);
 
         window.setTimeout(() => {
             if (loginInput) {
@@ -54,6 +68,56 @@ function initializeLoginModal() {
 
     modal.querySelectorAll('[data-login-modal-close]').forEach(closeButton => {
         closeButton.addEventListener('click', closeLoginModal);
+    });
+
+    modal.querySelector('[data-forgot-password-trigger]')?.addEventListener('click', event => {
+        event.preventDefault();
+        switchAuthView('forgot');
+    });
+
+    modal.querySelector('[data-back-to-login]')?.addEventListener('click', () => {
+        switchAuthView('login');
+    });
+
+    forgotForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const submit = forgotForm.querySelector('[type="submit"]');
+        if (submit.disabled) return;
+        const label = forgotForm.querySelector('[data-forgot-password-submit-label]');
+        const error = forgotForm.querySelector('[data-forgot-password-error]');
+        const status = forgotForm.querySelector('[data-forgot-password-status]');
+        error.hidden = true;
+        status.hidden = true;
+        resetEmail.removeAttribute('aria-invalid');
+        submit.disabled = true;
+        label.textContent = 'Sending...';
+        forgotForm.setAttribute('aria-busy', 'true');
+
+        try {
+            const response = await fetch(forgotForm.action, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' },
+                body: new FormData(forgotForm),
+            });
+            if (response.status === 419) {
+                throw new Error('Your session has expired. Refresh the page and try again.');
+            }
+            const data = await response.json();
+            if (!response.ok) {
+                if (data.errors?.email) resetEmail.setAttribute('aria-invalid', 'true');
+                throw new Error(data.errors?.email?.[0] || data.message || 'Unable to send a reset link. Please try again.');
+            }
+            status.textContent = data.message;
+            status.hidden = false;
+        } catch (failure) {
+            error.textContent = failure instanceof Error ? failure.message : 'Unable to send a reset link. Please try again.';
+            error.hidden = false;
+        } finally {
+            submit.disabled = false;
+            label.textContent = 'Send Reset Link';
+            forgotForm.removeAttribute('aria-busy');
+        }
     });
 
     document.addEventListener('keydown', function (event) {

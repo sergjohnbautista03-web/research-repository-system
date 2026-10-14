@@ -1,6 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Research Analytics')
 @section('page-title', 'Research Analytics')
+@section('body-class', 'dashboard-campus-background')
 
 @section('content')
 @php
@@ -187,6 +188,7 @@
                         <tr>
                             <td>
                                 <a href="{{ route('admin.research.show', ['research' => $research, 'from' => 'dashboard']) }}" class="ra-table-link">{{ $research->title }}</a>
+                                @include('components.research-id', ['research' => $research])
                                 <span>{{ $research->author_name }}</span>
                             </td>
                             <td>{{ $research->department ?: 'Unassigned Department' }}</td>
@@ -546,7 +548,7 @@ function openAnalyticsDetail(department, year) {
     document.getElementById('analyticsDetailPapers').innerHTML = papers.length
         ? papers.map(paper => `
             <tr>
-                <td><a href="${escapeHtml(paper.url)}" class="ra-table-link">${escapeHtml(paper.title)}</a></td>
+                <td><a href="${escapeHtml(paper.url)}" class="ra-table-link">${escapeHtml(paper.title)}</a>@if(auth()->user()->isGlobalAdmin())<span class="research-id">Research ID: ${escapeHtml(paper.research_id || '')}</span>@endif</td>
                 <td>${escapeHtml(paper.author)}</td>
                 <td>${escapeHtml(paper.type)}</td>
                 <td>${formatNumber(paper.views)}</td>
@@ -618,6 +620,9 @@ function flattenPaperRows() {
                     code: entry.code,
                     year: entry.year,
                     title: paper.title,
+                    @if(auth()->user()->isGlobalAdmin())
+                    researchId: paper.research_id,
+                    @endif
                     author: paper.author,
                     views: paper.views,
                     citationCopies: paper.citation_copies,
@@ -657,7 +662,7 @@ function printAnalyticsReport() {
 
     const paperRows = flattenPaperRows().map(row => `
         <tr>
-            <td>${escapeHtml(row.title)}</td>
+            <td>${escapeHtml(row.title)}@if(auth()->user()->isGlobalAdmin())<br>Research ID: ${escapeHtml(row.researchId || '')}@endif</td>
             <td>${escapeHtml(row.author)}</td>
             <td>${escapeHtml(row.code)}</td>
             <td>${escapeHtml(row.year)}</td>

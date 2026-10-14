@@ -10,7 +10,7 @@
     $isCoordinatorAccount = $user->role === 'admin' && $user->is_research_coordinator;
     $detailRoleLabel = $user->is_department_dean
         ? 'Dean'
-        : ($isCoordinatorAccount ? 'Research Coordinator' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ($isStudentApplicant ? 'Student' : ucfirst($user->role)))));
+        : ($isCoordinatorAccount ? 'Research Coordinator' : ($isFacultyAccount ? 'Faculty' : (($isStudentResearcher || $isStudentApplicant) ? 'Student' : ucfirst($user->role))));
     $detailRoleClass = $user->is_department_dean
         ? 'admin'
         : ($isCoordinatorAccount ? 'coordinator' : ($isFacultyAccount ? 'faculty' : (($isStudentResearcher || $isStudentApplicant) ? 'student' : $user->role)));
@@ -99,6 +99,10 @@
                 <div>
                     <div class="up-info-label">Department</div>
                     <div class="up-info-value">{{ $user->department ?? '—' }}</div>
+                    @if(in_array($user->role, ['user', 'researcher'], true))
+                        <div class="up-info-label">Program</div>
+                        <div class="up-info-value">{{ $user->program ?: 'Unassigned' }}</div>
+                    @endif
                 </div>
             </div>
             <div class="up-info-item">
@@ -125,7 +129,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/><circle cx="12" cy="12" r="10"/></svg>
                 </div>
                 <div>
-                    <div class="up-info-label">Researcher Approved By</div>
+                    <div class="up-info-label">Approved By</div>
                     <div class="up-info-value">{{ $user->researcherApprovedBy?->name ?? 'Unknown admin' }}</div>
                 </div>
             </div>
@@ -134,7 +138,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
                 <div>
-                    <div class="up-info-label">Researcher Approved At</div>
+                    <div class="up-info-label">Approved At</div>
                     <div class="up-info-value">{{ $user->researcher_approved_at->format('F j, Y h:i A') }}</div>
                 </div>
             </div>
@@ -241,6 +245,7 @@
                             <a href="{{ route('admin.research.show', $r) }}" class="up-research-link">
                                 {{ Str::limit($r->title, 55) }}
                             </a>
+                            @include('components.research-id', ['research' => $r])
                         </td>
                         <td><span class="type-badge type-{{ $r->type }} badge-sm">{{ $r->getSubmissionCategoryLabel() }}: {{ $r->getTypeLabel() }}</span></td>
                         <td class="up-td-year">{{ $r->year_published }}</td>

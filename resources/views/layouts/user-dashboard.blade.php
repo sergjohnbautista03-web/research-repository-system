@@ -9,16 +9,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/notifications.css') }}?v={{ filemtime(public_path('css/notifications.css')) }}">
     @stack('styles')
 </head>
-<body class="admin-body user-dashboard-body">
+<body class="admin-body user-dashboard-body dashboard-campus-background">
 @php
     $dashboardUser = auth()->user();
     $isFacultyAccount = $dashboardUser->role === 'researcher' && is_null($dashboardUser->graduation_year);
-    $isStudentResearcher = $dashboardUser->role === 'researcher' && ! is_null($dashboardUser->graduation_year);
-    $dashboardRoleLabel = $isFacultyAccount
-        ? 'Faculty'
-        : ($isStudentResearcher ? 'Student Researcher' : 'Student');
+    $dashboardRoleLabel = $isFacultyAccount ? 'Faculty' : 'Student';
     $dashboardNameParts = preg_split('/\s+/', trim($dashboardUser->name), 2);
     $dashboardFirstName = $dashboardNameParts[0] ?? '';
     $dashboardNameRemainder = $dashboardNameParts[1] ?? '';
@@ -36,7 +34,7 @@
         <span></span><span></span><span></span>
     </button>
     <div class="admin-mobile-brand">
-        <strong>PhilCSTian</strong>
+        <strong>{{ $isFacultyAccount ? 'Ube Faculty' : 'Ube Student' }}</strong>
         <small>@yield('page-title', 'Dashboard')</small>
     </div>
 </div>
@@ -47,9 +45,12 @@
         <span class="sidebar-logo">
             <img src="{{ asset('images/philcstlogologo.png') }}" alt="PhilCST logo">
         </span>
-        <div>
-            <span class="sidebar-title">PhilCSTian</span>
+        <div class="sidebar-brand-text">
+            <span class="sidebar-title">{{ $isFacultyAccount ? 'Ube Faculty' : 'Ube Student' }}</span>
         </div>
+        <a href="{{ route('home') }}" class="sidebar-home-link" aria-label="Go to home page" title="Home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/></svg>
+        </a>
     </div>
 
     <button type="button" class="sidelink active" data-dashboard-nav="overview">
@@ -67,7 +68,7 @@
         Recently Viewed
     </button>
 
-    <div class="sidebar-user sidebar-account" data-sidebar-account>
+    <div class="sidebar-user">
         @if($dashboardUser->profile_photo)
             <img src="{{ asset('storage/' . $dashboardUser->profile_photo) }}" alt="{{ $dashboardUser->name }}" class="user-avatar-sm" style="object-fit:cover;">
         @else
@@ -78,33 +79,19 @@
                 <strong>{{ Str::limit($dashboardUser->name, 18) }}</strong>
                 <small>{{ $dashboardRoleLabel }}</small>
             @else
-                <strong>Student</strong>
+                <strong>{{ $dashboardUser->name }}</strong>
             @endif
-        </div>
-        <button type="button" class="sidebar-account-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Open account menu">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m18 15-6-6-6 6"/></svg>
-        </button>
-        <div class="sidebar-account-menu" role="menu">
-            <button type="button" class="sidebar-account-item" role="menuitem" onclick="toggleUserProfileModal(true)">
-                <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg></span>
-                My Profile
-            </button>
-            <a href="{{ route('home') }}" class="sidebar-account-item" role="menuitem">
-                <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
-                Browse
-            </a>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="sidebar-account-item is-danger" role="menuitem">
-                    <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>
-                    Sign Out
-                </button>
-            </form>
         </div>
     </div>
 </aside>
 
 <main class="admin-main">
+    @if($dashboardUser->canReceivePublicationNotifications())
+        <div class="admin-topbar">
+            <h1 class="page-title">@yield('page-title', 'Dashboard')</h1>
+            <div class="topbar-right">@include('components.notification-bell')</div>
+        </div>
+    @endif
 
     @if(session('success'))
         <div class="flash flash-success">
@@ -190,6 +177,9 @@
 </div>
 
 <script src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
+@if($dashboardUser->canReceivePublicationNotifications())
+    @include('admin.partials.notifications', ['notificationRoutePrefix' => 'notifications'])
+@endif
 <script>
     function toggleUserDashboardSidebar(forceState) {
         const body = document.body;

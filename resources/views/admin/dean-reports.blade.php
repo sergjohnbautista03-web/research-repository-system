@@ -20,7 +20,7 @@
             'school_year' => ['Academic Year', 'All Academic Years', $schoolYears->mapWithKeys(fn ($year) => [$year => $year])->all()],
             'semester' => ['Semester', 'All Semesters', ['1st' => '1st Semester', '2nd' => '2nd Semester']],
             'program' => ['Program', 'All Programs', $programs->mapWithKeys(fn ($program) => [$program => $program])->all()],
-            'submission_category' => ['Submission Category', 'All Categories', $categories],
+            'submission_category' => ['Journal Category', 'All Categories', $categories],
             'type' => ['Research Type', 'All Research Types', $types->mapWithKeys(fn ($type) => [$type => $type])->all()],
         ];
     @endphp

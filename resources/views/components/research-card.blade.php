@@ -10,7 +10,12 @@
     <p class="card-dept">{{ Str::limit($research->department, 45) }}</p>
     <p class="card-abstract">{{ Str::limit($research->abstract, 120) }}</p>
     <div class="card-footer">
-        <span class="card-year">{{ $research->year_published }}</span>
+        <div class="card-years">
+            <span class="card-year">Publication Year: {{ $research->year_published }}</span>
+            @if($research->school_year)
+                <span class="card-year">Academic Year: {{ $research->school_year }}</span>
+            @endif
+        </div>
         <a href="{{ route('research.show', $research) }}" class="card-details-btn">View Details</a>
     </div>
 </div>

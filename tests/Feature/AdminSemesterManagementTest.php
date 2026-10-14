@@ -92,6 +92,7 @@ class AdminSemesterManagementTest extends TestCase
 
         Schema::create('researches', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('research_handoff_id')->nullable();
             $table->string('title');
             $table->text('abstract')->nullable();
             $table->string('author_name')->nullable();

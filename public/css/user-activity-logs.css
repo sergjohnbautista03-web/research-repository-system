@@ -14,3 +14,8 @@
 .ual-heading>div>span{font-size:13px}.ual-heading h2{font-size:26px}.ual-heading p{font-size:15px}.ual-readonly{font-size:14px}
 .ual-filters label>span{font-size:13px}.ual-filters input,.ual-filters select,.ual-clear{font-size:14px}.ual-feedback{font-size:14px}
 .ual-card-head h3{font-size:17px}.ual-card-head span{font-size:14px}.ual-table{font-size:14px}.ual-table th{font-size:12px}.ual-table small{font-size:12px}.ual-role,.ual-action{font-size:12px}
+.ual-table,.system-activity-page .ual-table{min-width:1100px}
+.ual-details-cell{min-width:240px;overflow-wrap:anywhere}
+.ual-ip-cell{min-width:130px;overflow-wrap:anywhere}
+.ual-client-cell{min-width:175px}
+.ual-client-cell small{line-height:1.5}

@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', 'Edit Research Summary')
-@section('page-title', 'Edit Research Summary')
+@section('title', 'Edit Research Journal')
+@section('page-title', 'Edit Research Journal')
 
 @section('content')
 @include('admin.partials.coordinator-styles')
@@ -33,13 +33,14 @@
         $authors = [''];
     }
     $selectedCategory = old('submission_category', $research->submission_category);
-    $selectedSchoolYear = old('school_year', $research->semester?->school_year);
+    $selectedSchoolYear = $research->school_year ?? $research->semester?->school_year;
+    $schoolYears = $schoolYears->push($selectedSchoolYear)->filter()->unique();
     $selectedSemester = old('semester', $research->semester?->semester);
     $schoolYearList = collect($schoolYears)->merge($selectedSchoolYear ? [$selectedSchoolYear] : [])->filter()->unique()->values();
 @endphp
 
 <div class="coord-shell summary-editor">
-<p class="summary-intro">Update the research details and make sure all information is correct before submitting to the admin.</p>
+<p class="summary-intro">Compile the approved research papers already available to you into the journal for the assigned Academic Year, then submit the completed journal to the Department Dean for review.</p>
     <form method="POST" action="{{ route('admin.coordinator.summaries.update', $research) }}" enctype="multipart/form-data" class="summary-form" id="summaryForm">
         @csrf
         @method('PATCH')
@@ -47,8 +48,8 @@
 
         <div class="coord-head summary-heading">
             <div>
-                <h2>{{ $research->status === \App\Models\Research::STATUS_REJECTED ? 'Revise Returned Summary' : 'Basic Information' }}</h2>
-                <p>{{ $research->handoff?->dean?->name ? 'Forwarded by ' . $research->handoff->dean->name : 'Repository summary' }}</p>
+                <h2>{{ $research->status === \App\Models\Research::STATUS_REJECTED ? 'Revise Returned Journal' : 'Basic Information' }}</h2>
+                <p>{{ $research->handoff?->dean?->name ? 'Task assigned by ' . $research->handoff->dean->name : 'Research journal' }}</p>
             </div>
         </div>
 
@@ -62,7 +63,7 @@
 
         @if($research->rejection_reason)
             <div class="coord-card-pad" style="background:#fff7ed;color:#92400e;border-bottom:1px solid #fed7aa;">
-                <strong>Admin return reason:</strong> {{ $research->rejection_reason }}
+                <strong>Dean correction remarks:</strong> {{ $research->rejection_reason }}
             </div>
         @endif
 
@@ -71,11 +72,12 @@
                 <div class="coord-field">
                     <label for="title">Title</label>
                     <input id="title" type="text" name="title" value="{{ old('title', $research->title) }}" required maxlength="500">
+                    @include('components.research-id', ['research' => $research])
                 </div>
 
                 <div class="coord-grid coord-grid-3">
                     <div class="coord-field">
-                        <label for="submission_category">Submission Category</label>
+                        <label for="submission_category">Journal Category</label>
                         <select id="submission_category" name="submission_category" required>
                             @foreach($submissionCategories as $value => $label)
                                 <option value="{{ $value }}" {{ $selectedCategory === $value ? 'selected' : '' }}>{{ $label }}</option>
@@ -108,13 +110,14 @@
                     </div>
                     <div class="coord-field">
                         <label for="school_year">Academic Year</label>
-                        <select id="school_year" name="school_year">
+                        <select id="school_year" name="school_year" disabled>
                             <option value="">Not set</option>
                             @foreach($schoolYearList as $schoolYear)
                                 <option value="{{ $schoolYear }}" {{ $selectedSchoolYear === $schoolYear ? 'selected' : '' }}>{{ $schoolYear }}</option>
                             @endforeach
                         </select>
                     </div>
+                    <input type="hidden" name="school_year" value="{{ $selectedSchoolYear }}">
                     <input type="hidden" name="semester" id="semester" value="{{ $selectedSemester }}">
                 </div>
 
@@ -149,19 +152,19 @@
                 </div>
 
                 <div class="coord-field">
-                    <label for="file">Research PDF / Document</label>
+                    <label for="file">Completed Journal PDF</label>
                     <input id="file" type="file" name="file" accept="application/pdf,.pdf">
                     <span class="coord-muted">Current file: {{ $research->file_name ?: 'No file attached' }}</span>
                 </div>
             </div>
 
             <aside class="coord-card summary-preview">
-                <div class="coord-head"><div><h3>Preview</h3><p>Live preview of the research summary.</p></div></div>
+                <div class="coord-head"><div><h3>Preview</h3><p>Live preview of the journal details.</p></div></div>
                 <div class="coord-card-pad">
                     <span class="coord-pill" id="previewType">{{ $research->getTypeLabel() }}</span>
                     <h3 id="previewTitle" style="margin:14px 0 8px;color:#201044;">{{ $research->title }}</h3>
                     <p id="previewAuthors" style="margin:0 0 8px;color:#5b248c;font-weight:800;">{{ $research->authorListLabel() }}</p>
-                    <p id="previewMeta" class="coord-muted">{{ $research->department }} / {{ $research->semester?->label ?? 'Not set' }}</p>
+                    <p id="previewMeta" class="coord-muted">{{ $research->department }} / AY {{ $research->academicYearLabel() }}</p>
                     <p id="previewYear" class="coord-muted"></p>
                     <p id="previewCategory" class="coord-muted"></p>
                     <p id="previewAbstract" style="color:#3d2060;line-height:1.7;">{{ Str::limit($research->abstract, 500) }}</p>
@@ -174,7 +177,7 @@
                 <button type="button" class="coord-btn coord-btn-soft" id="summaryBack" aria-label="Previous step">←</button>
 <button type="submit" class="coord-btn coord-btn-soft" data-action="draft">Save Draft</button>
                 <button type="button" class="coord-btn coord-btn-primary" id="summaryNext">Next →</button>
-<button type="submit" class="coord-btn coord-btn-primary" id="summarySubmit" data-action="submit">Submit to Admin</button>
+<button type="submit" class="coord-btn coord-btn-primary" id="summarySubmit" data-action="submit">Submit to Dean</button>
             </div>
         </div>
     </form>

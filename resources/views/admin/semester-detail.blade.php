@@ -161,6 +161,7 @@
                         <tr>
                             <td data-label="Title">
                                 <a href="{{ route('admin.research.show', $research) }}" class="sd-main-link">{{ Str::limit($research->title, 70) }}</a>
+                                @include('components.research-id', ['research' => $research])
                                 <small>{{ $research->getSubmissionCategoryLabel() }}: {{ $research->getTypeLabel() }}</small>
                             </td>
                             <td data-label="Author">{{ Str::limit($research->author_name, 38) }}</td>

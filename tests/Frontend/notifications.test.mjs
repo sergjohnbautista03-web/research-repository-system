@@ -20,7 +20,7 @@ class Element {
 }
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
-function setup() {
+function setup(routePrefix = '/admin/notifications') {
     function makeView() {
         const view = new Element();
         view.nodes = Object.fromEntries(['[data-unread-label]', '[data-mark-all]', '[data-notification-error]', '[data-notification-items]', '[data-notification-more]'].map(key => [key, new Element()]));
@@ -28,9 +28,9 @@ function setup() {
         return view;
     }
     const panel = makeView(), inline = makeView(), toggle = new Element(), badge = new Element(), close = new Element();
-    panel.dataset = { feedUrl: '/admin/notifications/feed', readUrl: '/admin/notifications/read', readAllUrl: '/admin/notifications/read-all' };
+    panel.dataset = { feedUrl: `${routePrefix}/feed`, readUrl: `${routePrefix}/read`, readAllUrl: `${routePrefix}/read-all` };
     toggle.nodes = { '.topbar-notification-count': badge };
-    const requests = [], timers = [];
+    const requests = [], timers = [], destinations = [];
     const document = new Element();
     document.hidden = false;
     document.body = { classList: { add() {}, remove() {} } };
@@ -39,12 +39,12 @@ function setup() {
     document.getElementById = id => id === 'notificationToggle' ? toggle : close;
     document.createElement = () => new Element();
     const context = vm.createContext({
-        document, window: { location: { href: 'http://localhost/admin/users' } }, URL, AbortController,
+        document, window: { location: { href: 'http://localhost/admin/users', assign: url => destinations.push(url) } }, URL, AbortController,
         fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url: String(url), options, resolve, reject })),
         setInterval: (callback, delay) => { assert.equal(delay, 30000); timers.push(callback); },
     });
     vm.runInContext(readFileSync(new URL('../../public/js/notifications.js', import.meta.url), 'utf8'), context);
-    return { panel, inline, toggle, badge, close, document, requests, poll: timers[0] };
+    return { panel, inline, toggle, badge, close, document, requests, destinations, poll: timers[0] };
 }
 
 function item(number, isRead = false) {
@@ -160,4 +160,46 @@ test('pagination uses the full unread count and items outside the first page can
     await flush();
     assert.equal(ui.badge.hidden, true);
     assert.equal(ui.panel.querySelectorAll('[data-mark-read]').length, 0);
+});
+
+test('publication links save the read state and update the member bell before opening the published batch', async () => {
+    const ui = setup('/notifications');
+    const publication = { ...item(1), id: 'publication:batch-one',
+        message: 'Published: Technology Journals — College of Computer Studies. Published on October 13, 2026.',
+        published_at: '2026-10-13T09:00:00+08:00', url: '/journal-batches/1' };
+    assert.equal(ui.requests[0].url, 'http://localhost/notifications/feed?page=1');
+    respond(ui.requests.shift(), snapshot([publication]));
+    await flush();
+    let prevented = false;
+    const link = ui.panel.nodes['[data-notification-items]'].children[0].children[0];
+    link.events.click({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(ui.destinations.length, 0);
+    const read = ui.requests.shift();
+    assert.equal(read.url, '/notifications/read');
+    assert.deepEqual(JSON.parse(read.options.body), { id: publication.id });
+    respond(read, snapshot([{ ...publication, is_read: true }], 0));
+    await flush();
+    assert.equal(ui.badge.hidden, true);
+    assert.deepEqual(ui.destinations, ['/journal-batches/1']);
+});
+
+test('failed publication reads keep the link available for retry and modified clicks keep normal browser navigation', async () => {
+    const ui = setup('/notifications');
+    const publication = { ...item(1), published_at: item(1).date, url: '/journal-batches/1' };
+    respond(ui.requests.shift(), snapshot([publication]));
+    await flush();
+    const link = ui.panel.nodes['[data-notification-items]'].children[0].children[0];
+    link.events.click({ ctrlKey: true, preventDefault() { assert.fail('Modified clicks should navigate normally'); } });
+    assert.equal(ui.requests.length, 0);
+    link.events.click({ preventDefault() {} });
+    ui.requests.shift().resolve({ ok: false });
+    await flush();
+    assert.equal(ui.badge.textContent, '1');
+    assert.equal(ui.destinations.length, 0);
+    assert.equal(ui.panel.nodes['[data-notification-error]'].hidden, false);
+    link.events.click({ preventDefault() {} });
+    respond(ui.requests.shift(), snapshot([{ ...publication, is_read: true }], 0));
+    await flush();
+    assert.deepEqual(ui.destinations, ['/journal-batches/1']);
 });

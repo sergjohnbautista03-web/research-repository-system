@@ -57,8 +57,6 @@ $allDepts = [
 
     <main class="content">
         <div class="breadcrumb-nav">
-            <a href="{{ route('home') }}">Home</a>
-            <span>›</span>
             <a href="{{ route('research.department', rawurlencode($department)) }}">{{ $department }}</a>
             @isset($course)
             <span>›</span>
@@ -90,7 +88,6 @@ $allDepts = [
         @if($researches->isEmpty())
             <div class="empty-state">
                 <h3>No research in this department yet</h3>
-                <a href="{{ route('home') }}" class="btn btn-primary">Browse All</a>
             </div>
         @else
             <div class="research-grid">

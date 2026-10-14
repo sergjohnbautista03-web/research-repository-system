@@ -5,6 +5,8 @@
 @section('content')
 @php
     $adminUser = auth()->user();
+    $canReturnResearch = $adminUser->isGlobalAdmin() && $research->status === \App\Models\Research::STATUS_PENDING
+        && ! $research->coordinator_id && ! $research->research_handoff_id;
     $authorMetaLabel = match ($research->submission_category) {
         \App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL => 'Researchers',
         \App\Models\Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL => 'Co-author(s)',
@@ -28,6 +30,7 @@
                 </a>
             </div>
             <h2 class="rd-title">{{ $research->title }}</h2>
+            @include('components.research-id', ['research' => $research])
             @if($research->keywords)
                 <div class="rd-keywords">
                     @foreach(explode(',', $research->keywords) as $kw)
@@ -70,6 +73,12 @@
         </div>
 
         {{-- ABSTRACT --}}
+        <div class="rd-section">
+            <div class="rd-section-title">Academic Year: AY {{ $research->academicYearLabel() }}</div>
+            @if($research->handoff?->notes)<p class="rd-abstract">Dean task instructions: {{ $research->handoff->notes }}</p>@endif
+            @if($research->dean_approved_at)<p class="rd-abstract">Approved by {{ $research->deanApprovedBy?->name ?? 'Department Dean' }} on {{ $research->dean_approved_at->format('M d, Y h:i A') }}.</p>@endif
+            @if($research->forwarded_to_admin_at)<p class="rd-abstract">Forwarded to Admin on {{ $research->forwarded_to_admin_at->format('M d, Y h:i A') }}.</p>@endif
+        </div>
         <div class="rd-section">
             <div class="rd-section-title">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -134,7 +143,13 @@
         @endif
 
         {{-- ACTIONS --}}
-        @if($adminUser->isGlobalAdmin() && $research->status == 'pending')
+        @if($research->handoff?->is_batch)
+            <div class="rd-actions"><a class="rd-btn rd-btn-approve" href="{{ route('admin.journal-batches.show', $research->research_handoff_id) }}">Open Academic Year Batch</a></div>
+        @elseif($adminUser->isDepartmentDean() && $research->handoff?->dean_id === $adminUser->id && in_array($research->status, [\App\Models\Research::STATUS_DEAN_REVIEW, \App\Models\Research::STATUS_DEAN_APPROVED], true))
+            <div class="rd-actions">
+                <form method="POST" action="{{ route('admin.research.dean-forward', $research) }}">@csrf<button class="rd-btn rd-btn-approve" type="submit">Forward to Admin for Publishing</button></form>
+            </div>
+        @elseif($adminUser->isGlobalAdmin() && $research->status == 'pending')
             <div class="rd-actions">
                 <form method="POST" action="{{ route('admin.research.approve', $research) }}" style="display:inline">
                     @csrf
@@ -143,10 +158,10 @@
                         Publish
                     </button>
                 </form>
-                <button class="rd-btn rd-btn-reject" onclick="openRejectModal({{ $research->id }})">
+                @if($canReturnResearch)<button class="rd-btn rd-btn-reject" onclick="openRejectModal({{ $research->id }})">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     Return for Correction
-                </button>
+                </button>@endif
             </div>
         @elseif($adminUser->isGlobalAdmin() && $research->status == 'approved')
             <div class="rd-actions">
@@ -172,6 +187,7 @@
 </div>
 
 {{-- REJECT MODAL --}}
+@if($canReturnResearch)
 <div id="rejectModal" class="rd-modal-overlay" style="display:none">
     <div class="rd-modal">
         <div class="rd-modal-header">
@@ -180,7 +196,7 @@
             </div>
             <div>
                 <h3 class="rd-modal-title">Return for Correction</h3>
-                <p class="rd-modal-sub">Provide remarks so the Coordinator can correct and resubmit the research.</p>
+                <p class="rd-modal-sub">Provide remarks so the submitter can correct and resubmit the research.</p>
             </div>
         </div>
         <form id="rejectForm" method="POST">
@@ -196,6 +212,7 @@
         </form>
     </div>
 </div>
+@endif
 
 <style>
 .rd-shell{width:min(100%,1280px);margin:0 auto;}
@@ -206,6 +223,8 @@
 .rd-type-badge{display:inline-flex;align-items:center;padding:5px 14px;background:#f0eaf9;border:1.5px solid #e2d5f4;border-radius:50px;font-size:12px;font-weight:700;color:#6b2fa0;text-transform:uppercase;letter-spacing:.5px;}
 .rd-status-badge{display:inline-flex;align-items:center;padding:5px 14px;border-radius:50px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
 .rd-status-pending{background:#fef9c3;border:1.5px solid #fde047;color:#854d0e;}
+.rd-status-dean_review{background:#fef9c3;border:1.5px solid #fde047;color:#854d0e;}
+.rd-status-dean_approved{background:#ede9fe;border:1.5px solid #c4b5fd;color:#5b21b6;}
 .rd-status-approved{background:#dcfce7;border:1.5px solid #86efac;color:#166534;}
 .rd-status-archived{background:#e5e7eb;border:1.5px solid #d1d5db;color:#374151;}
 .rd-status-rejected{background:#fee2e2;border:1.5px solid #fca5a5;color:#991b1b;}
@@ -269,8 +288,9 @@
 <script>
 function togglePdfViewer() { window.toggleProtectedDocument?.(); }
 
+@if($canReturnResearch)
 function openRejectModal(id) {
-    document.getElementById('rejectForm').action = '/admin/researches/' + id + '/reject';
+    document.getElementById('rejectForm').action = @json(route('admin.research.reject', $research));
     document.getElementById('rejectModal').style.display = 'flex';
 }
 function closeRejectModal() {
@@ -279,6 +299,7 @@ function closeRejectModal() {
 document.getElementById('rejectModal').addEventListener('click', function(e) {
     if (e.target === this) closeRejectModal();
 });
+@endif
 </script>
 @endpush
 

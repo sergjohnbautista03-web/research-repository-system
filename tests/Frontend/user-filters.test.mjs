@@ -12,10 +12,11 @@ test('live filters debounce, reject stale responses, update modal data and clear
         removeAttribute(name) { delete this.attrs[name]; }
     }
     const search = new Element(), clear = new Element(), status = new Element();
-    const selects = ['role', 'school_year', 'semester', 'year_level'].map(name => Object.assign(new Element(), { name, value: '2' }));
+    const selects = ['role', 'program', 'year_level'].map(name => Object.assign(new Element(), { name, value: '2' }));
     selects[0].value = 'student';
+    selects[1].value = 'Information Technology';
     const yearFilter = {};
-    selects[3].closest = () => yearFilter;
+    selects[2].closest = () => yearFilter;
     const form = Object.assign(new Element(), { action: 'https://ube.test/admin/users',
         elements: { search, ...Object.fromEntries(selects.map(select => [select.name, select])) } });
     form.querySelector = selector => selector === '[data-clear-filters]' ? clear : null;
@@ -49,7 +50,10 @@ test('live filters debounce, reject stale responses, update modal data and clear
     assert.equal(requests.length, 1);
     assert.equal(requests[0].url.searchParams.get('search'), 'Alex');
     assert.equal(requests[0].url.searchParams.get('year_level'), '2');
-    selects[3].value = '3';
+    assert.equal(requests[0].url.searchParams.get('program'), 'Information Technology');
+    assert.equal(requests[0].url.searchParams.has('school_year'), false);
+    assert.equal(requests[0].url.searchParams.has('semester'), false);
+    selects[2].value = '3';
     form.emit('change', { target: { matches: () => true } });
     assert.equal(requests.length, 2);
     assert.equal(requests[0].options.signal.aborted, true);
@@ -63,7 +67,7 @@ test('live filters debounce, reject stale responses, update modal data and clear
     clear.emit('click');
     assert.equal(search.value, '');
     assert.ok(selects.every(select => select.value === ''));
-    assert.equal(requests[2].url.searchParams.get('semester'), '');
+    assert.equal(requests[2].url.searchParams.get('program'), '');
     assert.equal(requests[2].url.searchParams.has('page'), false);
     requests[2].resolve({ ok: false });
     await pause(0);

@@ -30,6 +30,7 @@ Route::post('/contact', function (\Illuminate\Http\Request $request) {
     return back()->with('contact_success', true);
 })->name('contact.send');
 Route::get('/research/{research}', [ResearchController::class, 'show'])->name('research.show');
+Route::get('/journal-batches/{batch}', [ResearchController::class, 'publishedBatch'])->name('research.journal-batch');
 Route::post('/research/{research}/citation-copy', [ResearchController::class, 'recordCitationCopy'])->name('research.citation-copy');
 Route::get('/department/{department}', [ResearchController::class, 'byDepartment'])->name('research.department')->where('department', '[^/]+');
 Route::get('/department/{department}/{course}', [ResearchController::class, 'byCourse'])->name('research.course')->where(['department' => '[^/]+', 'course' => '[^/]+']);
@@ -54,6 +55,9 @@ Route::post('/research/{research}/capture-attempt', [ResearchController::class, 
 
 // ── Authenticated user routes ──────────────────────────────────────────────
 Route::middleware(['auth', 'policy.accepted'])->group(function () {
+    Route::get('/notifications/feed', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.feed');
+    Route::post('/notifications/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::get('/dashboard', [ResearchController::class, 'userDashboard'])->name('user.dashboard');
     Route::get('/submit', [ResearchController::class, 'submitForm'])->name('research.submit');
     Route::post('/submit', [ResearchController::class, 'store'])->name('research.store');
@@ -116,15 +120,22 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
     Route::delete('/semesters/{semester}', [AdminController::class, 'destroySemester'])->name('semesters.destroy');
 
     // Research management
+    Route::get('/journal-batches', [\App\Http\Controllers\JournalBatchController::class, 'index'])->name('journal-batches');
+    Route::get('/journal-batches/{batch}', [\App\Http\Controllers\JournalBatchController::class, 'show'])->name('journal-batches.show');
+    Route::post('/journal-batches/{batch}/journals', [\App\Http\Controllers\JournalBatchController::class, 'storeJournal'])->name('journal-batches.journals.store');
+    Route::patch('/journal-batches/{batch}/journals/{journal}', [\App\Http\Controllers\JournalBatchController::class, 'storeJournal'])->name('journal-batches.journals.update');
+    Route::post('/journal-batches/{batch}/actions/{action}', [\App\Http\Controllers\JournalBatchController::class, 'transition'])->name('journal-batches.transition');
     Route::get('/research-handoffs', [AdminController::class, 'researchHandoffs'])->name('research-handoffs');
     Route::get('/research-handoffs/create', [AdminController::class, 'createResearchHandoff'])->name('research-handoffs.create');
     Route::post('/research-handoffs', [AdminController::class, 'storeResearchHandoff'])->name('research-handoffs.store');
-    Route::get('/research-handoffs/{handoff}/file', [AdminController::class, 'viewResearchHandoffFile'])->name('research-handoffs.file');
     Route::get('/research-handoffs/{handoff}/add-research', [AdminController::class, 'addResearchFromHandoff'])->name('research-handoffs.add-research');
     Route::get('/researches', [AdminController::class, 'researches'])->name('researches');
     Route::get('/researches/{research}', [AdminController::class, 'showResearch'])->name('research.show');
     Route::get('/researches/{research}/view-file', [ResearchController::class, 'adminViewFile'])->name('research.view-file');
     Route::post('/researches/{research}/approve', [AdminController::class, 'approveResearch'])->name('research.approve');
+    Route::post('/researches/{research}/dean-approve', [AdminController::class, 'deanApproveJournal'])->name('research.dean-approve');
+    Route::post('/researches/{research}/dean-return', [AdminController::class, 'deanReturnJournal'])->name('research.dean-return');
+    Route::post('/researches/{research}/dean-forward', [AdminController::class, 'deanForwardJournal'])->name('research.dean-forward');
     Route::post('/researches/{research}/archive', [AdminController::class, 'archiveResearch'])->name('research.archive');
     Route::post('/researches/{research}/publish', [AdminController::class, 'publishResearch'])->name('research.publish');
     Route::post('/researches/{research}/reject', [AdminController::class, 'rejectResearch'])->name('research.reject');
@@ -135,6 +146,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'policy.accepted', '
     Route::get('/users/activate-existing', [AdminController::class, 'activateExistingUsers'])->name('users.activate-existing');
     Route::post('/users/activate-existing', [AdminController::class, 'activateUsersForCurrentSemester'])->name('users.activate-current');
     Route::get('/users/{user}', [AdminController::class, 'showUser'])->name('user.show');
+    Route::patch('/users/{user}/program', [AdminController::class, 'updateUserProgram'])->name('user.program');
     Route::post('/users/{user}/toggle', [AdminController::class, 'toggleUserStatus'])->name('user.toggle');
     Route::delete('/users/{user}', [AdminController::class, 'deleteUser'])->name('user.delete');
 

@@ -1,0 +1,111 @@
+@startuml
+title UBE Research Repository — Updated Use Case Diagram
+Current implementation · 13 October 2026
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecaseBackgroundColor #FCFAFF
+skinparam usecaseBorderColor #6B4D8C
+actor "Guest / Public visitor" as Visitor
+actor "Account holder" as Account
+actor "Student / Faculty" as Member
+actor "Department Dean" as Dean
+actor "Research Coordinator" as Coordinator
+actor "Administrator" as Admin
+Account --|> Visitor
+Member --|> Account
+Dean --|> Account
+Coordinator --|> Account
+Admin --|> Account
+rectangle "UBE Research Repository" {
+  package "Public repository" {
+    usecase "Search and filter\npublished research" as browse
+    usecase "View research details\nand copy citations" as details
+    usecase "Read About, FAQ and policy" as information
+    usecase "Send a contact message" as contact
+  }
+  package "Shared account access" {
+    usecase "Log in / Log out" as login
+    usecase "Reset forgotten password" as reset
+    usecase "Accept repository policy" as policy
+    usecase "Update profile, photo\nand password" as profile
+  }
+  package "Member access" {
+    usecase "View personal dashboard\nand recently viewed research" as reader_dashboard
+    usecase "Read full documents\nin the protected viewer" as read
+    usecase "Save / Unsave research\nand view saved items" as pin
+  }
+  package "Journal preparation" {
+    usecase "View assigned journal tasks\nand batch status" as tasks
+    usecase "Add / Edit journal details\nand upload completed PDFs" as prepare
+    usecase "Submit completed batch\nto the Dean" as submit
+    usecase "Generate preparation reports\nand export PDF / Excel" as coordinator_reports
+    usecase "View workflow notifications" as coordinator_notifications
+  }
+  package "Department management and review" {
+    usecase "Assign journal task\nby Academic Year and program" as assign
+    usecase "Review submitted journal PDFs\nand forward batch to Admin" as forward
+    usecase "Create / Import\nStudent and Faculty accounts" as import
+    usecase "Activate continuing members\nfor the current semester" as activate
+    usecase "Manage department members\nand view user activity logs" as department_users
+    usecase "View dashboard, notifications\nand department reports" as dean_reports
+  }
+  package "System administration and publication" {
+    usecase "Review forwarded journal PDFs\nand publish the entire batch" as publish
+    usecase "Create Dean and\nCoordinator accounts" as staff
+    usecase "Manage Academic Years\nand semesters" as semesters
+    usecase "Manage user accounts" as admin_users
+    usecase "View dashboard, notifications\nand export repository reports" as admin_reports
+    usecase "Inspect system activity\nand capture-attempt logs" as logs
+    usecase "Manage contact messages" as messages
+  }
+}
+Visitor -- browse
+Visitor -- details
+Visitor -- information
+Visitor -- contact
+Account -- login
+Account -- reset
+Account -- policy
+Account -- profile
+Member -- reader_dashboard
+Member -- read
+Member -- pin
+Coordinator -- tasks
+Coordinator -- prepare
+Coordinator -- submit
+Coordinator -- coordinator_reports
+Coordinator -- coordinator_notifications
+Dean -- assign
+Dean -- forward
+Dean -- import
+Dean -- activate
+Dean -- department_users
+Dean -- dean_reports
+Admin -- publish
+Admin -- staff
+Admin -- semesters
+Admin -- admin_users
+Admin -- admin_reports
+Admin -- logs
+Admin -- messages
+note right of read
+  Active, approved member account; current policy
+  accepted; active semester enrollment required.
+end note
+note bottom of submit
+  Submitted journals cannot be edited.
+  Submission, forwarding and publication each
+  require complete details and every journal PDF.
+end note
+note bottom of assign
+  Dean and Coordinator actions enforce department
+  scope and assignment ownership. Academic Year
+  and assigned program remain fixed.
+end note
+legend bottom
+  Actor generalization inherits public and shared account capabilities.
+  Current flow: Dean assigns → Coordinator submits → Dean forwards → Admin publishes.
+  No separate Dean approval/return step; no direct Student/Faculty submission.
+endlegend
+@enduml

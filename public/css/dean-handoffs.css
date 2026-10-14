@@ -74,12 +74,12 @@
 
 /* Activity-log aligned Dean handoff layout. */
 .dh-page{color:#35154e;font-size:13px}
-.dh-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.dh-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:18px}
 .dh-stat{min-width:0;gap:10px;padding:14px 12px;box-sizing:border-box;border:1px solid #e7dcf1;border-top:3px solid #955dcd;border-radius:16px;background:linear-gradient(130deg,#fff,#f8f2ff);box-shadow:none}
 .dh-stat-icon{width:44px;height:44px;border-radius:12px}.dh-stat-icon svg{width:24px;height:24px}
 .dh-stat-copy{gap:2px}.dh-stat-copy>span{font-size:12px;color:#73578e}.dh-stat-copy strong{font-size:27px;color:#4b197e}.dh-stat-copy small{font-size:10px;color:#9988a7}
 .dh-chevron{display:none}
-.dh-filters{grid-template-columns:minmax(210px,1.5fr) repeat(3,minmax(140px,1fr)) auto;gap:10px;padding:16px;margin-bottom:14px;border:1px solid #e8dcf3;border-radius:18px;box-shadow:0 8px 24px rgba(64,30,100,.05)}
+.dh-filters{grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:10px;padding:16px;margin-bottom:14px;border:1px solid #e8dcf3;border-radius:18px;box-shadow:0 8px 24px rgba(64,30,100,.05)}
 .dh-filters label{margin-bottom:6px;font-size:11px;text-transform:none;font-weight:700;color:#65457e}
 .dh-filters input,.dh-filters select{height:41px;padding:0 12px;border:1px solid #decdef;border-radius:11px;background:#fcfaff;color:#32144e;font-size:12px}
 .dh-search-input svg{left:12px;top:10px;width:20px;height:20px}.dh-search-input input{padding-left:39px}
@@ -96,3 +96,25 @@
 .dh-stat-copy>span{font-size:14px}.dh-stat-copy strong{font-size:29px}.dh-stat-copy small{font-size:12px}
 .dh-filters label{font-size:13px}.dh-filters input,.dh-filters select,.dh-filters .dh-button{font-size:14px}.dh-feedback{font-size:14px}
 .dh-records-header h2{font-size:17px}.dh-records-header p{font-size:14px}.dh-table{font-size:14px}.dh-table th{font-size:12px}.dh-category,.dh-status{font-size:12px}.dh-view{font-size:13px}.dh-footer{font-size:14px}
+.dh-records-header .dh-assign-task{margin-left:auto;flex-shrink:0;min-height:44px;padding:12px 18px;border-radius:11px;background:var(--purple-main);border-color:var(--purple-main);color:#fff}
+.dh-records-header .dh-assign-task:hover{background:var(--purple-deep);border-color:var(--purple-deep)}
+
+/* Journal preparation records. */
+.dh-preparation-table{min-width:1000px;table-layout:fixed;font-size:14px}
+.dh-preparation-table th{padding:16px 18px;background:#fff;color:#35154e;text-transform:none;letter-spacing:0;font-size:14px;white-space:normal;vertical-align:top;border-bottom:1px solid #ded7e6}
+.dh-preparation-table td{padding:18px;line-height:1.8;overflow-wrap:anywhere;color:#35154e}
+.dh-preparation-table th:nth-child(1){width:5%}
+.dh-preparation-table th:nth-child(2){width:18%}
+.dh-preparation-table th:nth-child(3){width:13%}
+.dh-preparation-table th:nth-child(4){width:14%}
+.dh-preparation-table th:nth-child(5){width:15%}
+.dh-preparation-table th:nth-child(6){width:17%}
+.dh-preparation-table th:nth-child(7){width:18%}
+.dh-preparation-table .dh-date{white-space:normal}
+.dh-task-action{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;max-width:100%;min-height:40px;padding:10px 14px;border:1px solid var(--purple-main);border-radius:9px;background:var(--purple-main);color:#fff;text-decoration:none;font:inherit;font-size:13px;font-weight:600;line-height:1.3;text-align:center;overflow-wrap:normal;cursor:pointer}
+.dh-task-action:hover{background:var(--purple-deep);border-color:var(--purple-deep);color:#fff;text-decoration:none}
+.dh-task-action:focus-visible{outline:3px solid #c5a5e6;outline-offset:3px}
+.dh-task-details summary{list-style:none}
+.dh-task-details summary::-webkit-details-marker{display:none}
+.dh-task-details strong{display:block;margin-top:10px;font-size:13px;overflow-wrap:anywhere}
+.dh-task-details p{margin:5px 0 0;color:#806b91;font-size:13px;white-space:pre-line}

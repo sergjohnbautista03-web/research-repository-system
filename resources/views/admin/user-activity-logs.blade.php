@@ -1,6 +1,6 @@
 @extends('layouts.admin')
-@section('title', 'User Activity Logs')
-@section('page-title', 'User Activity Logs')
+@section('title', 'Department Logs')
+@section('page-title', 'Department Logs')
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/user-activity-logs.css') }}?v={{ filemtime(public_path('css/user-activity-logs.css')) }}">
 @endpush
@@ -17,14 +17,15 @@
 <section id="ual-results" class="ual-card">
     <div class="ual-card-head"><h3>Activity History</h3><span>{{ number_format($logs->total()) }} log(s)</span></div>
     <div class="ual-table-wrap"><table class="ual-table">
-        <thead><tr><th>Date &amp; Time</th><th>User</th><th>Role</th><th>Action</th><th>Details</th></tr></thead>
+        <thead><tr><th>Date &amp; Time</th><th>User</th><th>Role</th><th>Action</th><th>Details</th><th>IP Address</th><th>Device &amp; OS</th></tr></thead>
         <tbody>@forelse($logs as $log)<tr>
             <td><time datetime="{{ $log->created_at?->toIso8601String() }}">{{ $log->created_at?->timezone('Asia/Manila')->format('M d, Y') }}<small>{{ $log->created_at?->timezone('Asia/Manila')->format('g:i A') }}</small></time></td>
             <td><strong>{{ $log->user?->name ?? $log->user_name }}</strong><small>{{ $log->user?->email }}</small></td>
             <td><span class="ual-role ual-role-{{ $log->role }}">{{ ucfirst($log->role) }}</span></td>
             <td><span class="ual-action">{{ $actions[$log->action] ?? $log->action }}</span></td>
-            <td>{{ $log->details }}</td>
-        </tr>@empty<tr><td colspan="5" class="ual-empty">No activities match the selected filters.</td></tr>@endforelse</tbody>
+            <td class="ual-details-cell">{{ $log->details }}</td>
+            @include('admin.partials.activity-client-cells', ['log' => $log])
+        </tr>@empty<tr><td colspan="7" class="ual-empty">No activities match the selected filters.</td></tr>@endforelse</tbody>
     </table></div>
     <div class="ual-pagination">{{ $logs->links('vendor.pagination.custom') }}</div>
 </section>

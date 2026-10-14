@@ -29,7 +29,7 @@
         && $authUser->role === 'researcher'
         && ! is_null($authUser->graduation_year);
     $userRoleLabel = auth()->check()
-        ? ($authUser->isDepartmentDean() ? 'Dean' : ($authUser->isResearchCoordinator() ? 'Research Coordinator' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student Researcher' : ucfirst($authUser->role)))))
+        ? ($authUser->isDepartmentDean() ? 'Dean' : ($authUser->isResearchCoordinator() ? 'Research Coordinator' : ($isFacultyAccount ? 'Faculty' : ($isStudentResearcher ? 'Student' : ucfirst($authUser->role)))))
         : null;
 @endphp
 
@@ -51,6 +51,7 @@
         <a href="{{ route('contact') }}" class="{{ request()->routeIs('contact') ? 'active' : '' }}">Contact</a>
 
         @if(auth()->check())
+            <a href="{{ $authUser->isAdmin() ? route('admin.dashboard') : route('user.dashboard') }}" class="{{ request()->routeIs('admin.dashboard', 'admin.coordinator.dashboard', 'user.dashboard') ? 'active' : '' }}">Dashboard</a>
             <div class="user-menu">
     <button type="button" class="user-btn" aria-haspopup="menu">
         @if(auth()->user()->profile_photo)
@@ -63,15 +64,6 @@
     </button>
     <div class="user-dropdown">
     <div class="dd-actions">
-        <a href="{{ $authUser->isAdmin() ? route('admin.dashboard') : route('user.dashboard') }}" class="dropdown-item">
-            <span class="dd-item-icon dd-icon-profile" aria-hidden="true">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            </span>
-            <span class="dd-item-copy">
-                <span class="dd-item-label">Dashboard</span>
-                <span class="dd-item-sub">Go to your dashboard</span>
-            </span>
-        </a>
         <a href="{{ route('profile.edit') }}" class="dropdown-item">
             <span class="dd-item-icon dd-icon-profile" aria-hidden="true">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg>
@@ -156,6 +148,7 @@
                 </svg>
             </button>
 
+            <div data-auth-view="login">
             <div class="login-modal-header">
                 <div class="login-modal-icon">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -218,7 +211,7 @@
                         <input type="checkbox" name="remember">
                         <span>Remember me</span>
                     </label>
-                    <a href="{{ route('password.request') }}" class="login-modal-forgot">Forgot Password?</a>
+                    <a href="{{ route('password.request') }}" class="login-modal-forgot" data-forgot-password-trigger>Forgot Password?</a>
                 </div>
 
                 <button type="submit" class="login-modal-submit">
@@ -233,6 +226,54 @@
                     By signing in, you agree to follow the <a href="{{ route('policy.show') }}">Repository Use Policy</a>.
                 </p>
             </form>
+            </div>
+
+            <div data-auth-view="forgot" hidden>
+                <div class="login-modal-header">
+                    <div class="login-modal-icon" aria-hidden="true">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="5" width="18" height="14" rx="2"/>
+                            <path d="m3 7 9 6 9-6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 id="forgotModalTitle" class="login-modal-forgot-title">Forgot Password?</h2>
+                        <p>We'll send you a link to reset your password</p>
+                    </div>
+                </div>
+
+                <form method="POST" action="{{ route('password.email') }}" data-forgot-password-form>
+                    @csrf
+                    <div class="login-modal-error" data-forgot-password-error role="alert" hidden></div>
+                    <div class="login-modal-status" data-forgot-password-status role="status" aria-live="polite" hidden></div>
+
+                    <div class="login-modal-group">
+                        <label for="modal-reset-email">Email Address</label>
+                        <div class="login-modal-input-wrap">
+                            <span class="login-modal-input-icon" aria-hidden="true">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="5" width="18" height="14" rx="2"/>
+                                    <path d="m3 7 9 6 9-6"/>
+                                </svg>
+                            </span>
+                            <input type="email" id="modal-reset-email" name="email" placeholder="Enter your email address" autocomplete="email" maxlength="255" required>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="login-modal-submit">
+                        <span data-forgot-password-submit-label>Send Reset Link</span>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14m-7-7 7 7-7 7"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="login-modal-back" data-back-to-login>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 12H5m7 7-7-7 7-7"/>
+                        </svg>
+                        Back to Sign In
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 @endguest

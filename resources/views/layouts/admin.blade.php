@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/notifications.css') }}?v={{ filemtime(public_path('css/notifications.css')) }}">
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('css/report-print.css') }}?v={{ filemtime(public_path('css/report-print.css')) }}">
     <script src="{{ asset('js/report-print.js') }}?v={{ filemtime(public_path('js/report-print.js')) }}" data-stylesheet="{{ asset('css/report-print.css') }}?v={{ filemtime(public_path('css/report-print.css')) }}" data-letterhead="{{ asset('images/report-letterhead.jpeg') }}"></script>
@@ -50,56 +51,38 @@
         <span class="sidebar-logo">
             <img src="{{ asset('images/philcstlogologo.png') }}" alt="PhilCST logo">
         </span>
-        <div>
+        <div class="sidebar-brand-text">
             <span class="sidebar-title">{{ $portalTitle }}</span>
-            <span class="sidebar-sub">Research Portal</span>
         </div>
+        <a href="{{ route('home') }}" class="sidebar-home-link" aria-label="Go to home page" title="Home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/></svg>
+        </a>
     </div>
 
+<a href="{{ route($isResearchCoordinator ? 'admin.coordinator.dashboard' : 'admin.dashboard') }}" class="sidelink {{ request()->routeIs('admin.dashboard') || ($isResearchCoordinator && request()->routeIs('admin.coordinator.dashboard')) ? 'active' : '' }}">
+    <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+    Dashboard
+</a>
+<a href="{{ route('admin.journal-batches') }}" class="sidelink {{ request()->routeIs('admin.journal-batches*') ? 'active' : '' }}">
+    <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="15" rx="2"/><path d="M7 3v6M17 3v6M3 11h18M7 15h4M7 18h8"/></svg></span>
+    {{ $isGlobalAdmin ? 'Journal Batches for Publication' : 'Journal Batches' }}
+</a>
 @if($isResearchCoordinator)
     @php
         $coordinatorPendingHandoffIds = \App\Models\ResearchHandoff::where('department', $adminUser->department)
             ->where('status', \App\Models\ResearchHandoff::STATUS_PENDING)
             ->pluck('id');
         $coordinatorPendingHandoffs = $coordinatorPendingHandoffIds->count();
-        $coordinatorReturned = \App\Models\Research::where('department', $adminUser->department)
-            ->where('status', \App\Models\Research::STATUS_REJECTED)
-            ->count();
     @endphp
-    <a href="{{ route('admin.coordinator.dashboard') }}" class="sidelink {{ request()->routeIs('admin.dashboard') || request()->routeIs('admin.coordinator.dashboard') ? 'active' : '' }}">
-        <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-        Dashboard
-    </a>
-    <a href="{{ route('admin.coordinator.research-monitoring') }}" class="sidelink {{ request()->routeIs('admin.coordinator.research-monitoring') ? 'active' : '' }}">
-        <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6"/><path d="M9 16h6"/><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
-        Research Monitoring
-    </a>
     <a href="{{ route('admin.coordinator.dean-submissions') }}" class="sidelink {{ request()->routeIs('admin.coordinator.dean-submissions') ? 'active' : '' }}">
         <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12.5V19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6.5"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/><path d="m7 10-5 2.5L12 18l10-5.5L17 10"/></svg></span>
-        Dean Submissions
+        Assigned Journal Tasks
         @if($coordinatorPendingHandoffs > 0)<span class="badge-count">{{ $coordinatorPendingHandoffs }}</span>@endif
-    </a>
-    <a href="{{ route('admin.coordinator.submissions') }}" class="sidelink {{ request()->routeIs('admin.coordinator.submissions') ? 'active' : '' }}">
-        <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="m22 2-7 20-4-9-9-4Z"/></svg></span>
-        Submission to Admin
-    </a>
-    <a href="{{ route('admin.coordinator.returned') }}" class="sidelink {{ request()->routeIs('admin.coordinator.returned') ? 'active' : '' }}">
-        <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 14-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/></svg></span>
-        Returned Researches
-        @if($coordinatorReturned > 0)<span class="badge-count">{{ $coordinatorReturned }}</span>@endif
     </a>
     <a href="{{ route('admin.coordinator.reports') }}" class="sidelink {{ request()->routeIs('admin.coordinator.reports') ? 'active' : '' }}">
         <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
         Reports
     </a>
-@endif
-
-@if(! $isResearchCoordinator)
-    {{-- Dashboard --}}
-<a href="{{ route('admin.dashboard') }}" class="sidelink {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-    <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
-    Dashboard
-</a>
 @endif
 
 @if(! $isResearchCoordinator && $isDepartmentDean)
@@ -108,7 +91,7 @@
     @if($isResearchCoordinator)
         Research Inbox
     @elseif($isDepartmentDean)
-        Research Handoffs
+        Journal Preparation Task
     @else
         Handoffs
     @endif
@@ -124,10 +107,6 @@
 <a href="{{ route('admin.researches') }}" class="sidelink {{ request()->routeIs('admin.researches*') ? 'active' : '' }}">
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414A1 1 0 0 1 19 9.414V19a2 2 0 0 1-2 2z"/></svg></span>
     Researches
-    @if($isGlobalAdmin)
-        @php $pending = \App\Models\Research::pending()->count(); @endphp
-        @if($pending > 0)<span class="badge-count">{{ $pending }}</span>@endif
-    @endif
 </a>
 @endif
 
@@ -140,7 +119,7 @@
 @if($isDepartmentDean)
 <a href="{{ route('admin.user-activity-logs') }}" class="sidelink {{ request()->routeIs('admin.user-activity-logs') ? 'active' : '' }}">
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16l4-4 3 3 5-7"/></svg></span>
-    User Activity Logs
+    Department Logs
 </a>
 @endif
 @endif
@@ -166,40 +145,21 @@
 @if($isGlobalAdmin)
 <a href="{{ route('admin.activity-logs') }}" class="sidelink {{ request()->routeIs('admin.activity-logs') ? 'active' : '' }}">
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg></span>
-    Activity Logs
+    System Logs
 </a>
 @endif
 
-    <div class="sidebar-user sidebar-account" data-sidebar-account>
+    <div class="sidebar-user">
     <span class="user-avatar-sm">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
     <div style="flex:1; min-width:0;">
-        <strong>{{ Str::limit(auth()->user()->name, 18) }}</strong>
+        <strong>{{ ($isDepartmentDean || $isResearchCoordinator) ? $adminUser->name : Str::limit($adminUser->name, 18) }}</strong>
         <small>
-            {{ $accountRoleLabel }}
-            @if(($isDepartmentDean || $isResearchCoordinator) && $adminUser->department)
-                &middot; {{ $adminUser->department }}
+            @if($isDepartmentDean || $isResearchCoordinator)
+                {{ $adminUser->department }}
+            @else
+                {{ $accountRoleLabel }}
             @endif
         </small>
-    </div>
-    <button type="button" class="sidebar-account-toggle" aria-haspopup="menu" aria-expanded="false" aria-label="Open account menu">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m18 15-6-6-6 6"/></svg>
-    </button>
-    <div class="sidebar-account-menu" role="menu">
-        <button type="button" class="sidebar-account-item" role="menuitem" onclick="toggleAdminProfileModal(true)">
-            <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg></span>
-            My Profile
-        </button>
-        <a href="{{ route('home') }}" class="sidebar-account-item" role="menuitem">
-            <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></span>
-            Browse
-        </a>
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit" class="sidebar-account-item is-danger" role="menuitem">
-                <span class="sidebar-account-item-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></span>
-                Sign Out
-            </button>
-        </form>
     </div>
 </div>
 </aside>
@@ -209,13 +169,11 @@
         <h1 class="page-title">@yield('page-title', 'Dashboard')</h1>
         <div class="topbar-right">
             <span class="topbar-date">{{ now('Asia/Manila')->format('F j, Y') }}</span>
-            <button type="button" id="notificationToggle" class="topbar-notifications"
-                aria-label="Notifications" aria-haspopup="dialog" aria-controls="notificationPanel" aria-expanded="false" title="Notifications">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <span class="topbar-notification-count" aria-hidden="true" hidden>0</span>
-            </button>
+            @include('components.notification-bell')
         </div>
     </div>
+
+    @yield('dashboard-backdrop')
 
     @if($errors->any())
         <div class="flash flash-error" role="alert">{{ $errors->first() }}</div>

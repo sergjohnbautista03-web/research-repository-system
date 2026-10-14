@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1640" viewBox="0 0 1600 1640" role="img" aria-labelledby="title description">
+<title id="title">UBE Research Repository — Updated Use Case Diagram</title>
+<desc id="description">UML actors connected to goal-level use cases inside the repository boundary. Shared account and public capabilities apply to every relevant role. Current journal workflow: Dean assigns, Coordinator prepares and submits, Dean forwards, Administrator publishes.</desc>
+<style>text{font-family:Arial,sans-serif;fill:#262033}.heading{font-size:30px;font-weight:700}.sub{font-size:17px;fill:#625772}.group{font-size:18px;font-weight:700;fill:#584477}.label{font-size:17px}.actor{font-size:18px;font-weight:700}.note{font-size:17px;fill:#51485f}.association{stroke:#80728e;stroke-width:1.6;fill:none}.stick{stroke:#49365f;stroke-width:2.5;fill:none}</style>
+<rect width="1600" height="1640" fill="#fff"/>
+<text x="800" y="48" text-anchor="middle" class="heading">UBE Research Repository</text>
+<text x="800" y="79" text-anchor="middle" class="sub">Updated use case diagram · Current implementation · 13 October 2026</text>
+<rect x="210" y="108" width="1180" height="1320" rx="10" fill="#fcfaff" stroke="#5c427a" stroke-width="2"/>
+<text x="800" y="141" text-anchor="middle" class="group">System boundary</text>
+<rect x="240" y="165" width="525" height="390" rx="8" fill="#f5f0fa" stroke="#e3d9ed"/>
+<text x="502.5" y="194" text-anchor="middle" class="group">Public repository</text>
+<path class="association" d="M 127 345 L 226 345 L 277.5 258.25"/>
+<ellipse id="browse" cx="502.5" cy="258.25" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="254.25" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Search and filter</tspan><tspan x="502.5" dy="20">published research</tspan></text>
+<path class="association" d="M 127 345 L 226 345 L 277.5 340.75"/>
+<ellipse id="details" cx="502.5" cy="340.75" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="336.75" text-anchor="middle" class="label"><tspan x="502.5" dy="0">View research details</tspan><tspan x="502.5" dy="20">and copy citations</tspan></text>
+<path class="association" d="M 127 345 L 226 345 L 277.5 423.25"/>
+<ellipse id="information" cx="502.5" cy="423.25" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="429.25" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Read About, FAQ and policy</tspan></text>
+<path class="association" d="M 127 345 L 226 345 L 277.5 505.75"/>
+<ellipse id="contact" cx="502.5" cy="505.75" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="511.75" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Send a contact message</tspan></text>
+<circle class="stick" cx="104" cy="296" r="15"/><path class="stick" d="M 104 311 V 359 M 77 329 H 131 M 104 359 L 81 394 M 104 359 L 127 394"/>
+<text x="104" y="422" text-anchor="middle" class="actor"><tspan x="104" dy="0">Guest</tspan><tspan x="104" dy="23">Public visitor</tspan></text>
+<rect x="835" y="165" width="525" height="390" rx="8" fill="#f5f0fa" stroke="#e3d9ed"/>
+<text x="1097.5" y="194" text-anchor="middle" class="group">Shared account access</text>
+<path class="association" d="M 1473 345 L 1374 345 L 1322.5 258.25"/>
+<ellipse id="login" cx="1097.5" cy="258.25" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="264.25" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Log in / Log out</tspan></text>
+<path class="association" d="M 1473 345 L 1374 345 L 1322.5 340.75"/>
+<ellipse id="reset" cx="1097.5" cy="340.75" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="346.75" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Reset forgotten password</tspan></text>
+<path class="association" d="M 1473 345 L 1374 345 L 1322.5 423.25"/>
+<ellipse id="policy" cx="1097.5" cy="423.25" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="429.25" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Accept repository policy</tspan></text>
+<path class="association" d="M 1473 345 L 1374 345 L 1322.5 505.75"/>
+<ellipse id="profile" cx="1097.5" cy="505.75" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="501.75" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Update profile, photo</tspan><tspan x="1097.5" dy="20">and password</tspan></text>
+<circle class="stick" cx="1496" cy="296" r="15"/><path class="stick" d="M 1496 311 V 359 M 1469 329 H 1523 M 1496 359 L 1473 394 M 1496 359 L 1519 394"/>
+<text x="1496" y="422" text-anchor="middle" class="actor"><tspan x="1496" dy="0">Account holder</tspan></text>
+<rect x="240" y="575" width="525" height="390" rx="8" fill="#f5f0fa" stroke="#e3d9ed"/>
+<text x="502.5" y="604" text-anchor="middle" class="group">Member access</text>
+<path class="association" d="M 127 755 L 226 755 L 277.5 682"/>
+<ellipse id="reader_dashboard" cx="502.5" cy="682" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="678" text-anchor="middle" class="label"><tspan x="502.5" dy="0">View personal dashboard</tspan><tspan x="502.5" dy="20">and recently viewed research</tspan></text>
+<path class="association" d="M 127 755 L 226 755 L 277.5 792"/>
+<ellipse id="read" cx="502.5" cy="792" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="788" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Read full documents</tspan><tspan x="502.5" dy="20">in the protected viewer</tspan></text>
+<path class="association" d="M 127 755 L 226 755 L 277.5 902"/>
+<ellipse id="pin" cx="502.5" cy="902" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="898" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Save / Unsave research</tspan><tspan x="502.5" dy="20">and view saved items</tspan></text>
+<circle class="stick" cx="104" cy="706" r="15"/><path class="stick" d="M 104 721 V 769 M 77 739 H 131 M 104 769 L 81 804 M 104 769 L 127 804"/>
+<text x="104" y="832" text-anchor="middle" class="actor"><tspan x="104" dy="0">Student</tspan><tspan x="104" dy="23">Faculty</tspan></text>
+<rect x="835" y="575" width="525" height="390" rx="8" fill="#f5f0fa" stroke="#e3d9ed"/>
+<text x="1097.5" y="604" text-anchor="middle" class="group">Journal preparation</text>
+<path class="association" d="M 1473 755 L 1374 755 L 1322.5 660"/>
+<ellipse id="tasks" cx="1097.5" cy="660" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="656" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">View assigned journal tasks</tspan><tspan x="1097.5" dy="20">and batch status</tspan></text>
+<path class="association" d="M 1473 755 L 1374 755 L 1322.5 726"/>
+<ellipse id="prepare" cx="1097.5" cy="726" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="722" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Add / Edit journal details</tspan><tspan x="1097.5" dy="20">and upload completed PDFs</tspan></text>
+<path class="association" d="M 1473 755 L 1374 755 L 1322.5 792"/>
+<ellipse id="submit" cx="1097.5" cy="792" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="788" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Submit completed batch</tspan><tspan x="1097.5" dy="20">to the Dean</tspan></text>
+<path class="association" d="M 1473 755 L 1374 755 L 1322.5 858"/>
+<ellipse id="coordinator_reports" cx="1097.5" cy="858" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="854" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Generate preparation reports</tspan><tspan x="1097.5" dy="20">and export PDF / Excel</tspan></text>
+<path class="association" d="M 1473 755 L 1374 755 L 1322.5 924"/>
+<ellipse id="coordinator_notifications" cx="1097.5" cy="924" rx="225" ry="29" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="930" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">View workflow notifications</tspan></text>
+<circle class="stick" cx="1496" cy="706" r="15"/><path class="stick" d="M 1496 721 V 769 M 1469 739 H 1523 M 1496 769 L 1473 804 M 1496 769 L 1519 804"/>
+<text x="1496" y="832" text-anchor="middle" class="actor"><tspan x="1496" dy="0">Research</tspan><tspan x="1496" dy="23">Coordinator</tspan></text>
+<rect x="240" y="985" width="525" height="390" rx="8" fill="#f5f0fa" stroke="#e3d9ed"/>
+<text x="502.5" y="1014" text-anchor="middle" class="group">Department management and review</text>
+<path class="association" d="M 127 1165 L 226 1165 L 277.5 1064.5"/>
+<ellipse id="assign" cx="502.5" cy="1064.5" rx="225" ry="23.5" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="1060.5" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Assign journal task</tspan><tspan x="502.5" dy="20">by Academic Year and program</tspan></text>
+<path class="association" d="M 127 1165 L 226 1165 L 277.5 1119.5"/>
+<ellipse id="forward" cx="502.5" cy="1119.5" rx="225" ry="23.5" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="1115.5" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Review submitted journal PDFs</tspan><tspan x="502.5" dy="20">and forward batch to Admin</tspan></text>
+<path class="association" d="M 127 1165 L 226 1165 L 277.5 1174.5"/>
+<ellipse id="import" cx="502.5" cy="1174.5" rx="225" ry="23.5" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="1170.5" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Create / Import</tspan><tspan x="502.5" dy="20">Student and Faculty accounts</tspan></text>
+<path class="association" d="M 127 1165 L 226 1165 L 277.5 1229.5"/>
+<ellipse id="activate" cx="502.5" cy="1229.5" rx="225" ry="23.5" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="1225.5" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Activate continuing members</tspan><tspan x="502.5" dy="20">for the current semester</tspan></text>
+<path class="association" d="M 127 1165 L 226 1165 L 277.5 1284.5"/>
+<ellipse id="department_users" cx="502.5" cy="1284.5" rx="225" ry="23.5" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="1280.5" text-anchor="middle" class="label"><tspan x="502.5" dy="0">Manage department members</tspan><tspan x="502.5" dy="20">and view user activity logs</tspan></text>
+<path class="association" d="M 127 1165 L 226 1165 L 277.5 1339.5"/>
+<ellipse id="dean_reports" cx="502.5" cy="1339.5" rx="225" ry="23.5" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="502.5" y="1335.5" text-anchor="middle" class="label"><tspan x="502.5" dy="0">View dashboard, notifications</tspan><tspan x="502.5" dy="20">and department reports</tspan></text>
+<circle class="stick" cx="104" cy="1116" r="15"/><path class="stick" d="M 104 1131 V 1179 M 77 1149 H 131 M 104 1179 L 81 1214 M 104 1179 L 127 1214"/>
+<text x="104" y="1242" text-anchor="middle" class="actor"><tspan x="104" dy="0">Department</tspan><tspan x="104" dy="23">Dean</tspan></text>
+<rect x="835" y="985" width="525" height="390" rx="8" fill="#f5f0fa" stroke="#e3d9ed"/>
+<text x="1097.5" y="1014" text-anchor="middle" class="group">System administration and publication</text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1060.5714285714287"/>
+<ellipse id="publish" cx="1097.5" cy="1060.5714285714287" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1056.5714285714287" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Review forwarded journal PDFs</tspan><tspan x="1097.5" dy="20">and publish the entire batch</tspan></text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1107.7142857142858"/>
+<ellipse id="staff" cx="1097.5" cy="1107.7142857142858" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1103.7142857142858" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Create Dean and</tspan><tspan x="1097.5" dy="20">Coordinator accounts</tspan></text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1154.857142857143"/>
+<ellipse id="semesters" cx="1097.5" cy="1154.857142857143" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1150.857142857143" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Manage Academic Years</tspan><tspan x="1097.5" dy="20">and semesters</tspan></text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1202"/>
+<ellipse id="admin_users" cx="1097.5" cy="1202" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1208" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Manage user accounts</tspan></text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1249.142857142857"/>
+<ellipse id="admin_reports" cx="1097.5" cy="1249.142857142857" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1245.142857142857" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">View dashboard, notifications</tspan><tspan x="1097.5" dy="20">and export repository reports</tspan></text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1296.2857142857142"/>
+<ellipse id="logs" cx="1097.5" cy="1296.2857142857142" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1292.2857142857142" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Inspect system activity</tspan><tspan x="1097.5" dy="20">and capture-attempt logs</tspan></text>
+<path class="association" d="M 1473 1165 L 1374 1165 L 1322.5 1343.4285714285716"/>
+<ellipse id="messages" cx="1097.5" cy="1343.4285714285716" rx="225" ry="19.571428571428573" fill="white" stroke="#6b4d8c" stroke-width="1.5"/>
+<text x="1097.5" y="1349.4285714285716" text-anchor="middle" class="label"><tspan x="1097.5" dy="0">Manage contact messages</tspan></text>
+<circle class="stick" cx="1496" cy="1116" r="15"/><path class="stick" d="M 1496 1131 V 1179 M 1469 1149 H 1523 M 1496 1179 L 1473 1214 M 1496 1179 L 1519 1214"/>
+<text x="1496" y="1242" text-anchor="middle" class="actor"><tspan x="1496" dy="0">Administrator</tspan></text>
+<text x="800" y="1406" text-anchor="middle" class="sub">Solid lines represent actor participation; they do not represent workflow order.</text>
+<text x="52" y="1472" dy="0" class="note">Account holder represents Student, Faculty, Dean, Coordinator and Administrator accounts.</text>
+<text x="52" y="1472" dy="27" class="note">All roles can use the public repository; shared account actions apply to all account holders.</text>
+<text x="52" y="1472" dy="54" class="note">Member full-document access requires an active, approved account, current policy acceptance and active semester enrollment.</text>
+<text x="52" y="1472" dy="81" class="note">Dean and Coordinator actions are restricted to their department and assigned journal tasks.</text>
+<text x="52" y="1472" dy="108" class="note">Journals become read-only after submission. Submit, forward and publish require complete journal details and every PDF.</text>
+<text x="52" y="1472" dy="135" class="note">Current flow has no separate Dean approval or return step. Student and Faculty direct submission is disabled.</text>
+</svg>
