@@ -295,6 +295,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .student-dashboard{display:grid;gap:18px}
 .student-dashboard-section{display:grid;gap:18px}
@@ -464,6 +465,7 @@
 .sr-pag-btn:disabled,.sr-pag-btn.is-disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
 .sr-pag-ellipsis{padding:0 6px;color:#8c7aa8;font-weight:800}
 </style>
+@endpush
 @endsection
 
 @push('scripts')

@@ -112,7 +112,7 @@ class JournalBatchWorkflowTest extends TestCase
         $this->assertStringContainsString('Publication Year: 2023', $card);
     }
 
-    public function test_batch_filters_offer_programs_and_consecutive_academic_years_without_existing_batches(): void
+    public function test_batch_filters_preserve_historical_years_without_generating_future_years(): void
     {
         $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-05', 'Asia/Manila'));
 
@@ -120,10 +120,10 @@ class JournalBatchWorkflowTest extends TestCase
             $response = $this->actingAs($actor)->get(route('admin.journal-batches'))->assertOk()
                 ->assertSeeInOrder([
                     'id="batch-program"', 'Information Technology', 'Computer Science',
-                    'id="batch-ay"', '>2027-2028</option>', '>2026-2027</option>',
-                    '>2025-2026</option>', '>2024-2025</option>', '>2023-2024</option>',
-                    '>2022-2023</option>',
+                    'id="batch-ay"', 'All Academic Years',
                 ], false)
+                ->assertViewHas('schoolYears', fn ($years) => $years->all() === ['2025-2026', '2024-2025', '2023-2024', '2022-2023'])
+                ->assertDontSee('value="2026-2027"', false)->assertDontSee('value="2027-2028"', false)
                 ->assertDontSee('>AY 2022-2023</option>', false)
                 ->assertSee('id="jbl-filters"', false)->assertSee('id="jbl-results"', false)
                 ->assertSee('js/journal-batch-list.js')
@@ -135,6 +135,25 @@ class JournalBatchWorkflowTest extends TestCase
                 $response->assertSee('id="batch-department"', false);
             }
         }
+    }
+
+    public function test_future_batch_years_appear_only_after_the_batch_has_research(): void
+    {
+        $batch = $this->assign();
+        $batch->update(['school_year' => '2026-2027', 'batch_stage' => Research::STATUS_PENDING,
+            'batch_forwarded_at' => now()]);
+        $next = $batch->fresh()->replicate();
+        $next->fill(['school_year' => '2027-2028', 'title' => 'Next year batch'])->save();
+        $this->actingAs($this->admin)->get(route('admin.journal-batches'))->assertOk()
+            ->assertViewHas('schoolYears', fn ($years) => $years->all() === ['2025-2026', '2024-2025', '2023-2024', '2022-2023']);
+        $this->source(['research_handoff_id' => $batch->id, 'school_year' => '2026-2027']);
+        foreach ([$this->admin, $this->dean, $this->coordinator] as $actor) {
+            $this->actingAs($actor)->get(route('admin.journal-batches'))->assertOk()
+                ->assertViewHas('schoolYears', fn ($years) => $years->all() === ['2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023']);
+        }
+        $this->source(['research_handoff_id' => $next->id, 'school_year' => '2027-2028']);
+        $this->actingAs($this->admin)->get(route('admin.journal-batches'))->assertOk()
+            ->assertViewHas('schoolYears', fn ($years) => $years->all() === ['2027-2028', '2026-2027', '2025-2026', '2024-2025', '2023-2024', '2022-2023']);
     }
 
     public function test_batch_department_filters_offer_matching_programs_and_preserve_role_scope(): void
@@ -176,6 +195,52 @@ class JournalBatchWorkflowTest extends TestCase
         }
     }
 
+    public function test_batch_search_finds_batch_titles_journal_titles_and_authors_and_combines_with_filters(): void
+    {
+        $batch = $this->assign();
+        $batch->update(['title' => 'Technology collection', 'batch_stage' => Research::STATUS_PENDING,
+            'batch_forwarded_at' => now()]);
+        $this->source(['research_handoff_id' => $batch->id, 'title' => 'Robotics in Education',
+            'author_name' => 'Maya Santos']);
+        $other = $this->assign('Computer Science');
+        $other->update(['title' => 'Business collection', 'batch_stage' => Research::STATUS_PENDING,
+            'batch_forwarded_at' => now()]);
+        $this->source(['research_handoff_id' => $other->id, 'title' => 'Finance models',
+            'author_name' => 'Another Author']);
+        $unforwarded = $batch->fresh()->replicate();
+        $unforwarded->fill(['title' => 'Technology Robotics Maya Santos', 'batch_forwarded_at' => null])->save();
+
+        foreach (['Technology', 'Robotics', 'Maya Santos', '  Robotics  '] as $search) {
+            $this->actingAs($this->admin)->get(route('admin.journal-batches', ['search' => $search]))
+                ->assertOk()->assertSee('id="batch-search"', false)
+                ->assertViewHas('batches', fn ($batches) => $batches->pluck('id')->all() === [$batch->id]);
+        }
+        $filters = ['search' => 'Robotics', 'department' => $batch->department,
+            'program' => $batch->program, 'school_year' => $batch->school_year];
+        $this->get(route('admin.journal-batches', $filters))->assertOk()
+            ->assertSee('value="Robotics"', false)
+            ->assertViewHas('batches', fn ($batches) => $batches->pluck('id')->all() === [$batch->id]);
+        $filters['program'] = 'Computer Science';
+        $this->get(route('admin.journal-batches', $filters))->assertOk()
+            ->assertViewHas('batches', fn ($batches) => $batches->isEmpty())
+            ->assertSee('No batches match your search and selected filters.');
+        $this->get(route('admin.journal-batches', ['search' => 'no matching title']))->assertOk()
+            ->assertViewHas('batches', fn ($batches) => $batches->isEmpty());
+
+        $foreign = $batch->fresh()->replicate();
+        $foreign->fill(['title' => 'Foreign department batch',
+            'department' => 'College of Criminal Justice Education'])->save();
+        $this->source(['research_handoff_id' => $foreign->id, 'title' => 'Foreign journal',
+            'author_name' => 'Private Author']);
+        foreach ([$this->dean, $this->coordinator] as $actor) {
+            $this->actingAs($actor)->get(route('admin.journal-batches', ['search' => 'Private Author']))
+                ->assertOk()->assertViewHas('batches', fn ($batches) => $batches->isEmpty());
+            $this->get(route('admin.journal-batches', ['search' => 'Robotics']))->assertOk()
+                ->assertViewHas('batches', fn ($batches) => $batches->total() === 2
+                    && $batches->contains('id', $batch->id) && $batches->contains('id', $unforwarded->id));
+        }
+    }
+
     public function test_dean_batch_list_shows_only_completed_submissions_and_keeps_them_after_forwarding_and_publication(): void
     {
         $batch = $this->assign();
@@ -205,7 +270,7 @@ class JournalBatchWorkflowTest extends TestCase
         $unfinished->update(['batch_stage' => Research::STATUS_REJECTED]);
 
         $this->actingAs($this->dean)->get(route('admin.journal-batches'))->assertOk()
-            ->assertSee($batch->title)->assertSee('Batch Submitted to Dean')
+            ->assertSee($batch->title)->assertDontSee('Batch Submitted to Dean')
             ->assertDontSee($unfinished->title)->assertDontSee($foreignBatch->title)->assertDontSee($foreignDepartmentBatch->title)
             ->assertViewHas('batches', fn ($batches) => $batches->pluck('id')->all() === [$batch->id]);
         $this->get(route('admin.journal-batches', ['program' => 'Computer Science', 'school_year' => '2025-2026']))->assertOk()
@@ -262,6 +327,46 @@ class JournalBatchWorkflowTest extends TestCase
             ->assertDontSee($preparing->title)->assertDontSee($legacyTask->title);
         $this->get(route('admin.journal-batches'))->assertOk()
             ->assertViewHas('batches', fn ($batches) => $batches->pluck('id')->all() === [$preparing->id]);
+    }
+
+    public function test_coordinator_dashboard_cards_open_embedded_lists_and_keep_batch_actions_in_the_modal(): void
+    {
+        $batch = $this->assign();
+        $assignedUrl = route('admin.coordinator.dean-submissions', ['embedded' => 1]);
+        $submittedUrl = route('admin.coordinator.submissions', ['embedded' => 1]);
+        $batchUrl = route('admin.journal-batches.show', ['batch' => $batch, 'embedded' => 1]);
+
+        $dashboard = $this->actingAs($this->coordinator)->get(route('admin.coordinator.dashboard'))->assertOk()
+            ->assertSee('data-batch-mode="list" data-batch-title="Assigned Journal Tasks"', false)
+            ->assertSee('data-batch-mode="list" data-batch-title="Submitted Journals"', false)
+            ->assertSee('data-back-journal-list', false);
+        $this->assertSame(1, substr_count($dashboard->getContent(), '<dialog id="journalBatchModal"'));
+
+        $this->get($assignedUrl)->assertOk()->assertSee('data-journal-batch-embedded', false)
+            ->assertSee('data-batch-title="Assigned Journal Tasks"', false)
+            ->assertSee('css/journal-batches.css', false)
+            ->assertSee('name="embedded" value="1"', false)
+            ->assertSee('href="'.$batchUrl.'"', false)->assertSee('Prepare Batch')
+            ->assertDontSee('class="admin-sidebar"', false)->assertDontSee('<dialog', false);
+        $this->from($assignedUrl)->post(route('admin.coordinator.dean-submissions.receive', $batch))
+            ->assertRedirect($assignedUrl);
+        $this->get($assignedUrl)->assertOk()->assertSee('data-batch-updated', false);
+
+        $journal = $this->prepare($batch);
+        $this->act($batch, 'submit', $this->coordinator)->assertRedirect();
+        $this->get($submittedUrl)->assertOk()->assertSee('data-journal-batch-embedded', false)
+            ->assertSee('data-batch-title="Submitted Journals"', false)->assertSee($journal->title)
+            ->assertSee('css/journal-batches.css', false)
+            ->assertSee('name="embedded" value="1"', false)
+            ->assertSee('href="'.$batchUrl.'"', false)->assertSee('Open Batch')
+            ->assertDontSee('class="admin-sidebar"', false);
+        $this->get(route('admin.coordinator.submissions'))->assertOk()
+            ->assertSee('class="admin-sidebar"', false)->assertDontSee('data-journal-batch-embedded', false);
+
+        $other = $this->staff(['is_research_coordinator' => true]);
+        $this->actingAs($other)->get($submittedUrl)->assertOk()->assertDontSee($journal->title);
+        $this->actingAs($this->dean)->get($assignedUrl)->assertForbidden();
+        $this->get($submittedUrl)->assertForbidden();
     }
 
     public function test_ten_uploaded_journals_move_as_one_batch_directly_from_dean_to_admin_and_publish_separately(): void
@@ -440,6 +545,54 @@ class JournalBatchWorkflowTest extends TestCase
             ->assertSee('Edit Journal')->assertDontSee('Add Completed Journal to Batch');
         $this->assertSame(Research::STATUS_DRAFT, $journal->fresh()->status);
         $this->assertSame(Research::STATUS_DRAFT, $batch->fresh()->batch_stage);
+    }
+
+    public function test_journal_category_is_fixed_by_the_dean_for_add_and_edit_requests(): void
+    {
+        foreach ([Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL, Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL] as $category) {
+            $batch = $this->assign();
+            $batch->update(['submission_category' => $category]);
+            $otherCategory = $category === Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL
+                ? Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL : Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL;
+            $url = route('admin.journal-batches.show', $batch);
+            $this->actingAs($this->coordinator)->get($url)->assertOk()
+                ->assertSee('Journal Category (assigned by Dean)')
+                ->assertSee('id="journal-category-label" value="'.Research::adminSubmissionCategories()[$category].'" readonly', false)
+                ->assertSee('id="journal-category" type="hidden" name="submission_category" value="'.$category.'"', false)
+                ->assertDontSee('<select id="journal-category"', false)
+                ->assertSee($category === Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL ? 'Add Researcher' : 'Add Co-author');
+
+            $data = $this->journalData('Assigned category');
+            $data['submission_category'] = $otherCategory;
+            $this->from($url)->post(route('admin.journal-batches.journals.store', $batch), $data)
+                ->assertSessionHasErrors('submission_category');
+            $this->assertSame(0, $batch->journals()->count());
+            $this->get($url)->assertOk()
+                ->assertSee('id="journal-category-label" value="'.Research::adminSubmissionCategories()[$category].'" readonly', false);
+
+            unset($data['submission_category']);
+            $this->post(route('admin.journal-batches.journals.store', $batch), $data)
+                ->assertRedirect($url)->assertSessionHasNoErrors();
+            $journal = $batch->journals()->firstOrFail();
+            $this->assertSame($category, $journal->submission_category);
+            $this->assertSame(Research::issnForSubmissionCategory($category), $journal->issn);
+
+            unset($data['file']);
+            $data['submission_category'] = $otherCategory;
+            $this->patch(route('admin.journal-batches.journals.update', [$batch, $journal]), $data)
+                ->assertSessionHasErrors('submission_category');
+            $this->assertSame($category, $journal->fresh()->submission_category);
+
+            // Editing a journal previously saved with the wrong category restores the task's category.
+            $journal->update(['submission_category' => $otherCategory]);
+            $this->get(route('admin.journal-batches.show', ['batch' => $batch, 'edit' => $journal->id]))->assertOk()
+                ->assertSee('id="journal-category-label" value="'.Research::adminSubmissionCategories()[$category].'" readonly', false);
+            unset($data['submission_category']);
+            $this->patch(route('admin.journal-batches.journals.update', [$batch, $journal]), $data)
+                ->assertRedirect($url)->assertSessionHasNoErrors();
+            $this->assertSame($category, $journal->fresh()->submission_category);
+            $this->assertSame(Research::issnForSubmissionCategory($category), $journal->fresh()->issn);
+        }
     }
 
     public function test_coordinator_can_add_more_journals_and_replace_a_pdf_without_changing_the_assigned_year(): void
@@ -720,10 +873,10 @@ class JournalBatchWorkflowTest extends TestCase
         $otherCoordinator->fill(['title' => 'Another coordinator task', 'coordinator_id' => $this->staff(['is_research_coordinator' => true])->id])->save();
         $url = route('admin.coordinator.dean-submissions');
         $this->actingAs($this->coordinator)->get($url)->assertOk()
-            ->assertSeeInOrder(['id="handoff-program"', 'id="handoff-academic-year"', 'id="handoff-category"',
+            ->assertSeeInOrder(['id="handoff-search"', 'id="handoff-program"', 'id="handoff-academic-year"', 'id="handoff-category"',
                 'id="handoff-status"', 'id="ct-clear"', '>Clear</a>'], false)
             ->assertDontSee('>Filter</button>', false)->assertSee('js/coordinator-task-filters.js')
-            ->assertDontSee('id="handoff-search"', false)
+            ->assertSee('placeholder="Search by task title, author, or research ID"', false)
             ->assertViewHas('handoffs', fn ($handoffs) => $handoffs->total() === 3);
         $filters = ['program' => 'Information Technology', 'academic_year' => '2025-2026',
             'submission_category' => Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL, 'status' => 'submitted'];
@@ -741,6 +894,9 @@ class JournalBatchWorkflowTest extends TestCase
             ->assertViewHas('handoffs', fn ($handoffs) => $handoffs->pluck('id')->all() === [$preparing->id]);
         $this->get(route('admin.coordinator.dean-submissions', $filters + ['search' => 'No matching task']))->assertOk()
             ->assertViewHas('handoffs', fn ($handoffs) => $handoffs->total() === 0);
+        $this->get(route('admin.coordinator.dean-submissions', $filters + ['search' => 'Received faculty']))->assertOk()
+            ->assertSee('value="Received faculty"', false)
+            ->assertViewHas('handoffs', fn ($handoffs) => $handoffs->pluck('id')->all() === [$preparing->id]);
 
         $legacyJournal = $this->source(['submission_category' => Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL,
             'status' => Research::STATUS_DRAFT]);

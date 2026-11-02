@@ -5,7 +5,10 @@
 <dialog id="journalBatchModal" class="jbm-dialog" aria-labelledby="journalBatchModalTitle">
     <header class="jbm-header">
         <h2 id="journalBatchModalTitle">Journal Batch</h2>
-        <button type="button" class="jbm-close" data-close-journal-batch aria-label="Close journal batch">&times;</button>
+        <div class="jbm-header-actions">
+            <button type="button" class="jbm-back" data-back-journal-list hidden>Back to list</button>
+            <button type="button" class="jbm-close" data-close-journal-batch aria-label="Close journal batch">&times;</button>
+        </div>
     </header>
     <p class="jbm-status" id="journalBatchModalStatus" role="status">Loading batch…</p>
     <iframe id="journalBatchModalFrame" class="jbm-frame" title="Journal batch details and PDF review" src="about:blank" hidden></iframe>

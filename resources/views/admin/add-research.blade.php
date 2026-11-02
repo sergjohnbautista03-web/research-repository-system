@@ -277,6 +277,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .ar-shell {
     max-width: 960px;
@@ -878,6 +879,7 @@
     }
 }
 </style>
+@endpush
 
 @push('scripts')
 <script>

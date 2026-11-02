@@ -27,10 +27,9 @@ class JournalBatchController extends Controller
             $query->whereIn('batch_stage', [Research::STATUS_DEAN_REVIEW, Research::STATUS_DEAN_APPROVED,
                 Research::STATUS_PENDING, Research::STATUS_APPROVED]);
         }
-        $schoolYears = collect(range(2022, Research::maxPublicationYear()))
-            ->map(fn ($year) => $year.'-'.($year + 1))
-            ->merge((clone $query)->distinct()->pluck('school_year'))
-            ->filter()->unique()->sortDesc()->values();
+        $schoolYears = Research::academicYearOptions(
+            (clone $query)->whereHas('journals')->distinct()->pluck('school_year')
+        );
         $programCatalog = collect(Research::programsByDepartment());
         $departments = $actor->isGlobalAdmin()
             ? collect(config('research.departments', $programCatalog->keys()->all()))
@@ -52,6 +51,16 @@ class JournalBatchController extends Controller
         }
         if ($request->filled('program')) {
             $query->where('program', $request->input('program'));
+        }
+        $search = trim($request->string('search')->toString());
+        if ($search !== '') {
+            $query->where(function ($query) use ($search) {
+                $query->where('title', 'like', '%'.$search.'%')
+                    ->orWhereHas('journals', function ($journals) use ($search) {
+                        $journals->where('title', 'like', '%'.$search.'%')
+                            ->orWhere('author_name', 'like', '%'.$search.'%');
+                    });
+            });
         }
 
         return view('admin.journal-batches', ['batches' => $query->latest()->paginate(12)->withQueryString(),
@@ -91,12 +100,15 @@ class JournalBatchController extends Controller
             'abstract' => ['required', 'string'],
             'keywords' => ['nullable', 'string', 'max:500'],
             'type' => ['required', Rule::in(Research::journalTypeOptions())],
-            'submission_category' => ['required', Rule::in(array_keys(Research::adminSubmissionCategories()))],
+            'submission_category' => ['sometimes', 'required', Rule::in([$batch->submission_category])],
             'year_published' => ['required', 'integer', 'min:2022', 'max:'.Research::maxPublicationYear()],
             'course' => ['nullable', 'string', 'max:255'],
             'file' => ['nullable', 'file', 'mimes:pdf', 'max:30720'],
             'school_year' => ['prohibited'], 'department' => ['prohibited'],
+        ], [
+            'submission_category.in' => 'Use the journal category assigned by the Dean.',
         ]);
+        $data['submission_category'] = $batch->submission_category;
         $authors = collect($data['authors'])->map(fn ($name) => trim($name))->filter()->values();
         if ($authors->isEmpty()) {
             throw ValidationException::withMessages(['authors' => 'Add at least one author.']);
@@ -120,7 +132,7 @@ class JournalBatchController extends Controller
                     'title' => $data['title'], 'abstract' => $data['abstract'], 'authors' => $authors->all(),
                     'keywords' => $data['keywords'] ?? null,
                     'author_name' => $authors->implode('; '), 'type' => $data['type'],
-                    'submission_category' => $data['submission_category'], 'issn' => Research::issnForSubmissionCategory($data['submission_category']),
+                    'submission_category' => $batch->submission_category, 'issn' => Research::issnForSubmissionCategory($batch->submission_category),
                     'course' => $batch->program ?? ($data['course'] ?? null), 'program' => $batch->program ?? ($data['course'] ?? null),
                     'year_published' => $data['year_published'], 'school_year' => $batch->school_year,
                     'department' => $batch->department, 'research_handoff_id' => $batch->id,

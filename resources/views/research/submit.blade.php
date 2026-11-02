@@ -225,6 +225,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 /* ── CARD ──────────────────────────────────────── */
 .ar-card {
@@ -472,6 +473,7 @@
     .ar-span-2 { grid-column: auto; }
 }
 </style>
+@endpush
 
 <script>
 const deptData = {

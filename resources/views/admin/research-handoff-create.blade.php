@@ -59,12 +59,8 @@
                 </div>
                 <div class="rhf-field">
                     <label for="school_year">Academic Year <span>*</span></label>
-                    <select id="school_year" name="school_year" required>
-                        <option value="">Select Academic Year</option>
-                        @foreach($schoolYears as $schoolYear)
-                            <option value="{{ $schoolYear }}" @selected(old('school_year') === $schoolYear)>{{ $schoolYear }}</option>
-                        @endforeach
-                    </select>
+                    <p class="text-sm text-gray-500">Enter the Academic Year in the format <strong>2023-2024</strong>.</p>
+                    <input type="text" id="school_year" name="school_year" value="{{ old('school_year') }}" required placeholder="e.g., 2023-2024" pattern="\d{4}-\d{4}" class="rhf-field-input" />
                 </div>
             </div>
 
@@ -76,6 +72,11 @@
                         <option value="{{ $program }}" @selected(old('program') === $program)>{{ $program }}</option>
                     @endforeach
                 </select>
+            </div>
+
+            <div class="rhf-field">
+                <label for="deadline">Deadline</label>
+                <input type="date" id="deadline" name="deadline" value="{{ old('deadline') }}" min="{{ now()->toDateString() }}">
             </div>
 
             <div class="rhf-field">
@@ -93,6 +94,7 @@
     </section>
 </div>
 
+@push('styles')
 <style>
 .rhf-shell{max-width:920px;}
 .rhf-card{background:#fff;border:1px solid rgba(107,47,160,.1);border-radius:18px;box-shadow:0 10px 30px rgba(57,26,101,.06);overflow:hidden;}
@@ -121,5 +123,6 @@
 .rhf-btn:disabled{opacity:.55;cursor:not-allowed;box-shadow:none;}
 @media(max-width:760px){.rhf-header,.rhf-actions{flex-direction:column}.rhf-form,.rhf-header{padding-left:20px;padding-right:20px}.rhf-grid{grid-template-columns:1fr}.rhf-btn,.rhf-back{width:100%;}}
 </style>
+@endpush
 
 @endsection

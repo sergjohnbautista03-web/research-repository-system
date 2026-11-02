@@ -21,7 +21,7 @@
             'key' => 'views',
             'label' => 'Total Views',
             'value' => $analyticsSummary['total_views'],
-            'note' => $analyticsSummary['year_range'],
+            'note' => 'By academic year',
             'class' => 'is-view',
             'icon' => 'view',
             'description' => 'See how repository engagement is distributed across departments and publication years for the current analytics range.',
@@ -219,14 +219,14 @@
         </div>
         <div class="ra-summary-modal-body">
             <div id="summaryViewsFilter" class="ra-views-filter" hidden>
-                <label for="summaryViewsYear">Publication Year</label>
+                <label for="summaryViewsYear">Academic Year</label>
                 <select id="summaryViewsYear" onchange="updateSummaryViewsYear()">
-                    <option value="all">All years</option>
-                    @foreach($analyticsYears as $year)
+                    <option value="all">All Academic Years</option>
+                    @foreach($analyticsSummaryAcademicYears as $year)
                         <option value="{{ $year }}">{{ $year }}</option>
                     @endforeach
                 </select>
-                <p id="summaryYearHint">Totals for research published in the selected year.</p>
+                <p id="summaryYearHint">Totals for research assigned to the selected academic year.</p>
             </div>
             <div class="ra-summary-modal-metric">
                 <strong id="summaryCardModalValue" aria-live="polite">0</strong>
@@ -266,6 +266,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .ra-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;padding:20px 22px;background:#fff;border:1px solid rgba(109,40,217,.1);border-radius:16px;box-shadow:0 8px 28px rgba(46,16,101,.06)}
 .ra-toolbar-copy{min-width:0}
@@ -379,6 +380,7 @@
 .ra-views-filter select:focus-visible{outline:2px solid #8b5ac5;outline-offset:2px}
 .ra-views-filter p{margin:8px 0 0;color:#827091;font-size:12px;line-height:1.5}
 </style>
+@endpush
 
 @endsection
 
@@ -500,9 +502,9 @@ function openSummaryCardModal(key) {
     document.getElementById('summaryViewsFilter').hidden = false;
     document.getElementById('summaryViewsYear').value = 'all';
     document.getElementById('summaryYearHint').textContent = {
-        papers: 'Number of research papers published in the selected year.',
-        views: 'Total accumulated views of research published in the selected year.',
-        citations: 'Total citation copies of research published in the selected year.',
+        papers: 'Number of research papers assigned to the selected academic year.',
+        views: 'Total accumulated views of research assigned to the selected academic year.',
+        citations: 'Total citation copies of research assigned to the selected academic year.',
     }[key];
     updateSummaryViewsYear();
 

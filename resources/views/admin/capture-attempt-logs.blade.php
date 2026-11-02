@@ -318,6 +318,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .cal-shell{
     display:grid;
@@ -967,6 +968,7 @@
     }
 }
 </style>
+@endpush
 
 <script>
 function escapeCalHtml(value) {

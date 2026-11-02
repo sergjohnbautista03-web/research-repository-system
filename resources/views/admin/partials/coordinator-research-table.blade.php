@@ -41,7 +41,7 @@
                                 @endif
 
                                 @if($research->handoff?->is_batch)
-                                    <a href="{{ route('admin.journal-batches.show', $research->research_handoff_id) }}" class="coord-btn coord-btn-primary">Open Batch</a>
+                                    <a href="{{ route('admin.journal-batches.show', ['batch' => $research->research_handoff_id] + (request()->boolean('embedded') ? ['embedded' => 1] : [])) }}" class="coord-btn coord-btn-primary">Open Batch</a>
                                 @elseif(in_array($research->status, [\App\Models\Research::STATUS_DRAFT, \App\Models\Research::STATUS_REJECTED], true))
                                     <a href="{{ route('admin.coordinator.summaries.edit', $research) }}" class="coord-btn coord-btn-primary">Edit Journal</a>
                                     <form method="POST" action="{{ route('admin.coordinator.summaries.submit', $research) }}">

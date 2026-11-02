@@ -75,6 +75,7 @@ class JournalBatchWorkflow
                 $journal->update(['status' => $stage] + $journalChanges);
             }
             $batch->update(['batch_stage' => $stage, 'status' => ResearchHandoff::STATUS_ADDED] + $changes);
+            app(JournalWorkflowNotifications::class)->transitioned($batch, $action);
             if ($action === 'publish') {
                 // Publication and recipient notifications commit together, without a queue dependency.
                 app(PublicationNotifications::class)->sendForBatch($batch);

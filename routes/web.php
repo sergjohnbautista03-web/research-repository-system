@@ -71,6 +71,8 @@ Route::middleware(['auth', 'policy.accepted'])->group(function () {
     // Profile
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/account/verify', [ProfileController::class, 'verifyProfileAccountChange'])->name('profile.account.verify');
+    Route::post('/profile/account/cancel', [ProfileController::class, 'cancelProfileAccountChange'])->name('profile.account.cancel');
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::post('/profile/password/request-code', [ProfileController::class, 'requestPasswordChangeCode'])->name('profile.password.request-code');
     Route::post('/profile/password/verify', [ProfileController::class, 'verifyPasswordChangeCode'])->name('profile.password.verify');

@@ -71,6 +71,7 @@ class SavedResearchesPaginationTest extends TestCase
             $table->string('course')->nullable();
             $table->string('program')->nullable();
             $table->unsignedInteger('year_published')->default(2024);
+            $table->string('school_year')->nullable();
             $table->string('keywords')->nullable();
             $table->string('file_path')->default('fake.pdf');
             $table->string('file_name')->default('fake.pdf');
@@ -162,7 +163,7 @@ class SavedResearchesPaginationTest extends TestCase
         $this->assertSame('Paper 19', $response->viewData('recentlyViewedResearches')->last()->title);
     }
 
-    public function test_admin_view_totals_are_grouped_by_publication_year(): void
+    public function test_admin_view_totals_are_grouped_by_academic_year(): void
     {
         $admin = User::create(['name' => 'Admin', 'email' => 'analytics@example.com', 'password' => 'password', 'role' => 'admin']);
         $this->actingAs($admin);
@@ -171,6 +172,7 @@ class SavedResearchesPaginationTest extends TestCase
                 'title' => 'Analytics paper', 'abstract' => 'Abstract', 'author_name' => 'Author',
                 'user_id' => $admin->id, 'department' => 'College of Computer Studies',
                 'status' => 'approved', 'year_published' => $year, 'view_count' => $views,
+                'school_year' => $year.'-'.($year + 1),
                 'citation_copy_count' => 2,
             ]);
         }
@@ -178,14 +180,14 @@ class SavedResearchesPaginationTest extends TestCase
         $payload = $method->invoke(new \App\Http\Controllers\AdminController(), true);
         $summary = $payload['analyticsSummary'];
         $this->assertEquals(14, $summary['total_views']);
-        $this->assertEquals(10, $summary['views_by_year'][2022]);
-        $this->assertEquals(4, $summary['views_by_year'][2023]);
-        $this->assertEquals(0, $summary['views_by_year'][2024] ?? 0);
-        $this->assertEquals(2, $summary['papers_by_year'][2022]);
-        $this->assertEquals(1, $summary['papers_by_year'][2023]);
-        $this->assertEquals(0, $summary['papers_by_year'][2024] ?? 0);
-        $this->assertEquals(4, $summary['citations_by_year'][2022]);
-        $this->assertEquals(2, $summary['citations_by_year'][2023]);
+        $this->assertEquals(10, $summary['views_by_year']['2022-2023']);
+        $this->assertEquals(4, $summary['views_by_year']['2023-2024']);
+        $this->assertEquals(0, $summary['views_by_year']['2024-2025'] ?? 0);
+        $this->assertEquals(2, $summary['papers_by_year']['2022-2023']);
+        $this->assertEquals(1, $summary['papers_by_year']['2023-2024']);
+        $this->assertEquals(0, $summary['papers_by_year']['2024-2025'] ?? 0);
+        $this->assertEquals(4, $summary['citations_by_year']['2022-2023']);
+        $this->assertEquals(2, $summary['citations_by_year']['2023-2024']);
         $this->assertEquals(6, $summary['total_copy_citations']);
         $withoutCitations = $method->invoke(new \App\Http\Controllers\AdminController(), false);
         $this->assertSame([], $withoutCitations['analyticsSummary']['citations_by_year']);

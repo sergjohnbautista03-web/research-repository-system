@@ -12,6 +12,7 @@ use App\Models\Semester;
 use App\Models\SemesterEnrollment;
 use App\Models\User;
 use App\Services\SemesterWorkflow;
+use App\Services\MemberIdGenerator;
 use App\Services\JournalWorkflow;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Carbon;
 
 class AdminController extends Controller
@@ -357,22 +359,12 @@ class AdminController extends Controller
 
     private function journalAcademicYears()
     {
-        return Semester::whereNotNull('school_year')->pluck('school_year')
-            ->merge(ResearchHandoff::whereNotNull('school_year')->pluck('school_year'))
-            ->merge(Research::approved()->whereNotNull('school_year')->pluck('school_year'))
-            ->merge(collect(range(self::MIN_RESEARCH_YEAR, Research::maxPublicationYear()))->map(fn ($year) => $year.'-'.($year + 1)))
-            ->push($this->currentSchoolYear())->unique()->sortDesc()->values();
+        return Research::academicYearsForQuery($this->scopeResearchQuery(Research::query()));
     }
 
     private function coordinatorFilterOptions(User $admin): array
     {
-        $semesterQuery = Semester::query();
-        $schoolYears = $semesterQuery
-            ->whereNotNull('school_year')
-            ->distinct()
-            ->orderByDesc('school_year')
-            ->pluck('school_year')
-            ->values();
+        $schoolYears = Research::academicYearsForQuery($this->scopeCoordinatorResearchQuery(Research::query(), $admin));
 
         $researchYears = $this->scopeCoordinatorResearchQuery(Research::query(), $admin)
             ->whereNotNull('year_published')
@@ -384,8 +376,7 @@ class AdminController extends Controller
 
         return [
             'departments' => [$admin->department],
-            'schoolYears' => $schoolYears->merge(Research::where('department', $admin->department)
-                ->whereNotNull('school_year')->pluck('school_year'))->unique()->sortDesc()->values(),
+            'schoolYears' => $schoolYears,
             'years' => $researchYears->isNotEmpty()
                 ? $researchYears
                 : collect(range(Research::maxPublicationYear(), self::MIN_RESEARCH_YEAR))->map(fn ($year) => (string) $year),
@@ -584,25 +575,27 @@ class AdminController extends Controller
             ->map(fn ($ratio) => (int) round($analyticsChartMaxViews * $ratio))
             ->values();
 
+        $academicYearExpression = Research::academicYearExpression();
+        $summaryYearTotals = $this->scopeResearchQuery(Research::query())
+            ->selectRaw($academicYearExpression.' AS academic_year')
+            ->selectRaw('COUNT(*) AS total_papers, COALESCE(SUM(view_count), 0) AS total_views')
+            ->selectRaw($hasCitationCopyCount
+                ? 'COALESCE(SUM(citation_copy_count), 0) AS total_citations'
+                : '0 AS total_citations')
+            ->groupBy('academic_year')
+            ->get();
+        $assignedYearTotals = $summaryYearTotals->whereNotNull('academic_year');
+        $analyticsSummaryAcademicYears = Research::academicYearOptions($assignedYearTotals->pluck('academic_year'));
+
         $analyticsSummary = [
-            'papers_by_year' => $this->scopeResearchQuery(Research::query())
-                ->selectRaw('year_published, COUNT(*) as total_papers')
-                ->groupBy('year_published')
-                ->pluck('total_papers', 'year_published'),
+            'papers_by_year' => $assignedYearTotals->pluck('total_papers', 'academic_year'),
             'citations_by_year' => $hasCitationCopyCount
-                ? $this->scopeResearchQuery(Research::query())
-                    ->selectRaw('year_published, SUM(citation_copy_count) as total_citations')
-                    ->groupBy('year_published')
-                    ->pluck('total_citations', 'year_published')
-                : [],
-            'views_by_year' => $this->scopeResearchQuery(Research::query())
-                ->selectRaw('year_published, SUM(view_count) as total_views')
-                ->groupBy('year_published')
-                ->pluck('total_views', 'year_published'),
-            'total_research_papers' => $this->scopeResearchQuery(Research::query())->count(),
-            'total_views' => $this->scopeResearchQuery(Research::query())->sum('view_count'),
+                ? $assignedYearTotals->pluck('total_citations', 'academic_year') : [],
+            'views_by_year' => $assignedYearTotals->pluck('total_views', 'academic_year'),
+            'total_research_papers' => $summaryYearTotals->sum('total_papers'),
+            'total_views' => $summaryYearTotals->sum('total_views'),
             'total_copy_citations' => $hasCitationCopyCount
-                ? $this->scopeResearchQuery(Research::query())->sum('citation_copy_count')
+                ? $summaryYearTotals->sum('total_citations')
                 : 0,
             'total_researchers' => $this->scopeUserQuery(User::query()->where('role', 'researcher'))->count(),
             'report_scope' => $this->adminDepartment() ?: 'All Departments',
@@ -612,6 +605,7 @@ class AdminController extends Controller
 
         return [
             'analyticsYears' => $years,
+            'analyticsSummaryAcademicYears' => $analyticsSummaryAcademicYears,
             'analyticsDepartments' => $departmentMeta,
             'analyticsChartData' => $analyticsChartData,
             'analyticsChartMaxViews' => $analyticsChartMaxViews,
@@ -1251,9 +1245,7 @@ class AdminController extends Controller
         $years = collect(range(Research::maxPublicationYear(), self::MIN_RESEARCH_YEAR));
         $semesterOptions = $this->semesterOptions();
 
-        $semesterOptions['schoolYears'] = $semesterOptions['schoolYears']
-            ->merge((clone $publishedQuery)->reorder()->whereNotNull('school_year')->pluck('school_year'))
-            ->unique()->sortDesc()->values();
+        $semesterOptions['schoolYears'] = Research::academicYearsForQuery($publishedQuery);
 
         return view('admin.researches', compact('researches', 'departments', 'years', 'selectedSchoolYear', 'selectedSemester') + $semesterOptions);
     }
@@ -2095,6 +2087,7 @@ class AdminController extends Controller
 
         $selectedSchoolYear = $this->normalizeSchoolYear($request->get('school_year'));
         $selectedSemester = $this->selectedSemester($request->get('semester'));
+        $selectedSearch = trim($request->string('search')->toString());
         $selectedStatus = in_array($request->get('status'), ['active', 'closed', 'archived', 'finished'], true)
             ? $request->get('status')
             : null;
@@ -2119,6 +2112,15 @@ class AdminController extends Controller
         $query = (clone $baseSemesterQuery)
             ->when($selectedSchoolYear, fn ($inner) => $inner->where('school_year', $selectedSchoolYear))
             ->when($selectedSemester, fn ($inner) => $inner->where('semester', $selectedSemester));
+
+        foreach (preg_split('/\s+/', strtolower($selectedSearch), -1, PREG_SPLIT_NO_EMPTY) as $term) {
+            $matchingSemesters = array_filter(Semester::semesterOptions(),
+                fn ($semester) => str_contains(strtolower($semester.' Semester'), $term));
+            $query->where(function ($inner) use ($term, $matchingSemesters) {
+                $inner->where('school_year', 'like', '%'.$term.'%')
+                    ->orWhereIn('semester', $matchingSemesters);
+            });
+        }
 
         if ($selectedStatus === 'active') {
             $query->active();
@@ -2207,6 +2209,7 @@ class AdminController extends Controller
             'selectedSchoolYear' => $selectedSchoolYear,
             'selectedSemester' => $selectedSemester,
             'selectedStatus' => in_array($selectedStatus, ['archived', 'finished'], true) ? 'closed' : $selectedStatus,
+            'selectedSearch' => $selectedSearch,
             'canArchiveSemesters' => $this->currentAdmin()->isGlobalAdmin(),
             'canManageSemesters' => $this->canManageSemesters(),
         ] + $this->semesterOptions());
@@ -2486,6 +2489,19 @@ class AdminController extends Controller
         }
 
         if ($admin->isDepartmentDean()) {
+            if ($search = trim((string) $request->query('search', ''))) {
+                $programSearch = match (strtoupper($search)) {
+                    'BSIT' => 'Information Technology',
+                    'BSCS' => 'Computer Science',
+                    default => $search,
+                };
+                $query->where(fn ($tasks) => $tasks->where('title', 'like', "%{$search}%")
+                    ->orWhere('program', 'like', "%{$programSearch}%")
+                    ->orWhere('school_year', 'like', "%{$search}%")
+                    ->orWhereHas('research', fn ($research) => $research->where('title', 'like', "%{$search}%")
+                        ->orWhere('program', 'like', "%{$programSearch}%")
+                        ->orWhere('course', 'like', "%{$programSearch}%")));
+            }
             if ($program = trim((string) $request->query('program', ''))) {
                 $query->where(fn ($q) => $q->where('program', $program)
                     ->orWhere(fn ($legacy) => $legacy->where(fn ($unset) => $unset->whereNull('program')->orWhere('program', ''))
@@ -2611,6 +2627,7 @@ class AdminController extends Controller
                 }
             }],
             'notes' => ['required', 'string', 'max:5000'],
+            'deadline' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             'file' => ['prohibited'],
         ], [
             'file.prohibited' => 'Assign a journal task without attachments. The Research Coordinator already has access to the approved research papers.',
@@ -2626,11 +2643,13 @@ class AdminController extends Controller
                 'submission_category' => $data['submission_category'],
                 'school_year' => $data['school_year'],
                 'notes' => trim($data['notes']),
+                'deadline' => $data['deadline'] ?? null,
                 'year_published' => (int) substr($data['school_year'], 0, 4),
                 'status' => ResearchHandoff::STATUS_PENDING,
                 'is_batch' => true,
                 'batch_stage' => Research::STATUS_DRAFT,
             ]);
+            app(\App\Services\JournalWorkflowNotifications::class)->assigned($batch);
             return $batch;
         });
 
@@ -2964,20 +2983,44 @@ class AdminController extends Controller
     {
         abort_unless($this->currentAdmin()->canManageDepartmentKeys(), 403, 'Only main administrators can create department accounts.');
 
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
+        $idPrefix = $request->input('account_type') === 'coordinator' ? 'RC-' : 'DEAN-';
+        $idLabel = $request->input('account_type') === 'coordinator' ? 'Coordinator' : 'Dean';
         $data = $request->validate([
             'account_type' => ['required', Rule::in(['dean', 'coordinator'])],
             'firstname'  => ['required', 'regex:/^[a-zA-Z\s]+$/', 'max:255'],
             'lastname'   => ['required', 'regex:/^[a-zA-Z\s]+$/', 'max:255'],
             'middlename' => ['nullable', 'regex:/^[a-zA-Z\s]+$/', 'max:255'],
-            'dean_id'    => ['required', 'regex:/^[A-Za-z0-9\-]+$/', 'max:50', 'unique:users,student_id'],
-            'email'      => ['required', 'email', 'max:255', 'unique:users,email'],
+            'dean_id'    => ['bail', 'required', 'string', 'regex:/\A[0-9]+\z/', 'size:6',
+                function ($attribute, $value, $fail) use ($idPrefix) {
+                    $identifier = $idPrefix.$value;
+                    if (DB::table('users')->where('student_id', $identifier)->exists()
+                        || (Schema::hasTable('member_identifiers') && DB::table('member_identifiers')->where('identifier', $identifier)->whereNotNull('assigned_at')->exists())) {
+                        $fail('This ID is already registered or was previously assigned. Choose another number.');
+                    }
+                },
+            ],
+            'email'      => [...$this->gmailEmailRules(),
+                function ($attribute, $value, $fail) {
+                    if (DB::table('users')->whereRaw('LOWER(TRIM(email)) = ?', [$value])->exists()) {
+                        $fail('This email address is already registered.');
+                    }
+                },
+            ],
             'department' => 'required|string|max:255',
         ], [
             'firstname.regex'  => 'First name must contain letters only.',
             'lastname.regex'   => 'Last name must contain letters only.',
             'middlename.regex' => 'Middle name must contain letters only.',
-            'dean_id.regex'    => 'Account ID may only contain letters, numbers, and hyphens.',
+            'required' => 'This field is required.',
+            'dean_id.regex' => 'Enter numbers only.',
+            'dean_id.size' => $idLabel.' ID must contain exactly 6 digits, without '.$idPrefix.'.',
+            ...$this->gmailEmailMessages(),
         ]);
+
+        $data['dean_id'] = $idPrefix.$data['dean_id'];
 
         if (! in_array($data['department'], $this->departments(), true)) {
             return back()
@@ -2985,18 +3028,7 @@ class AdminController extends Controller
                 ->withInput();
         }
 
-        if (
-            $data['account_type'] === 'coordinator'
-            && User::query()
-                ->where('role', 'admin')
-                ->where('is_research_coordinator', true)
-                ->where('department', $data['department'])
-                ->exists()
-        ) {
-            return back()
-                ->withErrors(['department' => 'This department already has a Research Coordinator account.'])
-                ->withInput();
-        }
+
 
         $fullName = trim(implode(' ', array_filter([
             $data['firstname'],
@@ -3006,9 +3038,8 @@ class AdminController extends Controller
 
         $accountType = $data['account_type'];
         $roleLabel = $accountType === 'coordinator' ? 'Research Coordinator' : 'Dean';
-        $passwordSuffix = $accountType === 'coordinator' ? 'Coordinator' : 'Dean';
 
-        $generatedPassword = $data['dean_id'] . '_' . $passwordSuffix . '@1';
+        $generatedPassword = $this->generateImportedUserPassword($data['dean_id'], $data['firstname']);
 
         $account = User::create([
             'name'               => $fullName,
@@ -3027,7 +3058,7 @@ class AdminController extends Controller
 
         $response = redirect()->route('admin.users')->with(
             'success',
-            $roleLabel . ' account created successfully. Login ID: ' . $data['dean_id'] . ' | Default password: ' . $generatedPassword
+            $roleLabel . ' account created successfully. Login ID: ' . $data['dean_id'] . ' | Temporary password: ' . $generatedPassword
         );
 
         try {
@@ -3050,43 +3081,77 @@ class AdminController extends Controller
 
     // ── Reports ───────────────────────────────────────────────────────────────
 
+    private function gmailEmailRules(): array
+    {
+        return ['bail', 'required', 'string', 'max:255', 'email:rfc',
+            function ($attribute, $value, $fail) {
+                $domain = substr(strrchr($value, '@'), 1);
+                if (! str_contains($domain, '.')) {
+                    $fail('Please enter a valid Gmail address.');
+                } elseif ($domain !== 'gmail.com') {
+                    $fail('Only Gmail addresses (@gmail.com) are allowed.');
+                }
+            },
+        ];
+    }
+
+    private function gmailEmailMessages(): array
+    {
+        return [
+            'email.required' => 'Email address is required.',
+            'email.string' => 'Please enter a valid Gmail address.',
+            'email.max' => 'Please enter a valid Gmail address.',
+            'email.email' => 'Please enter a valid Gmail address.',
+        ];
+    }
+
     public function storeUser(Request $request)
     {
         $dean = $this->currentAdmin();
         abort_unless($dean->canImportUsers(), 403);
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
         $semester = $this->activeSemester();
         $data = $request->validateWithBag('addUser', [
             'firstname' => ['required', 'string', 'regex:/^[a-zA-Z\s]+$/', 'max:100'],
             'middlename' => ['nullable', 'string', 'regex:/^[a-zA-Z\s]+$/', 'max:100'],
             'lastname' => ['required', 'string', 'regex:/^[a-zA-Z\s]+$/', 'max:100'],
             'member_type' => ['required', Rule::in(['student', 'faculty'])],
-            'student_id' => ['required', 'string', 'regex:/^[A-Za-z0-9\-]+$/', 'max:50', 'unique:users,student_id'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'student_id' => ['required', 'string', 'regex:/\A[0-9]+\z/', $request->input('member_type') === 'student' ? 'max:8' : 'size:6'],
+            'email' => [...$this->gmailEmailRules(),
+                function ($attribute, $value, $fail) {
+                    if (DB::table('users')->whereRaw('LOWER(TRIM(email)) = ?', [$value])->exists()) {
+                        $fail('This email address is already registered.');
+                    }
+                },
+            ],
             'year_level' => ['nullable', 'required_if:member_type,student', 'integer', 'between:1,4'],
             'program' => ['required', 'string', Rule::in(Research::programsByDepartment()[$dean->department] ?? [])],
         ], [
             'firstname.regex' => 'First name must contain letters only.',
             'middlename.regex' => 'Middle name must contain letters only.',
             'lastname.regex' => 'Last name must contain letters only.',
-            'student_id.regex' => 'Student or Faculty ID may only contain letters, numbers, and hyphens.',
-            'student_id.unique' => 'This Student or Faculty ID is already registered.',
-            'email.unique' => 'This email address is already registered.',
+            'student_id.regex' => 'Enter numbers only.',
+            'student_id.size' => 'Faculty ID must contain exactly 6 digits, without FAC-.',
+            ...$this->gmailEmailMessages(),
         ], [
             'firstname' => 'first name', 'middlename' => 'middle name',
             'lastname' => 'last name', 'student_id' => 'Student or Faculty ID',
             'member_type' => 'member type', 'year_level' => 'year level',
         ]);
-        $generatedPassword = $this->generateImportedUserPassword($data['student_id'], $data['firstname']);
-        DB::transaction(function () use ($data, $dean, $semester, $generatedPassword) {
+        [$user, $generatedPassword] = DB::transaction(function () use ($data, $dean, $semester) {
             if ($semester) {
                 app(SemesterWorkflow::class)->lockCurrent($semester->id, 'addUser');
             }
             $student = $data['member_type'] === 'student';
+            $identifier = app(MemberIdGenerator::class)->forManualCreation($data['member_type'], $data['student_id']);
+            $generatedPassword = $this->generateImportedUserPassword($identifier, $data['firstname']);
             $user = User::create([
                 'name' => trim(implode(' ', array_filter([$data['firstname'], $data['middlename'] ?? null, $data['lastname']]))),
                 'middle_name' => $data['middlename'] ?? null,
                 'email' => $data['email'], 'password' => Hash::make($generatedPassword),
-                'student_id' => $data['student_id'], 'role' => $student ? 'user' : 'researcher',
+                'student_id' => $identifier, 'role' => $student ? 'user' : 'researcher',
                 'department' => $dean->department, 'created_by' => $dean->id,
                 'program' => $data['program'] ?? null,
                 'current_semester_id' => $semester?->id,
@@ -3101,11 +3166,29 @@ class AdminController extends Controller
                     'status' => SemesterEnrollment::STATUS_ACTIVE, 'enrolled_at' => now(), 'enrolled_by' => $dean->id,
                 ]);
             }
-        });
+            return [$user, $generatedPassword];
+        }, 5);
         \App\Services\UserActivity::record($dean, 'account_created', 'Dean created a new ' . ($data['member_type'] === 'student' ? 'Student' : 'Faculty') . ' account under the department.');
-        return redirect()->route('admin.users')->with('success', $semester
-            ? 'User account created successfully.'
-            : 'User account saved. Activate this user when an active semester is available.');
+
+        $roleLabel = $data['member_type'] === 'student' ? 'Student' : 'Faculty';
+        $response = redirect()->route('admin.users')->with('success', $semester
+            ? $roleLabel . ' account created. Login details were sent to ' . $user->email . '.'
+            : $roleLabel . ' account created. Login details were sent to ' . $user->email . '; the account will be available after it is activated for a semester.');
+
+        try {
+            $mailer = config('mail.default');
+            if (in_array($mailer, ['log', 'array'], true) && ! app()->environment('testing')) {
+                throw new \RuntimeException('An outgoing mail transport is required.');
+            }
+            Mail::mailer($mailer === 'failover' ? 'smtp' : $mailer)
+                ->to($user->email)
+                ->send(new \App\Mail\DepartmentAccountCreated($user, $roleLabel, $generatedPassword));
+        } catch (\Throwable $exception) {
+            report($exception);
+            $response->with('error', 'The account was created, but the login email could not be sent. Login ID: ' . $user->student_id . ' | Temporary password: ' . $generatedPassword);
+        }
+
+        return $response;
     }
 
     public function importUsers(Request $request)
@@ -3136,6 +3219,7 @@ class AdminController extends Controller
 
         $errors = [];
         $validUsers = [];
+        $credentialsToEmail = [];
         $importPreview = [];
         $skippedUsers = [];
         $existingAssignments = [];
@@ -3160,7 +3244,7 @@ class AdminController extends Controller
                 ];
 
                 if ($user->email) {
-                    $existingEmails[strtolower($user->email)] = $userSummary;
+                    $existingEmails[strtolower(trim($user->email))] = $userSummary;
                 }
 
                 if ($user->student_id) {
@@ -3217,10 +3301,11 @@ class AdminController extends Controller
 
             $idKey = strtolower((string) $identifier);
 
-            $email = $normalized['email'] ?: $this->generateImportedUserEmail($identifier);
-            $emailKey = strtolower($email);
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $rowErrors[] = 'Invalid email.';
+            $email = $normalized['email'];
+            $emailKey = $email;
+            $emailValidator = Validator::make(['email' => $email], ['email' => $this->gmailEmailRules()], $this->gmailEmailMessages());
+            if ($emailValidator->fails()) {
+                $rowErrors[] = $emailValidator->errors()->first('email');
             }
 
             if ($rowErrors) {
@@ -3296,6 +3381,10 @@ class AdminController extends Controller
             $courseDuration = $role === 'researcher' && $normalized['member_type'] === 'student' && $yearLevel ? 4 : null;
             $graduationYear = $courseDuration ? ((int) date('Y') + ($courseDuration - $yearLevel)) : null;
             $password = $this->generateImportedUserPassword($identifier, $normalized['firstname']);
+            $credentialsToEmail[$email] = [
+                'role_label' => $normalized['member_type'] === 'faculty' ? 'Faculty' : 'Student',
+                'password' => $password,
+            ];
             $now = now();
 
             $payload = [
@@ -3362,11 +3451,16 @@ class AdminController extends Controller
                     }
                     if ($validUsers) {
                         $validEmails = array_column($validUsers, 'email');
+                        $idGenerator = app(MemberIdGenerator::class);
+                        foreach ($validUsers as $payload) {
+                            $idGenerator->assertAssignable($payload['student_id']);
+                        }
                         User::insert($validUsers);
                         $createdUserIds = User::query()
                             ->whereIn('email', $validEmails)
                             ->pluck('id')
                             ->all();
+                        User::whereIn('id', $createdUserIds)->each(fn ($user) => $idGenerator->rememberAssigned($user));
                     }
 
                     if ($updatedUserIds) {
@@ -3421,6 +3515,31 @@ class AdminController extends Controller
             \App\Services\UserActivity::record($this->currentAdmin(), 'account_created', 'Dean created a new ' . ($createdAccount['role'] === 'user' ? 'Student' : 'Faculty') . ' account under the department.');
         }
 
+        $credentialEmailFailures = 0;
+        if ($credentialsToEmail) {
+            $mailer = config('mail.default');
+            $createdAccounts = User::query()->whereIn('id', $createdUserIds)->get()->keyBy('email');
+            foreach ($credentialsToEmail as $email => $credentials) {
+                $account = $createdAccounts->get($email);
+                if (! $account) {
+                    $credentialEmailFailures++;
+                    continue;
+                }
+
+                try {
+                    if (in_array($mailer, ['log', 'array'], true) && ! app()->environment('testing')) {
+                        throw new \RuntimeException('An outgoing mail transport is required.');
+                    }
+                    Mail::mailer($mailer === 'failover' ? 'smtp' : $mailer)
+                        ->to($account->email)
+                        ->send(new \App\Mail\DepartmentAccountCreated($account, $credentials['role_label'], $credentials['password']));
+                } catch (\Throwable $exception) {
+                    report($exception);
+                    $credentialEmailFailures++;
+                }
+            }
+        }
+
         $redirect = count($importedUserIds) > 0
             ? redirect()->route('admin.users', ['imported' => 1])
             : redirect()->route('admin.users');
@@ -3431,6 +3550,11 @@ class AdminController extends Controller
             . ($semester ? 'assigned to ' . $semester->label . '. ' : 'updated. Activate users when an active semester is available. ')
             . count($skippedUsers) . ' duplicate row(s) skipped. '
             . count($errors) . ' row(s) failed.';
+        if ($credentialsToEmail && $credentialEmailFailures === 0) {
+            $message .= ' Login details were emailed to all newly created users.';
+        } elseif ($credentialEmailFailures > 0) {
+            $message .= ' Login emails could not be sent for ' . $credentialEmailFailures . ' account(s). Check the mail settings and contact those users.';
+        }
 
         return $redirect
             ->with($messageType, $message)
@@ -3639,7 +3763,7 @@ class AdminController extends Controller
             'firstname' => trim((string) ($row['firstname'] ?? ($nameParts[0] ?? ''))),
             'middlename' => trim((string) ($row['middlename'] ?? (count($nameParts) > 2 ? $nameParts[1] : ''))),
             'lastname' => trim((string) ($row['lastname'] ?? (count($nameParts) > 1 ? end($nameParts) : ''))),
-            'email' => trim((string) ($row['email'] ?? '')),
+            'email' => strtolower(trim((string) ($row['email'] ?? ''))),
             'role' => strtolower(trim((string) ($row['role'] ?? ''))),
             'department' => trim((string) ($row['department'] ?? '')),
             'program' => trim((string) ($row['program'] ?? '')),
@@ -3691,11 +3815,6 @@ class AdminController extends Controller
         }
 
         return $errors;
-    }
-
-    private function generateImportedUserEmail(?string $identifier): string
-    {
-        return strtolower(($identifier ?: 'user') . '.' . date('Y') . '@ube.local');
     }
 
     private function generateImportedUserPassword(?string $identifier, string $firstname): string
@@ -3763,6 +3882,7 @@ class AdminController extends Controller
         if ($filters['program']) {
             $query->whereRaw("COALESCE(NULLIF(program, ''), course) = ?", [$filters['program']]);
         }
+        $this->applyReportSearch($query, $filters['search']);
         $reportBaseQuery = $query;
 
         $departmentTotals = (clone $reportBaseQuery)
@@ -3810,8 +3930,9 @@ class AdminController extends Controller
             ->paginate(self::REPORTS_PER_PAGE)
             ->withQueryString();
 
-        $years = $this->journalAcademicYears();
+        $years = Research::academicYearsForQuery($reportOptionsQuery);
 
+        $this->applyReportSearch($reportOptionsQuery, $filters['search']);
         $reportFilterRows = (clone $reportOptionsQuery)
             ->with('semester')
             ->select(['id', 'department', 'school_year', 'semester_id', 'program', 'course'])
@@ -3844,22 +3965,29 @@ class AdminController extends Controller
             $base->whereRaw('1 = 0');
         }
         $options = (clone $base)->with('semester')->get();
-        $programs = $options->map(fn ($row) => $row->program ?: $row->course)->filter()->unique()->sort()->values();
-        $schoolYears = $options->map(fn ($row) => $row->semester?->school_year)->filter()->unique()->sortDesc()->values();
-        $types = $options->pluck('type')->filter()->unique()->sort()->values();
-        $categories = [
-            Research::SUBMISSION_CATEGORY_RESEARCH => 'Research',
-            Research::SUBMISSION_CATEGORY_JOURNAL => 'Journal',
-        ] + Research::adminSubmissionCategories();
+        $programs = collect(Research::programsByDepartment()[$department] ?? [])
+            ->merge($options->map(fn ($row) => $row->program ?: $row->course))
+            ->filter()->unique()->sort()->values();
+        $schoolYears = collect(range(2022, 2027))->map(fn ($year) => $year.'-'.($year + 1))
+            ->merge($options->map(fn ($row) => $row->school_year ?: $row->semester?->school_year))
+            ->filter()->unique()->sortDesc()->values();
+        $types = collect(Research::journalTypeOptions())->merge($options->pluck('type'))
+            ->filter()->unique()->sort()->values();
+        $categories = Research::adminSubmissionCategories();
         $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
             'school_year' => ['nullable', 'string', 'max:9'],
             'semester' => ['nullable', 'string', 'max:20'],
             'program' => ['nullable', 'string', 'max:255'],
             'submission_category' => ['nullable', 'string', 'in:' . implode(',', array_keys($categories))],
             'type' => ['nullable', 'string', 'max:255'],
         ]);
+        $filters['search'] = trim($filters['search'] ?? '');
         $query = clone $base;
-        $this->applySemesterFilter($query, $filters['school_year'] ?? null, $filters['semester'] ?? null, 'semester');
+        if ($schoolYear = $filters['school_year'] ?? null) {
+            $query->whereRaw(Research::academicYearExpression().' = ?', [$schoolYear]);
+        }
+        $this->applySemesterFilter($query, null, $filters['semester'] ?? null, 'semester');
         if ($program = $filters['program'] ?? null) {
             $query->whereRaw("COALESCE(NULLIF(program, ''), course) = ?", [$program]);
         }
@@ -3867,9 +3995,16 @@ class AdminController extends Controller
             $query->where('type', $type);
         }
         // Normalize legacy categories using the same fallback as the model label.
-        $allRows = $query->with('user')->orderByDesc('year_published')->orderBy('title')->orderBy('id')->get();
+        $allRows = $query->with(['user', 'semester'])->orderByDesc('year_published')->orderBy('title')->orderBy('id')->get();
         if ($category = $filters['submission_category'] ?? null) {
             $allRows = $allRows->filter(fn ($row) => ($row->submission_category ?: Research::inferCategoryFromType($row->type)) === $category)->values();
+        }
+        if ($filters['search'] !== '') {
+            $search = $filters['search'];
+            $allRows = $allRows->filter(function ($row) use ($search) {
+                $fields = [$row->title, $row->authorListLabel(), $row->program ?: $row->course];
+                return collect($fields)->contains(fn ($value) => mb_stripos((string) $value, $search) !== false);
+            })->values();
         }
         $studentCount = $allRows->filter(fn ($row) => $row->submission_category === Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL
             || (! in_array($row->submission_category, [Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL, Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL], true) && $row->user?->role === 'user'))->count();
@@ -3923,6 +4058,7 @@ class AdminController extends Controller
             'Department: ' . $filters['department'] .
             ' | Program: ' . $filters['program'] .
             ' | Academic Year: ' . $filters['years'] .
+            ($filters['search'] ? ' | Search: ' . $filters['search'] : '') .
             ' | Matching Records: ' . number_format($researches->count())
         ));
         $pdf->Ln(3);
@@ -4026,6 +4162,7 @@ class AdminController extends Controller
         if ($filters['program']) {
             $query->whereRaw("COALESCE(NULLIF(program, ''), course) = ?", [$filters['program']]);
         }
+        $this->applyReportSearch($query, $filters['search']);
 
         return $query
             ->orderBy('department')
@@ -4052,6 +4189,7 @@ class AdminController extends Controller
         return [
             'department' => $department !== '' ? $department : null,
             'program' => trim((string) $request->input('program')) ?: null,
+            'search' => trim($request->string('search')->toString()),
             'years' => $years,
         ];
     }
@@ -4063,8 +4201,17 @@ class AdminController extends Controller
         return [
             'department' => $filters['department'] ?: 'All Departments',
             'program' => $filters['program'] ?: 'All Programs',
+            'search' => $filters['search'],
             'years' => $filters['years'] !== [] ? implode(', ', $filters['years']) : 'All Academic Years',
         ];
+    }
+
+    private function applyReportSearch($query, string $search): void
+    {
+        if ($search !== '') {
+            $query->where(fn ($match) => $match->where('title', 'like', '%'.$search.'%')
+                ->orWhere('author_name', 'like', '%'.$search.'%')->orWhereResearchId($search));
+        }
     }
 
     private function applyReportAcademicYears($query, array $years): void

@@ -185,6 +185,7 @@
     </section>
 </div>
 
+@push('styles')
 <style>
 .sd-shell{display:grid;gap:22px;max-width:1180px}
 .sd-hero,.sd-card,.sd-stat-card,.sd-archive-note{background:#fff;border:1px solid rgba(107,47,160,.1);box-shadow:0 12px 28px rgba(57,26,101,.06)}
@@ -229,4 +230,5 @@
 @media (max-width: 980px){.sd-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sd-hero{flex-direction:column}.sd-hero-actions{width:100%}}
 @media (max-width: 720px){.sd-stat-grid{grid-template-columns:1fr}.sd-card-head{flex-direction:column}.sd-table th{display:none}.sd-table,.sd-table tbody,.sd-table tr,.sd-table td{display:block;width:100%}.sd-table tr{border-top:1px solid #f0e9fb}.sd-table td{display:flex;justify-content:space-between;gap:16px;border-top:0;padding:11px 16px}.sd-table td::before{content:attr(data-label);color:#86789a;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.sd-table td[data-label="Name"],.sd-table td[data-label="Title"]{display:block}.sd-table td[data-label="Name"]::before,.sd-table td[data-label="Title"]::before{display:block;margin-bottom:6px}}
 </style>
+@endpush
 @endsection

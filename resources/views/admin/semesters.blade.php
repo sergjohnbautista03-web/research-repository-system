@@ -5,6 +5,7 @@
 @section('content')
 @php
     $activeFilters = collect([
+        $selectedSearch ? 'Search: ' . $selectedSearch : null,
         $selectedSchoolYear ? 'Academic Year: ' . $selectedSchoolYear : null,
         $selectedSemester ? 'Semester: ' . $selectedSemester : null,
         $selectedStatus ? 'Status: ' . ucfirst($selectedStatus) : null,
@@ -395,8 +396,12 @@
     <span>Filter & Audit All Records</span>
 </div>
 
-<form method="GET" class="sem-filter-card">
+<form method="GET" action="{{ route('admin.semesters') }}" class="sem-filter-card" id="sem-record-filters">
     <div class="sem-filter-grid">
+        <div class="sem-filter-field sem-search-field">
+            <label for="sem-record-search">Search</label>
+            <input type="search" id="sem-record-search" name="search" value="{{ $selectedSearch }}" placeholder="Search academic year or semester..." autocomplete="off" data-auto-filter>
+        </div>
         <div class="sem-filter-field">
             <label for="sem-school-year">Academic Year</label>
             <select id="sem-school-year" name="school_year">
@@ -431,20 +436,19 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
                 Filter
             </button>
-            <a href="{{ route('admin.semesters') }}" class="sem-btn sem-btn-ghost">Clear</a>
+            <a href="{{ route('admin.semesters') }}" class="sem-btn sem-btn-ghost" id="sem-record-clear">Clear</a>
         </div>
     </div>
 
-    @if($activeFilters->isNotEmpty())
-        <div class="sem-active-filters">
+        <div class="sem-active-filters" id="sem-active-filters" @if($activeFilters->isEmpty()) hidden @endif>
             @foreach($activeFilters as $filter)
                 <span>{{ $filter }}</span>
             @endforeach
         </div>
-    @endif
 </form>
 
-<section class="sem-table-card">
+<p id="sem-search-status" role="status" aria-live="polite"></p>
+<section class="sem-table-card" id="sem-record-results">
     <div class="sem-table-head">
         <div>
             <span>Records</span>
@@ -536,7 +540,7 @@
                             <div class="sem-empty-state">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
                                 <strong>No semester records found</strong>
-                                <p>Click the "Add Academic Year / Semester" button above to add new academic terms.</p>
+                                <p>{{ $activeFilters->isNotEmpty() ? 'Try another search or clear the filters.' : 'Click the "Add Academic Year / Semester" button above to add new academic terms.' }}</p>
                             </div>
                         </td>
                     </tr>
@@ -788,6 +792,7 @@
     </section>
 </div>
 
+@push('styles')
 <style>
 /* ── Alerts ── */
 .sem-alert{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-radius:14px;font-size:13.5px;margin-bottom:20px;font-weight:600;line-height:1.4}
@@ -898,12 +903,16 @@
 
 .sem-filter-card,.sem-table-card{background:#fff;border:1px solid rgba(107,47,160,.1);box-shadow:0 12px 28px rgba(57,26,101,.06)}
 .sem-filter-card{margin-bottom:20px;padding:18px;border-radius:20px}
-.sem-filter-grid{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr)) auto;gap:12px;align-items:end}
+.sem-filter-grid{display:grid;grid-template-columns:minmax(280px,1.8fr) repeat(3,minmax(0,1fr)) auto;gap:12px;align-items:end}
 .sem-filter-field{min-width:0}
 .sem-filter-field label{margin:0 0 7px 2px;color:#7b4bb0;font-size:10.5px}
-.sem-filter-field select{width:100%;min-height:46px;border:1.5px solid #e4d7f6;border-radius:12px;background:linear-gradient(180deg,#fff,#fcfaff);color:#1d0b3b;font:inherit;font-size:13.5px;outline:none;padding:0 34px 0 14px}
-.sem-filter-field select:focus{border-color:#7c3aed;background:#fff;box-shadow:0 0 0 4px rgba(124,58,237,.11)}
+.sem-filter-field select,.sem-filter-field input{box-sizing:border-box;width:100%;min-height:46px;border:1.5px solid #e4d7f6;border-radius:12px;background:linear-gradient(180deg,#fff,#fcfaff);color:#1d0b3b;font:inherit;font-size:13.5px;outline:none;padding:0 34px 0 14px}
+.sem-filter-field select:focus,.sem-filter-field input:focus{border-color:#7c3aed;background:#fff;box-shadow:0 0 0 4px rgba(124,58,237,.11)}
+.sem-active-filters[hidden]{display:none}
+#sem-search-status{color:#77678e;font-size:13px}
+#sem-search-status:empty{display:none}
 .sem-filter-actions,.sem-action-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sem-filter-actions{flex-wrap:nowrap}
 
 .sem-active-filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #f0e9fb}
 .sem-active-filters span{display:inline-flex;align-items:center;padding:6px 10px;background:#f8f4ff;color:#6b2fa0;border:1px solid #e3d5f5;border-radius:999px;font-size:11.5px;font-weight:800}
@@ -1008,10 +1017,12 @@ body.sem-modal-open{overflow:hidden}
 .sem-edit-term-pill strong{font-size:15px;color:#2f144f;font-weight:900}
 
 /* ── Responsive ── */
-@media (max-width: 900px){
-    .sem-terms-grid{grid-template-columns:1fr}
+@media (max-width: 1100px){
     .sem-filter-grid{grid-template-columns:repeat(2,minmax(140px,1fr))}
     .sem-filter-actions{grid-column:1 / -1}
+}
+@media (max-width: 900px){
+    .sem-terms-grid{grid-template-columns:1fr}
 }
 @media (max-width: 640px){
     .sem-page-head{flex-direction:column}
@@ -1028,14 +1039,27 @@ body.sem-modal-open{overflow:hidden}
     .sem-modal-actions .sem-btn{width:100%}
 }
 </style>
+@endpush
 @endsection
 
 @push('scripts')
 <script type="application/json" id="semester-creation-plans">@json($semesterCreationPlans)</script>
 <script src="{{ asset('js/semester-creation.js') }}?v={{ filemtime(public_path('js/semester-creation.js')) }}"></script>
+<script type="application/json" id="semester-record-data">@json($semesterModalRecords)</script>
+<script src="{{ asset('js/semester-record-search.js') }}?v={{ filemtime(public_path('js/semester-record-search.js')) }}" defer></script>
 <script>
 (function() {
-    const semesterRecords = @json($semesterModalRecords);
+    let semesterRecords = JSON.parse(document.getElementById('semester-record-data').textContent);
+    document.addEventListener('semester-records-updated', function() {
+        semesterRecords = JSON.parse(document.getElementById('semester-record-data').textContent);
+    });
+
+    function onSemesterClick(selector, handler) {
+        document.addEventListener('click', function(event) {
+            const trigger = event.target.closest(selector);
+            if (trigger) handler.call(trigger, event);
+        });
+    }
 
     function setText(id, value) {
         const el = document.getElementById(id);
@@ -1087,8 +1111,7 @@ body.sem-modal-open{overflow:hidden}
     });
 
     // Details Modal Trigger
-    document.querySelectorAll('.sem-modal-trigger').forEach(function(trigger) {
-        trigger.addEventListener('click', function() {
+    onSemesterClick('.sem-modal-trigger', function() {
             const id = this.dataset.semesterId;
             const record = semesterRecords[String(id)];
             if (!record) return;
@@ -1138,12 +1161,10 @@ body.sem-modal-open{overflow:hidden}
             }
 
             openModal('semesterDetailsModal');
-        });
     });
 
     // Activation Confirmation Modal
-    document.querySelectorAll('.js-open-activate-modal').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    onSemesterClick('.js-open-activate-modal', function() {
             const semesterName = this.dataset.semesterName;
             const schoolYear = this.dataset.schoolYear;
             const activateUrl = this.dataset.activateUrl;
@@ -1155,7 +1176,6 @@ body.sem-modal-open{overflow:hidden}
             if (form) form.action = activateUrl;
 
             openModal('activateConfirmationModal');
-        });
     });
 
     // Add Semester Modal Button
@@ -1183,8 +1203,7 @@ body.sem-modal-open{overflow:hidden}
     });
 
     // Edit Semester Modal
-    document.querySelectorAll('.js-open-edit-modal').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    onSemesterClick('.js-open-edit-modal', function() {
             const id = this.dataset.semesterId;
             const record = semesterRecords[String(id)];
             if (!record) return;
@@ -1202,7 +1221,6 @@ body.sem-modal-open{overflow:hidden}
             if (endInput) endInput.value = record.rawEndDate;
 
             openModal('editSemesterModal');
-        });
     });
 })();
 </script>

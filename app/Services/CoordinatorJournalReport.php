@@ -103,11 +103,13 @@ class CoordinatorJournalReport
                 ->sortBy('label', SORT_NATURAL, $key === 'school_year')->values(),
         ]);
         $programs = collect(Research::programsByDepartment()[$coordinator->department] ?? [])
-            ->mapWithKeys(fn ($program) => [$program => $program])->merge($allRows->pluck('program', 'program_key'))->sort();
+            ->mapWithKeys(fn ($program) => [$program => $program])->merge($allRows->pluck('program', 'program_key'))
+            ->except('__unassigned')->sort();
 
         return compact('rows', 'filters', 'categories', 'breakdowns', 'programs') + [
             'totals' => $this->totals($rows),
-            'schoolYears' => $allRows->pluck('school_year')->unique()->sortDesc()->values(),
+            'schoolYears' => collect(['2023-2024', '2024-2025', '2025-2026'])
+                ->merge($allRows->pluck('school_year'))->unique()->sortDesc()->values(),
             'statuses' => self::STATUSES,
             'coordinator' => $coordinator,
             'generatedAt' => now('Asia/Manila')->format('M d, Y h:i A'),

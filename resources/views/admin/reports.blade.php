@@ -13,6 +13,14 @@
 <div class="rr-filter-card">
     <form method="GET" action="{{ route('admin.reports') }}" class="rr-filter-form">
 
+        <div class="rr-filter-group rr-filter-search">
+            <label for="reportSearch">Search Reports</label>
+            <div class="rr-search-input">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
+                <input type="search" id="reportSearch" name="search" value="{{ request('search') }}" placeholder="Title, author, or Research ID..." autocomplete="off" data-auto-filter>
+            </div>
+        </div>
+
         <div class="rr-filter-group">
             <label>Department</label>
             @if($isDepartmentScoped)
@@ -108,7 +116,7 @@
             <div class="rr-empty-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             </div>
-            <p>No research found matching your filters.</p>
+            <p>No research found matching your search and filters.</p>
             <a href="{{ route('admin.reports') }}" class="rr-btn rr-btn-primary" style="margin-top:14px;">Clear Filters</a>
         </div>
     </div>
@@ -265,17 +273,20 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .rr-filter-card{background:#fff;border-radius:16px;border:1px solid rgba(107,47,160,.1);box-shadow:0 2px 16px rgba(59,15,122,.05);padding:20px 24px;margin-bottom:20px;}
-.rr-filter-form{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;}
-.rr-filter-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:160px;}
-.rr-filter-group.rr-filter-sm{flex:0 0 220px;min-width:220px;}
-.rr-filter-program{min-width:220px;}
+.rr-filter-form{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1.1fr) repeat(2,minmax(0,1fr)) auto auto;align-items:end;gap:14px;}
+.rr-filter-group{display:flex;flex-direction:column;gap:5px;min-width:0;}
 .rr-filter-group label,.rr-filter-actions label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#a090bc;}
 .rr-filter-label-hidden{visibility:hidden;display:block;font-size:11px;margin-bottom:5px;}
-.rr-filter-group select,.rr-fixed-department{padding:9px 13px;border:1.5px solid #e8dff5;border-radius:10px;background:#faf8ff;font-size:13.5px;color:#1a0638;box-sizing:border-box;font-family:inherit;width:100%;min-height:39px;}
+.rr-filter-group select,.rr-filter-group input,.rr-fixed-department{padding:9px 13px;border:1.5px solid #e8dff5;border-radius:10px;background:#faf8ff;font-size:13.5px;color:#1a0638;box-sizing:border-box;font-family:inherit;width:100%;min-height:39px;}
+.rr-search-input{position:relative;min-width:0;}
+.rr-search-input svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:#8b7aaa;pointer-events:none;}
+.rr-search-input input{padding-left:37px;}
+.rr-search-input input::placeholder{color:#8b7aaa;opacity:1;}
 .rr-fixed-department{display:flex;align-items:center;color:#6b2fa0;font-weight:800;}
-.rr-filter-group select:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
+.rr-filter-group select:focus,.rr-filter-group input:focus{outline:none;border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
 .rr-results-meta{margin:-8px 0 14px;color:#7d6c98;font-size:12.5px;font-weight:700;}
 .rr-filter-actions{display:flex;flex-direction:column;gap:4px;}
 .rr-print-wrap{display:flex;flex-direction:column;gap:4px;margin-left:auto;}
@@ -319,7 +330,7 @@
 .rr-modal-header h3{margin:0;color:#1a0638;font-size:22px;line-height:1.15;}
 .rr-modal-close{width:34px;height:34px;border-radius:10px;border:1px solid #e8dff5;background:#faf8ff;color:#6b2fa0;font-size:24px;line-height:1;cursor:pointer;}
 .rr-modal-close:hover{background:#f0eaf9;}
-.rr-modal-body{padding:20px 24px;overflow-y:auto;}
+.rr-modal-body{padding:20px 24px;min-height:0;overflow-y:auto;}
 .rr-print-context{padding:12px 14px;border:1px solid #e8dff5;background:#faf8ff;border-radius:12px;display:grid;gap:4px;margin-bottom:14px;}
 .rr-print-context strong{font-size:12px;color:#3b0f7a;text-transform:uppercase;letter-spacing:.06em;}
 .rr-print-context span{font-size:13px;color:#6b5b82;line-height:1.5;}
@@ -331,7 +342,7 @@
 .rr-print-option span{display:grid;gap:3px;}
 .rr-print-option strong{color:#1a0638;font-size:14px;}
 .rr-print-option small{color:#7d6c98;font-size:12.5px;line-height:1.35;}
-.rr-export-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px;}
+.rr-export-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px;}
 .rr-export-field{display:grid;gap:7px;margin-bottom:14px;}
 .rr-export-field label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#6b2fa0;}
 .rr-export-field select,.rr-export-field input[type="text"]{width:100%;min-height:42px;border:1.5px solid #e8dff5;border-radius:12px;background:#faf8ff;color:#1a0638;font-family:inherit;font-size:13.5px;font-weight:700;padding:9px 12px;box-sizing:border-box;}
@@ -343,8 +354,9 @@
 .rr-year-trigger-text{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;}
 .rr-year-trigger-icon{width:8px;height:8px;border-right:2px solid #6b2fa0;border-bottom:2px solid #6b2fa0;transform:rotate(45deg);transition:transform .14s ease;margin-right:3px;flex:0 0 auto;}
 .rr-year-dropdown.is-open .rr-year-trigger-icon{transform:rotate(225deg);margin-top:5px;}
-.rr-year-menu{display:none;max-height:280px;overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box;margin-top:8px;padding:8px;border:1px solid #e2d5f4;border-radius:14px;background:#fff;box-shadow:0 14px 32px rgba(26,6,56,.12);}
-.rr-year-dropdown.is-open .rr-year-menu{display:grid;gap:4px;}
+.rr-year-menu{display:none;box-sizing:border-box;margin-top:8px;padding:8px;border:1px solid #e2d5f4;border-radius:14px;background:#fff;box-shadow:0 14px 32px rgba(26,6,56,.12);}
+.rr-year-dropdown.is-open .rr-year-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;}
+.rr-year-check-all,.rr-year-empty{grid-column:1/-1;}
 .rr-export-field .rr-year-check{display:flex;align-items:center;gap:10px;min-height:38px;padding:9px 10px;border-radius:10px;color:#1a0638;font-size:13px;font-weight:800;letter-spacing:0;text-transform:none;cursor:pointer;transition:background .14s ease,color .14s ease;}
 .rr-export-field .rr-year-check:hover{background:#f8f2ff;}
 .rr-export-field .rr-year-check:has(input:checked){background:#f0eaf9;color:#2d0a5e;}
@@ -359,10 +371,12 @@
 .rr-export-result small{margin-left:auto;color:#6b5b82;font-size:12.5px;text-align:right;}
 .rr-btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none;}
 .rr-print-validation{min-height:18px;margin:12px 0 0;color:#b91c1c;font-size:12.5px;font-weight:700;}
-.rr-modal-actions{display:flex;justify-content:flex-end;gap:10px;padding:16px 24px 22px;border-top:1px solid #f0eaf9;background:#fdfbff;}
-@media(max-width:640px){.rr-filter-form{flex-direction:column;}.rr-filter-group,.rr-filter-group.rr-filter-sm{flex:none;width:100%;min-width:unset;}.rr-print-wrap{margin-left:0;}.rr-bar-row{grid-template-columns:50px 1fr 34px;}}
-@media(max-width:640px){.rr-modal{padding:12px;align-items:flex-end;}.rr-modal-dialog{border-radius:16px 16px 0 0;max-height:92vh;}.rr-year-menu{max-height:250px;}.rr-export-grid{grid-template-columns:1fr}.rr-export-result{align-items:flex-start;flex-direction:column}.rr-export-result small{text-align:left;margin-left:0}.rr-modal-actions{flex-direction:column-reverse;}.rr-modal-actions .rr-btn{justify-content:center;width:100%;}}
+.rr-modal-actions{display:flex;flex-shrink:0;justify-content:flex-end;gap:10px;padding:16px 24px 22px;border-top:1px solid #f0eaf9;background:#fdfbff;}
+@media(max-width:1100px){.rr-filter-form{grid-template-columns:repeat(2,minmax(0,1fr));}.rr-print-wrap{margin-left:0;}}
+@media(max-width:640px){.rr-filter-form{grid-template-columns:minmax(0,1fr);}.rr-filter-group{width:100%;}.rr-bar-row{grid-template-columns:50px 1fr 34px;}}
+@media(max-width:640px){.rr-modal{padding:12px;align-items:flex-end;}.rr-modal-dialog{border-radius:16px 16px 0 0;max-height:92vh;}.rr-export-grid{grid-template-columns:1fr}.rr-export-result{align-items:flex-start;flex-direction:column}.rr-export-result small{text-align:left;margin-left:0}.rr-modal-actions{flex-direction:column-reverse;}.rr-modal-actions .rr-btn{justify-content:center;width:100%;}}
 </style>
+@endpush
 
 @endsection
 
@@ -454,6 +468,7 @@ function printReport() {
 
 const reportPrintData = {
     filters: {
+        search: @json(request('search') ?: ''),
         department: @json($fixedDepartment ?: (request('department') ?: 'All Departments')),
         program: @json(request('program') ?: 'All Programs'),
         year: @json(request('school_year') ?: 'All Academic Years'),
@@ -646,6 +661,7 @@ function printReport(scope) {
             Department: ${escapeHtml(reportPrintData.filters.department)} |
             Program: ${escapeHtml(reportPrintData.filters.program)} |
             Academic Year: ${escapeHtml(reportPrintData.filters.year)} |
+            ${reportPrintData.filters.search ? `Search: ${escapeHtml(reportPrintData.filters.search)} |` : ''}
             ${escapeHtml(totalLabel)}
         </div>
         ${bodyContent}
@@ -754,6 +770,10 @@ function reportExportDepartmentValue() {
     return field?.dataset.value ?? field?.value ?? '';
 }
 
+function appliedReportSearch() {
+    return document.getElementById('reportSearch')?.defaultValue?.trim() || '';
+}
+
 function matchingReportExportRows() {
     const department = reportExportDepartmentValue();
     const program = document.getElementById('reportExportProgram')?.value ?? '';
@@ -781,7 +801,8 @@ function reportExportSummaryText(count) {
         ? 'All Academic Years'
         : (years.length ? years.join(', ') : 'No academic year selected');
 
-    return `${department} | ${program} | ${yearText} | ${count.toLocaleString()} record${count === 1 ? '' : 's'}`;
+    const search = appliedReportSearch();
+    return `${department} | ${program} | ${yearText}${search ? ` | Search: ${search}` : ''} | ${count.toLocaleString()} record${count === 1 ? '' : 's'}`;
 }
 
 function updateReportExportCount() {
@@ -895,6 +916,10 @@ function exportFilteredReport(format) {
     }
 
     const params = new URLSearchParams();
+    const search = appliedReportSearch();
+    if (search) {
+        params.set('search', search);
+    }
     const department = reportExportDepartmentValue();
 
     if (department) {

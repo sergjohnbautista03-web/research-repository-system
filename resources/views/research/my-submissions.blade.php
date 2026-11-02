@@ -143,6 +143,7 @@
 </div>
 </div>
 
+@push('styles')
 <style>
 .mysub-root { font-family: var(--font-body); background: #eeeaf6; min-height: 100vh; }
 
@@ -370,5 +371,6 @@
     .mysub-stat-num   { font-size: 24px; }
 }
 </style>
+@endpush
 
 @endsection

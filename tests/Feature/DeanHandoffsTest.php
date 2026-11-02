@@ -68,7 +68,7 @@ class DeanHandoffsTest extends TestCase
         DB::table('research_handoffs')->where('title', 'Private other department')->update(['program' => 'Secret Program']);
         $controller = new AdminController();
         $data = $controller->researchHandoffs(Request::create('/', 'GET', [
-            'program' => 'Information Technology', 'search' => 'obsolete search', 'year' => '1900',
+            'program' => 'Information Technology', 'year' => '1900',
         ]))->getData();
         $this->assertEqualsCanonicalizing(['Paper pending', 'Paper added'], $data['handoffs']->pluck('title')->all());
         $this->assertSame(['Computer Science', 'Information Technology'], $data['programs']->all());
@@ -77,6 +77,27 @@ class DeanHandoffsTest extends TestCase
         DB::table('researches')->where('id', 1)->update(['program' => null]);
         $data = $controller->researchHandoffs(Request::create('/', 'GET', ['program' => 'Information Technology']))->getData();
         $this->assertSame(3, $data['handoffs']->total());
+    }
+
+    public function test_search_matches_tasks_linked_journals_programs_and_years_within_the_deans_department(): void
+    {
+        DB::table('researches')->where('id', 1)->update(['title' => 'Climate journal', 'program' => 'Computer Science']);
+        DB::table('research_handoffs')->where('title', 'Paper pending')->update([
+            'title' => 'Climate preparation task', 'program' => 'Information Technology', 'school_year' => '2026-2027',
+        ]);
+        DB::table('research_handoffs')->where('department', 'BSHM')->update(['title' => 'Climate private task']);
+        $controller = new AdminController();
+        $search = fn (array $filters) => $controller->researchHandoffs(Request::create('/', 'GET', $filters))->getData()['handoffs'];
+
+        $this->assertSame(3, $search(['search' => 'Climate'])->total());
+        $filtered = $search(['search' => 'Climate', 'status' => 'pending', 'school_year' => '2026-2027']);
+        $this->assertSame(1, $filtered->total());
+        $this->assertSame('Climate preparation task', $filtered->first()->title);
+        $this->assertSame(1, $search(['search' => 'BSIT'])->total());
+        $this->assertSame(2, $search(['search' => 'Computer Science'])->total());
+        $this->assertSame(1, $search(['search' => '2026-2027'])->total());
+        $this->assertSame(0, $search(['search' => 'No matching journal'])->total());
+        $this->assertSame(3, $search(['search' => '   '])->total());
     }
 
     public function test_csv_export_respects_status_and_department(): void
@@ -125,7 +146,7 @@ class DeanHandoffsTest extends TestCase
         $cases = [
             ['draft', 'pending', Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL, 'Information Technology', 'BSIT', 'Assigned', 'View Task'],
             ['draft', 'received', Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL, 'Computer Science', 'BSCS', 'Received by Research Coordinator', 'View Task'],
-            ['dean_review', 'received', Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL, null, 'All Programs', 'Submitted to Dean', 'Review Submission'],
+            ['dean_review', 'received', Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL, null, 'All Programs', 'Submitted by Research Coordinator', 'Review Submission'],
             ['dean_approved', 'received', Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL, 'Information Technology', 'BSIT', 'Approved by Dean', 'Forward to Admin'],
             ['pending', 'received', Research::SUBMISSION_CATEGORY_FACULTY_JOURNAL, null, 'All Programs', 'Forwarded to Admin', 'View Details'],
         ];
@@ -145,7 +166,7 @@ class DeanHandoffsTest extends TestCase
         $filterOptions = $xpath->query('//form[@id="dh-filters"]//select/option[1]');
         $this->assertSame(['All Academic Years', 'All Programs', 'All Categories', 'All Statuses'],
             array_map(fn ($option) => trim($option->textContent), iterator_to_array($filterOptions)));
-        $this->assertSame(0, $xpath->query('//form[@id="dh-filters"]//input')->length);
+        $this->assertSame(1, $xpath->query('//form[@id="dh-filters"]//input[@type="search" and @name="search"]')->length);
         $this->assertSame('Clear', $xpath->query('//a[@id="dh-clear"]')->item(0)->textContent);
         $headers = $xpath->query('//table[contains(@class, "dh-preparation-table")]/thead/tr/th');
         $this->assertSame(['#', 'Journal Category', 'Program', 'Academic Year', 'Date Assigned', 'Status', 'Actions'],

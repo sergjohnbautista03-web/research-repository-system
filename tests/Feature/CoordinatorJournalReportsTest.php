@@ -87,7 +87,7 @@ class CoordinatorJournalReportsTest extends TestCase
             $response->assertDontSee($label);
         }
         $this->assertSame(CoordinatorJournalReport::STATUSES, $response->viewData('statuses'));
-        $this->assertSame(['2026-2027', '2025-2026', '2024-2025'], $response->viewData('schoolYears')->all());
+        $this->assertSame(['2026-2027', '2025-2026', '2024-2025', '2023-2024'], $response->viewData('schoolYears')->all());
         foreach ($response->viewData('breakdowns') as $breakdown) {
             $this->assertSame(3, $breakdown['rows']->sum('tasks'));
             $this->assertSame(3, $breakdown['rows']->sum('journals'));

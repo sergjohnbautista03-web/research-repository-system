@@ -223,6 +223,7 @@
     <div class="pagination-wrap">{{ $researches->links() }}</div>
 </div>
 
+@push('styles')
 <style>
 .mr-table-head span,
 .mr-filter-field label {
@@ -1157,6 +1158,7 @@
 .mr-filter-field label,.mr-table-head span{font-size:13px}.mr-filter-field input,.mr-filter-field select,.mr-fixed-department,.mr-filter-btn{font-size:14px}.mr-active-filters span{font-size:12px}.mr-feedback{font-size:14px}
 .mr-table-head h3{font-size:17px}.mr-table-head strong{font-size:13px}.mr-table th{font-size:12px}.mr-table td,.mr-title-link,.mr-author{font-size:14px}.btn-action-view{font-size:13px}
 </style>
+@endpush
 
 <!-- Research Detail Modal -->
 <div id="researchDetailModal" class="ra-modal" aria-hidden="true">

@@ -12,7 +12,7 @@ test('report filters refresh immediately, reject stale responses, and keep print
         removeAttribute(name) { delete this.attrs[name]; }
     }
     const form = Object.assign(new Element(), { action: 'https://ube.test/admin/reports' });
-    const fields = ['school_year', 'semester', 'program', 'submission_category', 'type', 'status'].map(name => ({ name, value: 'selected' }));
+    const fields = ['school_year', 'semester', 'program', 'submission_category', 'type', 'status', 'search'].map(name => ({ name, value: 'selected' }));
     form.querySelectorAll = () => fields;
     const nodes = { 'dr-filters': form, 'dr-feedback': new Element(), 'dr-print': new Element(), 'dr-clear': new Element() };
     const result = label => Object.assign(new Element(), { label, replaceWith(next) { nodes['dr-results'] = next; } });
@@ -22,7 +22,7 @@ test('report filters refresh immediately, reject stale responses, and keep print
     const requests = [], urls = [];
     let printed = 0;
     const context = vm.createContext({
-        URL, URLSearchParams, AbortController,
+        URL, URLSearchParams, AbortController, setTimeout, clearTimeout,
         document: Object.assign(new Element(), { getElementById: id => nodes[id], querySelector: () => ({ innerHTML: 'Approved report' }) }),
         window: { ReportPrint: { printHtml: () => printed++ } },
         history: { replaceState: (_state, _title, url) => urls.push(url) },
@@ -49,10 +49,36 @@ test('report filters refresh immediately, reject stale responses, and keep print
     nodes['dr-print'].emit('click');
     assert.equal(printed, 1);
     assert.equal(urls.length, 1);
+
+    fields[6].value = 'Robot';
+    form.emit('input', {target: fields[6]});
+    fields[6].value = 'Robotics';
+    form.emit('input', {target: fields[6]});
+    assert.equal(nodes['dr-print'].disabled, true);
+    assert.equal(requests.length, 2);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    assert.equal(requests.length, 3);
+    assert.equal(requests[2].url.searchParams.get('search'), 'Robotics');
+    assert.equal(requests[2].url.searchParams.get('program'), 'selected');
+    assert.equal(requests[2].url.searchParams.has('page'), false);
+    fields[6].value = 'Reyes';
+    form.emit('input', {target: fields[6]});
+    assert.equal(requests[2].options.signal.aborted, true);
+    requests[2].resolve({ok: true, text: async () => 'stale search'});
+    await tick();
+    assert.match(nodes['dr-results'].label, /^approved/);
+    assert.equal(nodes['dr-print'].disabled, true);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    requests[3].resolve({ok: true, text: async () => 'Reyes search results and print rows'});
+    await tick();
+    assert.match(nodes['dr-results'].label, /^Reyes/);
+    assert.match(nodes['dr-summary'].label, /^Reyes/);
+    assert.equal(nodes['dr-print'].disabled, false);
     nodes['dr-clear'].emit('click');
     assert.ok(fields.every(field => field.value === ''));
-    assert.equal(requests[2].url.searchParams.has('page'), false);
-    requests[2].resolve({ ok: false });
+    assert.equal(requests[4].url.searchParams.has('page'), false);
+    assert.equal(requests[4].url.searchParams.get('search'), '');
+    requests[4].resolve({ ok: false });
     await tick();
     assert.match(nodes['dr-feedback'].textContent, /Could not update/);
     assert.equal(nodes['dr-print'].disabled, true);

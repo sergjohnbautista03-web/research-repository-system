@@ -346,6 +346,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .pr-shell{
     display:grid;
@@ -1496,6 +1497,7 @@
     }
 }
 </style>
+@endpush
 
 @push('scripts')
 <script>

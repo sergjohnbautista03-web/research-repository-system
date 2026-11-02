@@ -56,7 +56,7 @@
 
         <div class="home-layout">
             <aside class="home-sidebar">
-                <form action="{{ route('home') }}" method="GET" class="home-filter-card">
+                <form id="home-filters" action="{{ route('home') }}" method="GET" class="home-filter-card" aria-controls="home-results">
                     <h3>Refine Results</h3>
                     <p>Use specific filters when you need a narrower set of papers.</p>
 
@@ -97,13 +97,15 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary btn-full">Apply Filters</button>
-                    @if($hasFilters)
-                        <a href="{{ route('home') }}" class="btn btn-ghost btn-full">Clear Filters</a>
-                    @endif
+                    <div id="home-clear-filters" @if(!$hasFilters) hidden @endif>
+                        <a href="{{ route('home') }}" class="btn btn-ghost btn-full" data-home-clear>Clear Filters</a>
+                    </div>
                 </form>
             </aside>
 
-            <section class="home-results" aria-labelledby="results-title">
+            <section id="home-results" class="home-results" aria-labelledby="results-title" tabindex="-1">
+                <p id="home-results-status" class="home-results-status" role="status" aria-live="polite" aria-atomic="true"></p>
+                <div id="home-results-content">
                 @if($hasFilters)
                     <div class="home-section-head compact">
                         <div>
@@ -123,7 +125,7 @@
                             </div>
                             <h3>No results found</h3>
                             <p>Try different keywords or remove some filters.</p>
-                            <a href="{{ route('home') }}" class="btn btn-primary">Browse All Research</a>
+                            <a href="{{ route('home') }}" class="btn btn-primary" data-home-clear>Browse All Research</a>
                         </div>
                     @else
                         <div class="research-grid home-research-grid">
@@ -159,9 +161,14 @@
                         @endforelse
                     </div>
                 @endif
+                </div>
             </section>
         </div>
     </main>
 </div>
 
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/home-filters.js') }}?v={{ filemtime(public_path('js/home-filters.js')) }}" defer></script>
+@endpush

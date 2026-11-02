@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @include('partials.favicon')
     <title>@yield('title', 'Admin') - Ube Repository Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/admin.css') }}?v={{ filemtime(public_path('css/admin.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/notifications.css') }}?v={{ filemtime(public_path('css/notifications.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/live-search.css') }}?v={{ filemtime(public_path('css/live-search.css')) }}">
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('css/report-print.css') }}?v={{ filemtime(public_path('css/report-print.css')) }}">
     <script src="{{ asset('js/report-print.js') }}?v={{ filemtime(public_path('js/report-print.js')) }}" data-stylesheet="{{ asset('css/report-print.css') }}?v={{ filemtime(public_path('css/report-print.css')) }}" data-letterhead="{{ asset('images/report-letterhead.jpeg') }}"></script>
@@ -63,10 +65,12 @@
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
     Dashboard
 </a>
+@if(! $isResearchCoordinator)
 <a href="{{ route('admin.journal-batches') }}" class="sidelink {{ request()->routeIs('admin.journal-batches*') ? 'active' : '' }}">
     <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="15" rx="2"/><path d="M7 3v6M17 3v6M3 11h18M7 15h4M7 18h8"/></svg></span>
     {{ $isGlobalAdmin ? 'Journal Batches for Publication' : 'Journal Batches' }}
 </a>
+@endif
 @if($isResearchCoordinator)
     @php
         $coordinatorPendingHandoffIds = \App\Models\ResearchHandoff::where('department', $adminUser->department)
@@ -74,7 +78,7 @@
             ->pluck('id');
         $coordinatorPendingHandoffs = $coordinatorPendingHandoffIds->count();
     @endphp
-    <a href="{{ route('admin.coordinator.dean-submissions') }}" class="sidelink {{ request()->routeIs('admin.coordinator.dean-submissions') ? 'active' : '' }}">
+    <a href="{{ route('admin.coordinator.dean-submissions') }}" class="sidelink {{ request()->routeIs('admin.coordinator.dean-submissions', 'admin.journal-batches*') ? 'active' : '' }}">
         <span class="sidelink-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12.5V19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6.5"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/><path d="m7 10-5 2.5L12 18l10-5.5L17 10"/></svg></span>
         Assigned Journal Tasks
         @if($coordinatorPendingHandoffs > 0)<span class="badge-count">{{ $coordinatorPendingHandoffs }}</span>@endif

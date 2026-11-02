@@ -2,18 +2,35 @@
 
 namespace App\Models;
 
+use App\Services\MemberIdGenerator;
 use Illuminate\Contracts\Auth\CanResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Auth\Passwords\CanResetPassword as CanResetPasswordTrait;
+use Illuminate\Support\Facades\Schema;
 
 class User extends Authenticatable implements CanResetPassword
 {
     use HasFactory, Notifiable, CanResetPasswordTrait;
 
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            if ($user->isDirty('student_id') && $user->student_id && Schema::hasTable('member_identifiers')) {
+                app(MemberIdGenerator::class)->assertAssignable((string) $user->student_id, $user->id);
+            }
+        });
+        static::saved(function (User $user) {
+            if (($user->wasChanged('student_id') || $user->wasRecentlyCreated) && $user->student_id
+                && Schema::hasTable('member_identifiers')) {
+                app(MemberIdGenerator::class)->rememberAssigned($user);
+            }
+        });
+    }
+
     protected $fillable = [
-        'name', 'middle_name', 'verification_documents', 'research_documents', 'email', 'password', 'role',
+        'name', 'middle_name', 'verification_documents', 'research_documents', 'username', 'email', 'password', 'role',
         'department', 'program', 'current_semester_id', 'current_academic_semester_id', 'student_id', 'profile_photo', 'created_by',
         'is_active', 'is_approved', 'student_approved_by', 'student_approved_at', 'researcher_approved_by', 'researcher_approved_at',
         'is_department_dean', 'is_research_coordinator', 'last_seen_at', 'capture_logs_seen_log_id',

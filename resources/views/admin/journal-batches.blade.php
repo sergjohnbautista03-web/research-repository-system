@@ -10,6 +10,13 @@
 @section('content')
 <div class="jbl-page">
     <form id="jbl-filters" method="GET" action="{{ route('admin.journal-batches') }}" class="jbl-filters {{ auth()->user()->isDepartmentDean() ? 'jbl-filters-dean' : '' }}">
+        <div class="jbl-field jbl-search-field">
+            <label for="batch-search">Search Journal Batches</label>
+            <div class="jbl-search-input">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>
+                <input id="batch-search" type="search" name="search" value="{{ request('search') }}" placeholder="Search by batch title, journal title, or author..." autocomplete="off" aria-controls="jbl-results" data-auto-filter>
+            </div>
+        </div>
         @unless(auth()->user()->isDepartmentDean())
         <div class="jbl-field"><label for="batch-department">Department</label><select id="batch-department" name="department"><option value="">All Departments</option>@foreach($departments as $department)<option value="{{ $department }}" @selected(request('department') === $department)>{{ $department }}</option>@endforeach</select></div>
         @endunless
@@ -26,7 +33,12 @@
         @forelse($batches as $batch)
             <article class="jbl-item">
                 <div class="jbl-item-main">
-                    <div class="jbl-item-heading"><h3>{{ $batch->title }}</h3><span class="jbl-status jbl-status-{{ $batch->batch_stage }}">{{ $batch->batchLabel() }}</span></div>
+                    <div class="jbl-item-heading">
+                        <h3>{{ $batch->title }}</h3>
+                        @if($batch->batch_stage !== \App\Models\Research::STATUS_DEAN_REVIEW)
+                            <span class="jbl-status jbl-status-{{ $batch->batch_stage }}">{{ $batch->batchLabel() }}</span>
+                        @endif
+                    </div>
                     <dl class="jbl-meta">
                         <div><dt>Academic Year</dt><dd>{{ $batch->school_year }}</dd></div>
                         <div><dt>Program</dt><dd>{{ $batch->program ?? 'Not assigned' }}</dd></div>
@@ -35,10 +47,10 @@
                         @if(auth()->user()->isGlobalAdmin())<div><dt>Department</dt><dd>{{ $batch->department }}</dd></div>@endif
                     </dl>
                 </div>
-                <a class="jbl-action" href="{{ route('admin.journal-batches.show', $batch) }}" data-open-journal-batch data-batch-title="Journal Batch — AY {{ $batch->school_year }}" aria-haspopup="dialog" aria-controls="journalBatchModal">Open Batch<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+                <a class="jbl-action" href="{{ route('admin.journal-batches.show', $batch) }}" data-open-journal-batch data-batch-title="{{ $batch->batchHeading() }}" aria-haspopup="dialog" aria-controls="journalBatchModal">Open Batch<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
             </article>
         @empty
-            <div class="jbl-empty"><strong>No journal batches found.</strong><p>{{ request()->anyFilled(['department', 'program', 'school_year']) ? 'No batches match the selected filters.' : (auth()->user()->isGlobalAdmin() ? 'Batches forwarded by the Dean for publishing will appear here.' : (auth()->user()->isDepartmentDean() ? 'Completed journal batches submitted by the Research Coordinator will appear here.' : 'Completed journal batches you submit to the Dean will appear here.')) }}</p></div>
+            <div class="jbl-empty"><strong>No journal batches found.</strong><p>{{ request()->anyFilled(['search', 'department', 'program', 'school_year']) ? 'No batches match your search and selected filters.' : (auth()->user()->isGlobalAdmin() ? 'Batches forwarded by the Dean for publishing will appear here.' : (auth()->user()->isDepartmentDean() ? 'Completed journal batches submitted by the Research Coordinator will appear here.' : 'Completed journal batches you submit to the Dean will appear here.')) }}</p></div>
         @endforelse
         </div>
         @if($batches->hasPages())<div class="jbl-pagination">{{ $batches->links() }}</div>@endif

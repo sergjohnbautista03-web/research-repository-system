@@ -5,7 +5,6 @@
 @section('content')
 @php
     $selectedAccountType = old('account_type', 'dean');
-    $passwordSuffix = $selectedAccountType === 'coordinator' ? 'Coordinator' : 'Dean';
 @endphp
 <div class="dean-shell">
     <section class="dean-form-card">
@@ -24,22 +23,7 @@
                 </a>
             </div>
 
-            @if($errors->any())
-                <div class="dean-alert">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="8" x2="12" y2="12"/>
-                        <line x1="12" y1="16" x2="12.01" y2="16"/>
-                    </svg>
-                    <div>
-                        @foreach($errors->all() as $error)
-                            <p>{{ $error }}</p>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('admin.store-admin') }}" class="dean-form">
+            <form method="POST" action="{{ route('admin.store-admin') }}" class="dean-form" data-department-account-form>
                 @csrf
 
                 <div class="dean-section-label"><span>1</span> Account Assignment</div>
@@ -49,6 +33,7 @@
                         <option value="dean" {{ $selectedAccountType === 'dean' ? 'selected' : '' }}>Department Dean</option>
                         <option value="coordinator" {{ $selectedAccountType === 'coordinator' ? 'selected' : '' }}>Research Coordinator</option>
                     </select>
+                    <small id="dean-error-account_type" class="department-field-error" data-department-error="account_type" aria-live="polite">{{ $errors->first('account_type') }}</small>
                 </div>
 
                 <div class="dean-field">
@@ -61,6 +46,7 @@
                             </option>
                         @endforeach
                     </select>
+                    <small id="dean-error-department" class="department-field-error" data-department-error="department" aria-live="polite">{{ $errors->first('department') }}</small>
                 </div>
 
                 <div class="dean-section-label"><span>2</span> Personal Information</div>
@@ -68,37 +54,38 @@
                     <div class="dean-field">
                         <label for="firstname">First Name <span>*</span></label>
                         <input type="text" id="firstname" name="firstname" value="{{ old('firstname') }}"
-                            placeholder="e.g. Maria" required autocomplete="off"
-                            oninput="validateDeanName(this)"
-                            style="{{ $errors->has('firstname') ? 'border-color:#ef4444;' : '' }}">
+                            placeholder="e.g. Maria" required maxlength="255" autocomplete="off">
+                        <small id="dean-error-firstname" class="department-field-error" data-department-error="firstname" aria-live="polite">{{ $errors->first('firstname') }}</small>
                     </div>
 
                     <div class="dean-field">
                         <label for="lastname">Last Name <span>*</span></label>
                         <input type="text" id="lastname" name="lastname" value="{{ old('lastname') }}"
-                            placeholder="e.g. Santos" required autocomplete="off"
-                            oninput="validateDeanName(this)"
-                            style="{{ $errors->has('lastname') ? 'border-color:#ef4444;' : '' }}">
+                            placeholder="e.g. Santos" required maxlength="255" autocomplete="off">
+                        <small id="dean-error-lastname" class="department-field-error" data-department-error="lastname" aria-live="polite">{{ $errors->first('lastname') }}</small>
                     </div>
                 </div>
 
                 <div class="dean-grid dean-grid-2">
                     <div class="dean-field">
-                        <label for="middlename">Middle Name</label>
+                        <label for="middlename">Middle Name (optional)</label>
                         <input type="text" id="middlename" name="middlename" value="{{ old('middlename') }}"
-                            placeholder="Optional" autocomplete="off"
-                            oninput="validateDeanName(this)"
-                            style="{{ $errors->has('middlename') ? 'border-color:#ef4444;' : '' }}">
+                            placeholder="Optional" maxlength="255" autocomplete="off">
+                        <small id="dean-error-middlename" class="department-field-error" data-department-error="middlename" aria-live="polite">{{ $errors->first('middlename') }}</small>
                     </div>
 
                     <div class="dean-field">
                         <label for="dean_id" id="accountIdLabel">Dean ID <span>*</span></label>
                         <input type="text" id="dean_id" name="dean_id" value="{{ old('dean_id') }}"
-                            placeholder="{{ $selectedAccountType === 'coordinator' ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001' }}" required autocomplete="off"
-                            oninput="validateDeanId(this)"
-                            style="{{ $errors->has('dean_id') ? 'border-color:#ef4444;' : '' }}">
-                        @error('dean_id')<small class="dean-field-error">{{ $message }}</small>@enderror
+                            placeholder="e.g. 000000" required inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off">
+                        <small id="dean-error-dean_id" class="department-field-error" data-department-error="dean_id" aria-live="polite">{{ $errors->first('dean_id') }}</small>
                     </div>
+                </div>
+
+                <div class="dean-field">
+                    <label for="email">Email Address <span>*</span></label>
+                    <input type="email" id="email" name="email" value="{{ old('email') }}" required maxlength="255" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@gmail.com">
+                    <small id="dean-error-email" class="department-field-error" data-department-error="email" aria-live="polite">{{ $errors->first('email') }}</small>
                 </div>
 
                 <div class="dean-generated-box">
@@ -108,11 +95,11 @@
                     <div class="dean-generated-grid">
                         <div class="dean-generated-item">
                             <span>Login ID</span>
-                            <input type="text" id="dean_generated_login" value="{{ old('dean_id') }}" readonly>
+                            <input type="text" id="dean_generated_login" value="" data-department-login readonly>
                         </div>
                         <div class="dean-generated-item">
                             <span>Default Password</span>
-                            <input type="text" id="dean_generated_password" value="{{ old('dean_id') ? old('dean_id') . '_' . $passwordSuffix . '@1' : '' }}" readonly>
+                            <input type="text" id="dean_generated_password" value="" data-department-password readonly>
                         </div>
                     </div>
                 </div>
@@ -142,6 +129,7 @@
     </section>
 </div>
 
+@push('styles')
 <style>
 .dean-shell{
     display:grid;
@@ -481,49 +469,11 @@
     }
 }
 </style>
+<link rel="stylesheet" href="{{ asset('css/department-account-form.css') }}?v={{ filemtime(public_path('css/department-account-form.css')) }}">
+@endpush
 
 @push('scripts')
 <script>
-function setDeanFieldError(input, message) {
-    input.style.borderColor = '#ef4444';
-    const container = input.closest('.dean-field');
-    let msg = container.querySelector('.dean-field-error-live');
-    if (!msg) {
-        msg = document.createElement('small');
-        msg.className = 'dean-field-error dean-field-error-live';
-        container.appendChild(msg);
-    }
-    msg.textContent = message;
-}
-
-function clearDeanFieldError(input) {
-    input.style.borderColor = '';
-    const container = input.closest('.dean-field');
-    const msg = container.querySelector('.dean-field-error-live');
-    if (msg) msg.remove();
-}
-
-function validateDeanName(input) {
-    if (!input.value.length) { clearDeanFieldError(input); return; }
-    if (/[0-9]/.test(input.value) || /[^a-zA-Z\s\-\.]/.test(input.value)) {
-        input.style.borderColor = '#ef4444';
-    } else {
-        clearDeanFieldError(input);
-    }
-}
-
-function validateDeanId(input) {
-    updateDeanGeneratedAccess(input.value);
-
-    if (!input.value.length) { clearDeanFieldError(input); return; }
-    if (!/^[A-Za-z0-9\-]+$/.test(input.value)) {
-        setDeanFieldError(input, 'Account ID may only contain letters, numbers, and hyphens.');
-    } else {
-        clearDeanFieldError(input);
-        input.style.borderColor = '#10b981';
-    }
-}
-
 function selectedAccountMeta() {
     const accountType = document.getElementById('account_type');
     const isCoordinator = accountType && accountType.value === 'coordinator';
@@ -533,7 +483,7 @@ function selectedAccountMeta() {
         label: isCoordinator ? 'Research Coordinator' : 'Department Dean',
         shortLabel: isCoordinator ? 'Coordinator' : 'Dean',
         icon: isCoordinator ? 'C' : 'D',
-        placeholder: isCoordinator ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001',
+        placeholder: 'e.g. 000000',
     };
 }
 
@@ -552,31 +502,16 @@ function syncAccountTypeText() {
     if (idInput) idInput.placeholder = meta.placeholder;
     if (notice) notice.innerHTML = 'This account will be created as a <strong>' + meta.label + '</strong> with access limited to the selected department.';
     if (submitLabel) submitLabel.textContent = 'Create ' + meta.shortLabel + ' Account';
-
-    updateDeanGeneratedAccess(idInput ? idInput.value : '');
-}
-
-function updateDeanGeneratedAccess(deanId) {
-    const login = document.getElementById('dean_generated_login');
-    const password = document.getElementById('dean_generated_password');
-    const meta = selectedAccountMeta();
-    const cleanDeanId = deanId.trim();
-
-    if (!login || !password) return;
-
-    login.value = cleanDeanId;
-    password.value = cleanDeanId ? cleanDeanId + '_' + meta.shortLabel + '@1' : '';
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const deanId = document.getElementById('dean_id');
     const accountType = document.getElementById('account_type');
     if (accountType) accountType.addEventListener('change', syncAccountTypeText);
     syncAccountTypeText();
-    if (deanId) updateDeanGeneratedAccess(deanId.value);
 });
 
 </script>
+<script src="{{ asset('js/department-account-form.js') }}?v={{ filemtime(public_path('js/department-account-form.js')) }}"></script>
 @endpush
 
 @endsection

@@ -17,26 +17,32 @@ function setup({ departmentFilter = true } = {}) {
         ...(departmentFilter ? [{ name: 'department', value: '' }] : []),
     ];
     fields[0].replaceChildren = function (...options) { this.options = options; this.value = ''; };
+    const search = Object.assign(new Element(), { name: 'search', value: '' });
     const programsByDepartment = {
         'College of Computer Studies': ['Information Technology', 'Computer Science'],
         ...(departmentFilter ? { 'College of Criminal Justice Education': ['Criminology'] } : {}),
     };
     const form = Object.assign(new Element(), {
-        action: 'http://localhost:8000/admin/journal-batches', querySelectorAll: () => fields,
+        action: 'http://localhost:8000/admin/journal-batches', querySelectorAll: () => fields.filter(field => field !== search),
     });
     const clear = new Element(), feedback = new Element(), document = new Element();
     const nodes = { 'jbl-filters': form, 'jbl-clear': clear, 'jbl-feedback': feedback };
     nodes['batch-program'] = fields[0];
     nodes['batch-department'] = fields[2];
+    nodes['batch-search'] = search;
+    fields.push(search);
     nodes['jbl-programs'] = { textContent: JSON.stringify(programsByDepartment) };
     const results = label => Object.assign(new Element(), {
         label, replaceWith(next) { nodes['jbl-results'] = next; },
     });
     nodes['jbl-results'] = results('initial');
     document.getElementById = id => nodes[id];
-    const requests = [], urls = [];
+    const requests = [], urls = [], timers = new Map();
+    let timerId = 0;
     const context = vm.createContext({
         URL, URLSearchParams, AbortController, document,
+        setTimeout: callback => { timers.set(++timerId, callback); return timerId; },
+        clearTimeout: id => timers.delete(id),
         Option: class { constructor(text, value) { this.text = text; this.value = value; } },
         history: { replaceState: (_state, _title, url) => urls.push(url) },
         FormData: class { *[Symbol.iterator]() { for (const field of fields) yield [field.name, field.value]; } },
@@ -44,7 +50,8 @@ function setup({ departmentFilter = true } = {}) {
         fetch: (url, options) => new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })),
     });
     vm.runInContext(readFileSync(new URL('../../public/js/journal-batch-list.js', import.meta.url), 'utf8'), context);
-    return { fields, form, clear, feedback, document, nodes, requests, urls };
+    return { fields, form, search, clear, feedback, document, nodes, requests, urls, timers,
+        flushTimers() { for (const [id, callback] of timers) { timers.delete(id); callback(); } } };
 }
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -141,4 +148,49 @@ test('failed or invalid batch responses preserve the displayed list and allow re
     await tick();
     assert.equal(state.nodes['jbl-results'].label, 'updated batches');
     assert.equal(state.feedback.textContent, 'Journal batches updated.');
+});
+
+test('search debounces typing, keeps dropdown filters and discards outdated results', async () => {
+    const state = setup();
+    state.form.emit('change');
+    state.search.value = 'old';
+    state.search.emit('input');
+    state.search.value = 'Robotics';
+    state.search.emit('input');
+    assert.equal(state.timers.size, 1);
+    assert.equal(state.requests.length, 1);
+    assert.equal(state.requests[0].options.signal.aborted, true);
+    state.requests[0].resolve({ ok: true, text: async () => 'outdated list' });
+    await tick();
+    assert.equal(state.nodes['jbl-results'].label, 'initial');
+    state.flushTimers();
+    const url = state.requests[1].url;
+    assert.equal(url.searchParams.get('search'), 'Robotics');
+    assert.equal(url.searchParams.get('program'), 'Information Technology');
+    assert.equal(url.searchParams.get('school_year'), '2026-2027');
+    assert.equal(url.searchParams.has('page'), false);
+    state.requests[1].resolve({ ok: true, text: async () => 'Robotics batch' });
+    await tick();
+    assert.equal(state.nodes['jbl-results'].label, 'Robotics batch');
+    state.form.emit('change', { target: state.search });
+    assert.equal(state.requests.length, 2);
+});
+
+test('Clear and Enter cancel pending search updates and the native search clear refreshes results', () => {
+    const state = setup();
+    state.search.value = 'Robotics';
+    state.search.emit('input');
+    state.clear.emit('click');
+    assert.equal(state.search.value, '');
+    assert.equal(state.timers.size, 0);
+    assert.equal(state.requests[0].url.search, '');
+    state.search.value = 'Journal';
+    state.search.emit('input');
+    state.form.emit('submit');
+    assert.equal(state.timers.size, 0);
+    assert.equal(state.requests[1].url.searchParams.get('search'), 'Journal');
+    state.search.value = '';
+    state.search.emit('input');
+    state.flushTimers();
+    assert.equal(state.requests[2].url.searchParams.has('search'), false);
 });

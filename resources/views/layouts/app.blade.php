@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @include('partials.favicon')
     <title>@yield('title', 'Ube Repository') — Online Research Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/live-search.css') }}?v={{ filemtime(public_path('css/live-search.css')) }}">
     @stack('styles')
 </head>
 <body>
@@ -288,7 +290,7 @@
                 <p class="footer-tagline">"Preserving Knowledge, Empowering Research"</p>
                 <p class="footer-desc">The official online research portal of the Philippine College of Science and Technology.</p>
                 <div class="footer-socials">
-                    <a href="https://www.facebook.com/PhilCST94" target="_blank" title="Facebook">
+                    <a href="https://www.facebook.com/share/1J4SUZZNBi/" target="_blank" title="Facebook">
                         <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg>
                     </a>
                     <a href="mailto:repository@philcst.edu.ph" title="Email">

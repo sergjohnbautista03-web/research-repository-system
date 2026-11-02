@@ -70,6 +70,36 @@ test('changing report departments updates program options and clears incompatibl
     assert.deepEqual(program.options.map(option => option.value), ['', 'Accountancy', 'Computer Science', 'Information Technology']);
 });
 
+test('report exports preserve the applied search together with department, program and academic years', () => {
+    const template = readFileSync(new URL('../../resources/views/admin/reports.blade.php', import.meta.url), 'utf8');
+    const searchHelper = template.slice(template.indexOf('function appliedReportSearch('), template.indexOf('function matchingReportExportRows('));
+    const exportFunction = template.slice(template.indexOf('function exportFilteredReport('), template.indexOf("document.getElementById('reportDepartment')"));
+    const search = { defaultValue: 'Maya & Santos', value: 'Unsubmitted edit' };
+    const window = { location: {} };
+    const context = vm.createContext({
+        URLSearchParams, window,
+        reportExportUrls: { pdf: '/reports/pdf', excel: '/reports/excel' },
+        updateReportExportCount: () => 1,
+        selectedReportYears: () => ['2025-2026'],
+        reportExportDepartmentValue: () => 'College of Computer Studies',
+        document: { getElementById: id => id === 'reportSearch' ? search
+            : id === 'reportExportProgram' ? { value: 'Information Technology' }
+            : id === 'reportExportAllYears' ? { checked: false } : null },
+    });
+    vm.runInContext(searchHelper + exportFunction, context);
+    for (const format of ['pdf', 'excel']) {
+        vm.runInContext(`exportFilteredReport('${format}')`, context);
+        const url = new URL(window.location.href, 'https://ube.test');
+        assert.equal(url.searchParams.get('search'), 'Maya & Santos');
+        assert.equal(url.searchParams.get('department'), 'College of Computer Studies');
+        assert.equal(url.searchParams.get('program'), 'Information Technology');
+        assert.deepEqual(url.searchParams.getAll('school_years[]'), ['2025-2026']);
+    }
+    search.defaultValue = '';
+    vm.runInContext("exportFilteredReport('pdf')", context);
+    assert.equal(new URL(window.location.href, 'https://ube.test').searchParams.has('search'), false);
+});
+
 test('all report print documents load the supplied letterhead before printing and clean up afterward', async () => {
     class Element {
         constructor() { this.childNodes = []; this.style = {}; this.classList = { add() {} }; }

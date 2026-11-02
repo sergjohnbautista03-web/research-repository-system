@@ -62,8 +62,10 @@ class AuthController extends Controller
         ]);
 
         $login = trim($credentials['login']);
+        $normalizedUsername = mb_strtolower($login);
         $user = User::query()
-            ->where('email', $login)
+            ->whereRaw('LOWER(username) = ?', [$normalizedUsername])
+            ->orWhere('email', $login)
             ->orWhere('student_id', $login)
             ->first();
 
@@ -102,7 +104,7 @@ class AuthController extends Controller
             }
 
             if ($authenticatedUser->isAdmin()) {
-                return redirect()->route('admin.dashboard')
+                return redirect()->intended(route('admin.dashboard'))
                     ->with('success', 'Welcome back, ' . $authenticatedUser->name . '!');
             }
 

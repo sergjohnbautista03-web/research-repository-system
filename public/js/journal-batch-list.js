@@ -4,8 +4,9 @@
     const feedback = document.getElementById('jbl-feedback');
     const department = document.getElementById('batch-department');
     const program = document.getElementById('batch-program');
+    const search = document.getElementById('batch-search');
     const programsByDepartment = JSON.parse(document.getElementById('jbl-programs').textContent);
-    let controller, revision = 0;
+    let controller, timer, revision = 0;
 
     function updatePrograms() {
         const selected = program.value;
@@ -26,6 +27,7 @@
     }
 
     async function refresh(target = filterUrl()) {
+        clearTimeout(timer);
         controller?.abort();
         controller = new AbortController();
         const current = ++revision;
@@ -45,7 +47,7 @@
             feedback.textContent = 'Journal batches updated.';
         } catch (error) {
             if (error.name !== 'AbortError' && current === revision) {
-                feedback.textContent = 'Could not update journal batches. Select a filter again to retry.';
+                feedback.textContent = 'Could not update journal batches. Try searching or selecting a filter again.';
             }
         } finally {
             if (current === revision) document.getElementById('jbl-results').removeAttribute('aria-busy');
@@ -53,17 +55,26 @@
     }
 
     form.addEventListener('change', event => {
+        if (search && event.target === search) return;
         if (department && event.target === department) {
             program.value = '';
             updatePrograms();
         }
         refresh();
     });
+    search?.addEventListener('input', event => {
+        if (event.isComposing) return;
+        clearTimeout(timer);
+        controller?.abort();
+        revision++;
+        timer = setTimeout(() => refresh(), 300);
+    });
     form.addEventListener('submit', event => { event.preventDefault(); refresh(); });
     document.getElementById('jbl-clear').addEventListener('click', event => {
         if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
         form.querySelectorAll('select').forEach(select => { select.value = ''; });
+        if (search) search.value = '';
         updatePrograms();
         refresh();
     });

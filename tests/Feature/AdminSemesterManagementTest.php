@@ -207,6 +207,36 @@ class AdminSemesterManagementTest extends TestCase
         $response->assertSee('ACTIVE');
     }
 
+    public function test_records_search_matches_academic_years_and_semester_labels_across_pages(): void
+    {
+        $admin = $this->createAdmin();
+        foreach (range(2026, 2032) as $year) {
+            foreach (Semester::semesterOptions() as $semester) {
+                Semester::create(['school_year' => $year.'-'.($year + 1), 'semester' => $semester, 'is_active' => false]);
+            }
+        }
+
+        foreach (['2026-2027' => 2, '1st Sem' => 7, '  1ST SEMESTER  ' => 7, '2nd Sem' => 7,
+            '2026-2027 1st Sem' => 1, 'no match' => 0, '' => 14] as $search => $total) {
+            $response = $this->actingAs($admin)->get(route('admin.semesters', ['search' => $search]));
+            $response->assertOk()->assertSee('Search academic year or semester...');
+            $response->assertViewHas('semesters', function ($records) use ($search, $total) {
+                $this->assertSame($total, $records->total(), $search);
+                foreach ($records as $record) {
+                    if (str_contains(strtolower($search), '1st')) $this->assertSame('1st', $record->semester);
+                    if (str_contains(strtolower($search), '2nd')) $this->assertSame('2nd', $record->semester);
+                    if (str_contains($search, '2026-2027')) $this->assertSame('2026-2027', $record->school_year);
+                }
+                return true;
+            });
+        }
+
+        $this->actingAs($admin)->get(route('admin.semesters', ['search' => '1st Sem', 'school_year' => '2026-2027', 'status' => 'closed']))
+            ->assertOk()->assertViewHas('semesters', fn ($records) => $records->total() === 1);
+        $this->actingAs($admin)->get(route('admin.semesters', ['search' => '1st Sem', 'semester' => '2nd']))
+            ->assertOk()->assertViewHas('semesters', fn ($records) => $records->total() === 0);
+    }
+
     public function test_activating_first_semester_makes_first_active_and_second_inactive(): void
     {
         $admin = $this->createAdmin();

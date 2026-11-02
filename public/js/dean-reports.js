@@ -3,11 +3,15 @@
     if (!form) return;
     const feedback = document.getElementById('dr-feedback');
     const print = document.getElementById('dr-print');
-    let controller, revision = 0;
-    async function refresh(url) {
+    let timer, controller, revision = 0;
+    function cancel() {
+        clearTimeout(timer);
         controller?.abort();
+        print.disabled = true;
+        return ++revision;
+    }
+    async function refresh(url, current = cancel()) {
         controller = new AbortController();
-        const current = ++revision;
         url ||= new URL(form.action);
         if (!url.search) url.search = new URLSearchParams(new FormData(form));
         print.disabled = true;
@@ -33,11 +37,18 @@
             if (current === revision) document.getElementById('dr-results').removeAttribute('aria-busy');
         }
     }
-    form.addEventListener('change', () => refresh());
+    function scheduleSearch(event) {
+        if (event.target.name !== 'search') return;
+        const current = cancel();
+        if (!event.isComposing) timer = setTimeout(() => refresh(undefined, current), 250);
+    }
+    form.addEventListener('input', scheduleSearch);
+    form.addEventListener('compositionend', scheduleSearch);
+    form.addEventListener('change', event => { if (event.target?.name !== 'search') refresh(); });
     form.addEventListener('submit', event => { event.preventDefault(); refresh(); });
     document.getElementById('dr-clear').addEventListener('click', event => {
         event.preventDefault();
-        form.querySelectorAll('select').forEach(select => { select.value = ''; });
+        form.querySelectorAll('input[name="search"], select').forEach(field => { field.value = ''; });
         refresh();
     });
     document.addEventListener('click', event => {

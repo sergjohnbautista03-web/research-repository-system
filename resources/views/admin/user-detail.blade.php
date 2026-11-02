@@ -289,6 +289,7 @@
 
 </div>
 
+@push('styles')
 <style>
 /* ── HERO CARD ────────────────────────────────── */
 .up-hero{background:#fff;border-radius:20px;border:1px solid #f0eaf9;box-shadow:0 4px 24px rgba(59,15,122,.07);overflow:hidden;margin-bottom:1.25rem;display:flex;}
@@ -382,4 +383,5 @@
     .up-info-grid{grid-template-columns:1fr;}
 }
 </style>
+@endpush
 @endsection

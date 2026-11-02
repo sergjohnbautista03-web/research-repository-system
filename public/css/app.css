@@ -52,7 +52,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
     outline: 2px solid var(--purple-mid);
     outline-offset: 3px;
 }
-html { scroll-behavior: smooth; }
+/* Reserve scrollbar space when login and other modals lock page scrolling. */
+html { scroll-behavior: smooth; scrollbar-gutter: stable; }
 body { font-family: var(--font-body); background: var(--purple-ghost); color: var(--text); line-height: 1.65; min-height: 100vh; }
 
 /* ── TOP NAV ──────────────────────────────────────────── */
@@ -927,6 +928,52 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 
 .home-results {
     padding: 28px 24px;
+    scroll-margin-top: 90px;
+}
+
+.home-results-status {
+    color: var(--purple-deep);
+    font-size: 14px;
+}
+
+.home-results-status:empty {
+    display: none;
+}
+
+.home-results-status:not(:empty) {
+    margin-bottom: 16px;
+}
+
+.home-results[aria-busy="true"] .home-results-status::before {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    vertical-align: -2px;
+    border: 2px solid var(--border);
+    border-top-color: var(--purple-main);
+    border-radius: 50%;
+    animation: home-filter-spin .8s linear infinite;
+}
+
+.home-results[aria-busy="true"] #home-results-content {
+    opacity: .55;
+}
+
+#home-filters button:disabled {
+    opacity: .65;
+    cursor: wait;
+}
+
+@keyframes home-filter-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-results[aria-busy="true"] .home-results-status::before {
+        animation: none;
+    }
 }
 
 .home-research-grid .research-card {

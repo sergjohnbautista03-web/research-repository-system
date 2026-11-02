@@ -278,6 +278,7 @@
     </div>
 @endif
 
+@push('styles')
 <style>
 .dk-grid{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:22px;align-items:start}
 .dk-grid-single{grid-template-columns:1fr}
@@ -341,6 +342,7 @@
 @media (max-width: 1040px){.dk-grid{grid-template-columns:1fr}.dk-row{grid-template-columns:1fr}}
 @media (max-width: 700px){.dk-actions{flex-wrap:wrap}.dk-actions form{flex:1 1 100%}.dk-filter-bar{align-items:stretch}.dk-filter-grid{grid-template-columns:1fr;min-width:100%}.dk-filter-group{min-width:100%}.dk-filter-actions{width:100%}.dk-filter-actions .dk-btn-primary,.dk-filter-actions .dk-btn-link{flex:1 1 0}}
 </style>
+@endpush
 
 @push('scripts')
 <script>

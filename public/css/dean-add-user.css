@@ -10,10 +10,12 @@
 .member-fields input:focus-visible,.member-fields select:focus-visible{outline:2px solid #8b5cc0;outline-offset:2px}
 body:has(.member-dialog[open]){overflow:hidden}
 .member-fields [aria-invalid="true"]{border-color:#b42335}
-.member-field-error{color:#b42335;font-size:12px;font-weight:400;line-height:1.4}
+/* Keep validation details available to screen readers without visible error text. */
+.member-field-error{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
 .member-field-error:empty{display:none}
+#member-error-email{position:static;width:auto;height:auto;padding:0;margin:0;overflow:visible;clip-path:none;white-space:normal;border:0;color:#b42335;font-size:12px;font-weight:400;line-height:1.4}
 
-/* Keep fields aligned when validation messages appear. */
+/* Keep fields aligned during validation. */
 .member-form-card{padding:24px}
 .member-form-card>p{margin:8px 0 0;font-size:13px}
 .member-dialog{width:min(740px,calc(100% - 32px))}
@@ -23,7 +25,9 @@ body:has(.member-dialog[open]){overflow:hidden}
 .member-fields label,.member-access-fields label{display:grid;align-content:start;gap:7px;font-size:13px;line-height:1.4;color:#573572;font-weight:600}
 .member-fields input,.member-fields select,.member-access-fields input{box-sizing:border-box;width:100%;height:44px;min-height:44px;padding:10px 12px;border:1px solid #ddceef;border-radius:10px;background:#fcfaff;color:#30203e;font:inherit}
 .member-fields input:focus-visible,.member-fields select:focus-visible,.member-access-fields input:focus-visible{outline:2px solid #8b5cc0;outline-offset:2px}
-.member-fields [aria-invalid="true"]{border-color:#b42335;background:#fffafb}
+.member-fields [aria-invalid="true"]{border-color:#b42335}
+.member-fields [aria-invalid="true"]:focus{border-color:#b42335;box-shadow:none}
+.member-fields [aria-invalid="true"]:focus-visible{outline-color:#b42335;outline-offset:0}
 .member-span-full{grid-column:1/-1}
 .member-access{margin-top:20px;padding:16px;border:1px solid #e4d6f0;border-radius:14px;background:#faf7fd}
 .member-access h3{margin:0;font-size:14px;color:#492365}

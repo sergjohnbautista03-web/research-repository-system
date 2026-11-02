@@ -1,15 +1,22 @@
-@extends('layouts.admin')
+@extends(request()->boolean('embedded') ? 'layouts.journal-batch-modal' : 'layouts.admin')
 @section('title', 'Assigned Journal Tasks')
 @section('page-title', 'Assigned Journal Tasks')
+@if(request()->boolean('embedded'))
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/journal-batches.css') }}?v={{ filemtime(public_path('css/journal-batches.css')) }}">
+@endpush
+@endif
 @push('scripts')
 <script src="{{ asset('js/coordinator-task-filters.js') }}?v={{ is_file(public_path('js/coordinator-task-filters.js')) ? filemtime(public_path('js/coordinator-task-filters.js')) : '1' }}" defer></script>
 @endpush
 
 @section('content')
+@php($embedded = request()->boolean('embedded'))
 @include('admin.partials.coordinator-styles')
 
+@push('styles')
 <style>
-.coord-filter.dean-submission-filters{grid-template-columns:repeat(4,minmax(150px,1fr)) auto}
+.coord-filter.dean-submission-filters{grid-template-columns:minmax(220px,1.5fr) repeat(4,minmax(0,1fr)) auto}
 .coord-task-feedback{margin:0;color:#79628f;font-size:13px}.coord-task-feedback:empty{display:none}
 #ct-results[aria-busy=true]{opacity:.65}
 @media(max-width:1120px){.coord-filter.dean-submission-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -44,9 +51,15 @@
     .dean-submission-actions form,.dean-submission-actions .coord-btn{width:100%;box-sizing:border-box}
 }
 </style>
+@endpush
 
 <div class="coord-shell">
     <form id="ct-filters" method="GET" action="{{ route('admin.coordinator.dean-submissions') }}" class="coord-card coord-filter dean-submission-filters">
+        @if($embedded)<input type="hidden" name="embedded" value="1">@endif
+        <div class="coord-field coord-task-search">
+            <label for="handoff-search">Search tasks</label>
+            <input id="handoff-search" type="search" name="search" value="{{ request('search') }}" placeholder="Search by task title, author, or research ID" autocomplete="off" data-auto-filter aria-controls="ct-results">
+        </div>
         <div class="coord-field">
             <label for="handoff-program">Program</label>
             <select id="handoff-program" name="program">
@@ -84,7 +97,7 @@
             </select>
         </div>
         <div class="coord-actions">
-            <a id="ct-clear" href="{{ route('admin.coordinator.dean-submissions') }}" class="coord-btn coord-btn-soft">Clear</a>
+        <a id="ct-clear" href="{{ route('admin.coordinator.dean-submissions', $embedded ? ['embedded' => 1] : []) }}" class="coord-btn coord-btn-soft">Clear</a>
             <noscript><button type="submit" class="coord-btn coord-btn-primary">Apply</button></noscript>
         </div>
     </form>
@@ -121,6 +134,7 @@
                                     <dd class="coord-muted">Awaiting receipt confirmation</dd>
                                 @endif
                             </div>
+                            @if($handoff->deadline)<div><dt>Deadline</dt><dd>{{ $handoff->deadline->format('M d, Y') }}</dd></div>@endif
                         </dl>
                         @if($handoff->notes)<p class="coord-muted">Task instructions: {{ $handoff->notes }}</p>@endif
                     </div>
@@ -133,7 +147,7 @@
                                     <button type="submit" class="coord-btn coord-btn-success">Mark as Received</button>
                                 </form>
                             @endif
-                            <a href="{{ $handoff->is_batch ? route('admin.journal-batches.show', $handoff) : route('admin.research-handoffs.add-research', $handoff) }}" class="coord-btn coord-btn-primary" @if($handoff->is_batch) data-open-journal-batch data-batch-title="Journal Batch — AY {{ $handoff->school_year }}" aria-haspopup="dialog" aria-controls="journalBatchModal" @endif>{{ $handoff->is_batch ? 'Prepare Batch' : 'Prepare Journal' }}</a>
+                            <a href="{{ $handoff->is_batch ? route('admin.journal-batches.show', ['batch' => $handoff] + ($embedded ? ['embedded' => 1] : [])) : route('admin.research-handoffs.add-research', $handoff) }}" class="coord-btn coord-btn-primary" @if($handoff->is_batch && ! $embedded) data-open-journal-batch data-batch-title="{{ $handoff->batchHeading() }}" aria-haspopup="dialog" aria-controls="journalBatchModal" @elseif(! $handoff->is_batch && $embedded) target="_blank" rel="noopener" @endif>{{ $handoff->is_batch ? 'Prepare Batch' : 'Prepare Journal' }}</a>
                             </div>
                         </div>
                     @endif
@@ -150,5 +164,5 @@
         @endif
     </div>
 </div>
-@include('admin.partials.journal-batch-modal')
+@unless($embedded)@include('admin.partials.journal-batch-modal')@endunless
 @endsection

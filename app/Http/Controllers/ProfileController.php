@@ -3,12 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Mail\PasswordChangeVerificationCode;
+use App\Mail\ProfileAccountChangeVerificationCode;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
@@ -30,38 +34,179 @@ class ProfileController extends Controller
 
     public function update(Request $request)
     {
-        $emailOnlyUpdate = $request->has('email') && ! $request->hasAny(['first_name', 'middle_name', 'last_name', 'name']);
-
-        if (! Auth::user()->isAdmin() && ! $emailOnlyUpdate) {
-            return back()->with('error', 'Account details are managed by your dean or administrator.');
+        if ($request->hasAny(['first_name', 'middle_name', 'last_name', 'name'])) {
+            return back()->with('error', 'First name and last name cannot be changed from your profile.');
         }
 
         $user = Auth::user();
+        $data = $request->validate($this->profileAccountChangeRules($user));
+        $changes = [];
+        if (array_key_exists('username', $data)) {
+            $username = mb_strtolower(trim($data['username']));
+            if ($username !== mb_strtolower((string) $user->username) && $username !== mb_strtolower((string) ($user->student_id ?: $user->email))) {
+                $changes['username'] = $username;
+            }
+        }
+        if (array_key_exists('email', $data)) {
+            $email = strtolower(trim($data['email']));
+            if ($email !== strtolower((string) $user->email)) {
+                $changes['email'] = $email;
+            }
+        }
 
-        if ($emailOnlyUpdate) {
-            $data = $request->validate([
-                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            ]);
-            $user->update(['email' => strtolower($data['email'])]);
-        } elseif ($request->has('first_name') || $request->has('last_name')) {
-            $data = $request->validate([
-                'first_name' => ['required', 'string', 'max:100', "regex:/^[\pL\s.'-]+$/u"],
-                'middle_name' => ['nullable', 'string', 'max:100', "regex:/^[\pL\s.'-]+$/u"],
-                'last_name' => ['required', 'string', 'max:100', "regex:/^[\pL\s.'-]+$/u"],
-                'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+        if ($user->isAdmin() && $changes) {
+            $code = sprintf('%06d', random_int(100000, 999999));
+            session([
+                'profile_account_change_verification' => [
+                    'user_id' => $user->id,
+                    'current_email' => $user->email,
+                    'changes' => $changes,
+                    'code_hash' => Hash::make($code),
+                    'expires_at' => now()->addMinutes(5)->timestamp,
+                    'attempts' => 0,
+                ],
             ]);
 
-            $user->update([
-                'name' => trim(implode(' ', array_filter([$data['first_name'], $data['middle_name'] ?? null, $data['last_name']]))),
-                'middle_name' => $data['middle_name'] ?: null,
-                'email' => strtolower($data['email']),
-            ]);
-        } else {
-            $data = $request->validate(['name' => ['required', 'string', 'max:255', "regex:/^[\pL\s.'-]+$/u"]]);
-            $user->update(['name' => $data['name']]);
+            try {
+                Mail::to($user->email)->send(new ProfileAccountChangeVerificationCode($user, $code));
+            } catch (\Throwable $exception) {
+                report($exception);
+                session()->forget('profile_account_change_verification');
+
+                return back()
+                    ->withErrors(['profile_update' => 'We could not send the verification code to your registered email. Please try again.'])
+                    ->withInput($data);
+            }
+
+            return back()
+                ->with('profile_account_change_sent', true)
+                ->withInput($data);
+        }
+
+        if ($changes) {
+            $user->update($changes);
         }
 
         return back()->with('success', 'Profile updated successfully!')->with('profile_updated', true);
+    }
+
+    private function profileAccountChangeRules(User $user): array
+    {
+        return [
+            'username' => [
+                'sometimes', 'required_without:email', 'string', 'max:100', "regex:/^[\pL\pN._@-]+$/u",
+                Rule::unique('users', 'username')->ignore($user->id),
+                function ($attribute, $value, $fail) use ($user) {
+                    $normalizedUsername = mb_strtolower(trim($value));
+                    $conflictsWithAnotherLogin = $user->newQuery()
+                        ->where('id', '!=', $user->id)
+                        ->where(function ($query) use ($normalizedUsername) {
+                            $query->whereRaw('LOWER(username) = ?', [$normalizedUsername])
+                                ->orWhereRaw('LOWER(email) = ?', [$normalizedUsername])
+                                ->orWhereRaw('LOWER(student_id) = ?', [$normalizedUsername]);
+                        })
+                        ->exists();
+
+                    if ($conflictsWithAnotherLogin) {
+                        $fail('This username is already being used as another account login.');
+                    }
+                },
+            ],
+            'email' => [
+                'sometimes', 'required_without:username', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id),
+                function ($attribute, $value, $fail) use ($user) {
+                    if (! Schema::hasColumn('users', 'username')) {
+                        return;
+                    }
+
+                    $normalizedEmail = mb_strtolower(trim($value));
+                    $conflictsWithAnotherUsername = $user->newQuery()
+                        ->where('id', '!=', $user->id)
+                        ->whereRaw('LOWER(username) = ?', [$normalizedEmail])
+                        ->exists();
+
+                    if ($conflictsWithAnotherUsername) {
+                        $fail('This email address is already being used as another account username.');
+                    }
+                },
+            ],
+        ];
+    }
+
+    public function verifyProfileAccountChange(Request $request)
+    {
+        $user = Auth::user();
+        abort_unless($user->isAdmin(), 403);
+
+        $request->validate([
+            'account_verification_code' => ['required', 'digits:6'],
+        ], [
+            'account_verification_code.required' => 'Enter the 6-digit verification code.',
+            'account_verification_code.digits' => 'The verification code must contain exactly 6 digits.',
+        ]);
+
+        $verification = session('profile_account_change_verification');
+        if (! $verification || ($verification['user_id'] ?? null) !== $user->id
+            || ($verification['current_email'] ?? null) !== $user->email) {
+            session()->forget('profile_account_change_verification');
+
+            return back()
+                ->withErrors(['account_verification_code' => 'This verification request is no longer valid. Submit your changes again to get a new code.'])
+                ->with('profile_account_change_modal_notice', true);
+        }
+
+        if (now()->timestamp >= ($verification['expires_at'] ?? 0)) {
+            session()->forget('profile_account_change_verification');
+
+            return back()
+                ->withErrors(['account_verification_code' => 'The verification code has expired. Submit your changes again to get a new code.'])
+                ->with('profile_account_change_modal_notice', true)
+                ->withInput($verification['changes'] ?? []);
+        }
+
+        $attempts = ($verification['attempts'] ?? 0) + 1;
+        if ($attempts > 5) {
+            session()->forget('profile_account_change_verification');
+
+            return back()
+                ->withErrors(['account_verification_code' => 'Too many incorrect attempts. Submit your changes again to get a new code.'])
+                ->with('profile_account_change_modal_notice', true)
+                ->withInput($verification['changes'] ?? []);
+        }
+
+        if (! Hash::check((string) $request->account_verification_code, $verification['code_hash'])) {
+            $verification['attempts'] = $attempts;
+            session(['profile_account_change_verification' => $verification]);
+
+            return back()->withErrors([
+                'account_verification_code' => 'Incorrect verification code. Please check the code sent to your registered email and try again.',
+            ]);
+        }
+
+        $changes = $verification['changes'] ?? [];
+        $validator = Validator::make($changes, $this->profileAccountChangeRules($user));
+        if ($validator->fails()) {
+            session()->forget('profile_account_change_verification');
+
+            return back()
+                ->withErrors($validator)
+                ->withInput($changes);
+        }
+
+        $user->update($validator->validated());
+        session()->forget('profile_account_change_verification');
+
+        return back()->with('success', 'Your username and email changes have been verified and saved.')->with('profile_updated', true);
+    }
+
+    public function cancelProfileAccountChange(Request $request)
+    {
+        $verification = session('profile_account_change_verification');
+        session()->forget('profile_account_change_verification');
+
+        return back()
+            ->withInput($verification['changes'] ?? [])
+            ->with('info', 'Username and email changes were not saved.');
     }
 
     public function updatePassword(Request $request)

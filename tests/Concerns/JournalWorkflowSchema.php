@@ -74,6 +74,7 @@ trait JournalWorkflowSchema
         (require database_path('migrations/2026_10_04_000001_add_dean_journal_review_workflow.php'))->up();
         (require database_path('migrations/2026_10_05_000001_add_academic_year_journal_batches.php'))->up();
         (require database_path('migrations/2026_10_05_000002_add_program_to_journal_assignments.php'))->up();
+        (require database_path('migrations/2026_10_26_000001_add_deadline_to_research_handoffs.php'))->up();
         (require database_path('migrations/2026_10_02_000001_create_notifications_table.php'))->up();
         (require database_path('migrations/2026_10_02_000002_create_notification_reads_table.php'))->up();
         (require database_path('migrations/2026_09_29_000001_create_user_activity_logs_table.php'))->up();

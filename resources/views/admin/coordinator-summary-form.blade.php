@@ -4,6 +4,7 @@
 
 @section('content')
 @include('admin.partials.coordinator-styles')
+@push('styles')
 <style>
 .summary-editor{max-width:1500px}.summary-intro{margin:-10px 0 12px;color:#796291;font-size:14px;line-height:1.6}
 .summary-form{min-width:0}.summary-heading{border:1px solid #eee5fa;border-radius:16px;margin-bottom:18px;background:#fdfbff}
@@ -26,6 +27,7 @@
 @media(max-width:1100px){.summary-columns{grid-template-columns:1fr}.summary-preview{position:static;min-height:0}.summary-fields{min-height:0}}
 @media(max-width:650px){.summary-steps{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.summary-fields{padding:18px}.summary-fields .coord-grid-3{grid-template-columns:1fr}.summary-footer .coord-actions{width:100%}.summary-footer .coord-btn{width:auto;flex:1;padding:10px 14px}.summary-heading{align-items:flex-start}}
 </style>
+@endpush
 
 @php
     $authors = old('authors', $research->authorNames());

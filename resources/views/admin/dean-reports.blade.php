@@ -15,6 +15,10 @@
     @endforeach
 </div>
 <form id="dr-filters" class="dr-filters" method="GET" action="{{ route('admin.reports') }}">
+    <div class="dr-field dr-search-field">
+        <label for="dr-search">Search</label>
+        <input type="search" id="dr-search" name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Search by research title, author, or program..." maxlength="255" autocomplete="off" data-auto-filter>
+    </div>
     @php
         $fields = [
             'school_year' => ['Academic Year', 'All Academic Years', $schoolYears->mapWithKeys(fn ($year) => [$year => $year])->all()],

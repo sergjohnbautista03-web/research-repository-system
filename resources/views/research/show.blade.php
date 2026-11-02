@@ -177,6 +177,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .rd-card {
     background: #fff;
@@ -304,6 +305,7 @@
     .rd-btn { padding: 9px 16px; font-size: 13px; }
 }
 </style>
+@endpush
 
 @push('scripts')
 <script src="{{ asset('js/document-protection.js') }}?v={{ filemtime(public_path('js/document-protection.js')) }}"></script>

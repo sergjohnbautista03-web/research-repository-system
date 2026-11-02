@@ -1,6 +1,6 @@
 @extends($embedded ? 'layouts.journal-batch-modal' : 'layouts.admin')
-@section('title', 'Academic Year Journal Batch')
-@section('page-title', 'Journal Batch — AY '.$batch->school_year)
+@section('title', $batch->batchHeading())
+@section('page-title', $batch->batchHeading())
 @section('content')
 @include('admin.partials.coordinator-styles')
 @push('styles')<link rel="stylesheet" href="{{ asset('css/journal-batches.css') }}?v={{ filemtime(public_path('css/journal-batches.css')) }}">@endpush
@@ -12,15 +12,18 @@
     if (! is_array($oldAuthors) || $oldAuthors === []) {
         $oldAuthors = [''];
     }
-    $isStudentJournal = old('submission_category', $editingJournal?->submission_category ?? $batch->submission_category) === \App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL;
+    $assignedCategory = $batch->submission_category;
+    $assignedCategoryLabel = \App\Models\Research::adminSubmissionCategories()[$assignedCategory] ?? 'Not assigned';
+    $isStudentJournal = $assignedCategory === \App\Models\Research::SUBMISSION_CATEGORY_STUDENT_JOURNAL;
     $batchRouteParameters = ['batch' => $batch];
     if ($embedded) $batchRouteParameters['embedded'] = 1;
 @endphp
 <div class="coord-shell jb-shell">
     <section class="coord-card">
-        <div class="coord-head"><div><h2>{{ $batch->title }}</h2><p>AY {{ $batch->school_year }} · {{ $batch->department }}</p><p>Program: {{ $batch->program ?? 'Not assigned' }}</p><p>Assigned by {{ $batch->dean?->name ?? 'Department Dean' }} to {{ $batch->coordinator?->name ?? 'Research Coordinator' }}</p></div>@unless($embedded)<a class="coord-btn coord-btn-soft" href="{{ route('admin.journal-batches') }}">All Batches</a>@endunless</div>
+        <div class="coord-head"><div><h2>{{ $batch->title }}</h2><p>AY {{ $batch->school_year }} · {{ $batch->department }}</p><p>Program: {{ $batch->program ?? 'Not assigned' }}</p><p>Assigned by {{ $batch->dean?->name ?? 'Department Dean' }} to {{ $batch->coordinator?->name ?? 'Research Coordinator' }}</p></div>@unless($embedded)<a class="coord-btn coord-btn-soft" href="{{ route($actor->isResearchCoordinator() ? 'admin.coordinator.dean-submissions' : 'admin.journal-batches') }}">{{ $actor->isResearchCoordinator() ? 'Assigned Journal Tasks' : 'All Batches' }}</a>@endunless</div>
         <div class="coord-card-pad jb-summary"><span class="coord-pill coord-pill-{{ $batch->batch_stage }}">{{ $batch->batchLabel() }}</span><span><strong>{{ $batch->journals->count() }}</strong> journals prepared</span><span><strong>{{ $uploaded }}/{{ $batch->journals->count() }}</strong> journal PDFs uploaded</span></div>
         @if($batch->notes)<div class="coord-card-pad jb-instructions"><strong>Task instructions:</strong> {{ $batch->notes }}</div>@endif
+        @if($batch->deadline)<div class="coord-card-pad jb-instructions"><strong>Deadline:</strong> {{ $batch->deadline->format('M d, Y') }}</div>@endif
     </section>
     @if($errors->any())<div class="jb-errors" role="alert">@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
 
@@ -36,7 +39,11 @@
                 @if($embedded)<input type="hidden" name="embedded" value="1">@endif
                 <div class="coord-field"><label for="journal-title">Journal Title</label><input id="journal-title" name="title" maxlength="500" required value="{{ old('title', $editingJournal?->title) }}">@if($editingJournal)@include('components.research-id', ['research' => $editingJournal])@endif</div>
                 <div class="jb-editor-grid">
-                    <div class="coord-field"><label for="journal-category">Journal Category</label><select id="journal-category" name="submission_category" required>@foreach(\App\Models\Research::adminSubmissionCategories() as $value => $label)<option value="{{ $value }}" @selected(old('submission_category', $editingJournal?->submission_category ?? $batch->submission_category) === $value)>{{ $label }}</option>@endforeach</select></div>
+                    <div class="coord-field">
+                        <label for="journal-category-label">Journal Category (assigned by Dean)</label>
+                        <input id="journal-category-label" value="{{ $assignedCategoryLabel }}" readonly>
+                        <input id="journal-category" type="hidden" name="submission_category" value="{{ $assignedCategory }}">
+                    </div>
                     <div class="coord-field"><label for="journal-type">Journal Type</label><select id="journal-type" name="type" required>@foreach(\App\Models\Research::journalTypeOptions() as $type)<option value="{{ $type }}" @selected(old('type', $editingJournal?->type) === $type)>{{ $type }}</option>@endforeach</select></div>
                     <div class="coord-field"><label for="journal-year">Year Published</label><input id="journal-year" name="year_published" type="number" min="2022" max="{{ \App\Models\Research::maxPublicationYear() }}" required value="{{ old('year_published', $editingJournal?->year_published ?? (int) substr($batch->school_year, 0, 4)) }}"></div>
                     <div class="coord-field">

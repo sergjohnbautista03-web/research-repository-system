@@ -124,6 +124,7 @@
     </div>
 </section>
 
+@push('styles')
 <style>
 .policy-shell{max-width:1120px;margin:0 auto;padding:34px 20px 56px;}
 .policy-hero{padding:34px;border-radius:22px;background:linear-gradient(135deg,#fff,#f6f1ff);border:1px solid #eadff8;box-shadow:0 14px 38px rgba(59,15,122,.08);margin-bottom:22px;}
@@ -152,4 +153,5 @@
 .policy-accepted-box span{font-size:12.5px;line-height:1.55;color:#166534;}
 @media(max-width:860px){.policy-layout{grid-template-columns:1fr;}.policy-action-card{position:static;}.policy-hero{padding:26px;}.policy-hero h1{font-size:30px;}}
 </style>
+@endpush
 @endsection

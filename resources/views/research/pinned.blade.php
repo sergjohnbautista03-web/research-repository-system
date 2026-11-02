@@ -58,6 +58,7 @@
 </div>
 </div>
 
+@push('styles')
 <style>
 .pin-root { font-family: var(--font-body); background: #eeeaf6; min-height: 100vh; }
 
@@ -184,5 +185,6 @@
     .pin-hero-title { font-size: 28px; }
 }
 </style>
+@endpush
 
 @endsection

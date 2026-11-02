@@ -16,13 +16,13 @@ function setup() {
         removeAttribute(name) { delete this.attrs[name]; }
         focus() { this.focused = true; }
     }
-    const modal = new Element(), frame = new Element(), title = new Element(), status = new Element(), close = new Element();
-    modal.querySelector = () => close;
+    const modal = new Element(), frame = new Element(), title = new Element(), status = new Element(), close = new Element(), back = new Element();
+    modal.querySelector = selector => selector === '[data-back-journal-list]' ? back : close;
     modal.showModal = () => { modal.open = true; };
     modal.close = () => { if (modal.open) { modal.open = false; modal.emit('close'); } };
     modal.getBoundingClientRect = () => ({ left: 20, right: 1000, top: 20, bottom: 800 });
-    frame.contentWindow = {};
-    frame.contentDocument = { body: { hasAttribute: name => name === 'data-journal-batch-embedded', dataset: { batchTitle: 'Journal Batch — AY 2025-2026' } } };
+    frame.contentWindow = { location: { href: 'http://localhost:8000/admin/journal-batches/3?embedded=1' } };
+    frame.contentDocument = Object.assign(new Element(), { body: { hasAttribute: name => name === 'data-journal-batch-embedded', dataset: { batchTitle: 'Journal Batch — AY 2025-2026' } } });
     const link = Object.assign(new Element(), {
         href: 'http://localhost:8000/admin/journal-batches/3', isConnected: true,
         dataset: { batchTitle: 'Journal Batch — AY 2025-2026' },
@@ -45,7 +45,7 @@ function setup() {
     const message = (type, extra = {}) => window.emit('message', {
         origin: window.location.origin, source: frame.contentWindow, data: { type }, ...extra,
     });
-    return { modal, frame, title, status, close, link, document, window, click, message };
+    return { modal, frame, title, status, close, back, link, document, window, click, message };
 }
 
 test('Open Batch keeps the list URL, loads embedded content and restores focus and scrolling on close', () => {
@@ -75,6 +75,43 @@ test('Open Batch keeps the list URL, loads embedded content and restores focus a
     assert.equal(ui.modal.open, true);
     ui.modal.emit('click', { target: ui.modal, clientX: 10, clientY: 10 });
     assert.equal(ui.modal.open, false);
+});
+
+test('dashboard cards keep lists, filters and batch details inside one modal with a return to the list', () => {
+    for (const [path, heading] of [['dean-submissions', 'Assigned Journal Tasks'], ['submissions', 'Submitted Journals']]) {
+        const ui = setup();
+        ui.link.href = `http://localhost:8000/admin/coordinator/${path}`;
+        ui.link.dataset = { batchMode: 'list', batchTitle: heading };
+        ui.click();
+        const listUrl = ui.link.href + '?embedded=1';
+        assert.equal(ui.frame.src, listUrl);
+        assert.equal(ui.back.hidden, true);
+        ui.frame.contentWindow.location.href = listUrl;
+        ui.frame.contentDocument.body.dataset.batchTitle = heading;
+        ui.frame.emit('load');
+        assert.equal(ui.title.textContent, heading);
+        assert.equal(ui.frame.hidden, false);
+        const filteredUrl = listUrl + '&program=Information+Technology&page=2';
+        ui.frame.contentWindow.location.href = filteredUrl;
+        ui.frame.contentDocument.emit('click');
+        ui.frame.contentWindow.location.href = 'http://localhost:8000/admin/journal-batches/3?embedded=1';
+        ui.frame.contentDocument.body.dataset.batchTitle = 'Student Research Journal Batches - AY 2022-2023';
+        ui.frame.emit('load');
+        assert.equal(ui.back.hidden, false);
+        assert.equal(ui.title.textContent, 'Student Research Journal Batches - AY 2022-2023');
+        ui.back.emit('click');
+        assert.equal(ui.frame.src, filteredUrl);
+        assert.equal(ui.frame.hidden, true);
+        ui.frame.contentWindow.location.href = filteredUrl;
+        ui.frame.contentDocument.body.dataset.batchTitle = heading;
+        ui.frame.emit('load');
+        assert.equal(ui.back.hidden, true);
+        assert.equal(ui.title.textContent, heading);
+        ui.message('journal-batch-updated');
+        ui.close.emit('click');
+        assert.equal(ui.window.reloaded, true);
+        assert.equal(ui.link.focused, true);
+    }
 });
 
 test('only the current same-origin batch frame can close or mark the list for refresh', () => {

@@ -1,4 +1,5 @@
 @once
+@push('styles')
 <style>
 .coord-shell{display:grid;gap:18px;max-width:1240px}
 .coord-grid{display:grid;gap:14px}
@@ -50,4 +51,5 @@
 @media(max-width:1120px){.coord-grid-4,.coord-grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}.coord-filter{grid-template-columns:repeat(2,minmax(0,1fr))}.coord-filter .coord-actions{grid-column:1/-1}}
 @media(max-width:720px){.coord-grid-4,.coord-grid-3,.coord-filter{grid-template-columns:1fr}.coord-head,.coord-item{align-items:stretch;flex-direction:column}.coord-actions .coord-btn{width:100%}.coord-table{min-width:760px}}
 </style>
+@endpush
 @endonce

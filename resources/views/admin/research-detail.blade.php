@@ -168,6 +168,7 @@
                 <form method="POST" action="{{ route('admin.research.archive', $research) }}" style="display:inline" onsubmit="return confirm('Unpublish this research?')">
                     @csrf
                     <button type="submit" class="rd-btn rd-btn-archive">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18v4H3z"/><path d="M5 8v12h14V8"/><path d="M10 12h4"/></svg>
                         Unpublish
                     </button>
                 </form>
@@ -214,6 +215,7 @@
 </div>
 @endif
 
+@push('styles')
 <style>
 .rd-shell{width:min(100%,1280px);margin:0 auto;}
 .rd-card{background:#fff;border-radius:20px;border:1px solid rgba(107,47,160,.1);box-shadow:0 4px 32px rgba(59,15,122,.06),0 1px 4px rgba(0,0,0,.03);overflow:hidden;margin-bottom:40px;}
@@ -250,7 +252,7 @@
 .rd-file-name{flex:1;font-size:14px;font-weight:600;color:#1a0638;word-break:break-all;}
 .rd-file-actions{display:flex;gap:8px;flex-shrink:0;}
 .rd-no-file{font-size:14px;color:#a090bc;font-style:italic;}
-.rd-rejection{background:#fef2f2;border-top:1px solid #fecaca;border-bottom:1px solid #fecaca;
+.rd-rejection{background:#fef2f2;border-top:1px solid #fecaca;border-bottom:1px solid #fecaca;}
 .rd-rejection .rd-section-title{color:#b91c1c;}
 .rd-rejection-text{font-size:14px;line-height:1.75;color:#7f1d1d;margin:0;}
 .rd-actions{display:flex;align-items:center;gap:10px;padding:20px 36px;background:linear-gradient(160deg,#fdfbff 0%,#f8f4fe 100%);border-top:1px solid #f0eaf9;}
@@ -263,8 +265,9 @@
 .rd-btn-ghost:hover{background:#f4f0fc;color:#3b0f7a;}
 .rd-btn-approve{background:#16a34a;color:#fff;box-shadow:0 4px 14px rgba(22,163,74,.25);}
 .rd-btn-approve:hover{background:#15803d;transform:translateY(-1px);}
-.rd-btn-archive{background:#4b5563;color:#fff;box-shadow:0 4px 14px rgba(75,85,99,.25);}
-.rd-btn-archive:hover{background:#374151;transform:translateY(-1px);}
+.rd-btn-archive{background:#fff;color:#b42332;border:1.5px solid #f0b8bf;box-shadow:0 3px 10px rgba(180,35,50,.08);}
+.rd-btn-archive:hover{background:#fff4f4;border-color:#d96b78;color:#941d2a;transform:translateY(-1px);box-shadow:0 5px 14px rgba(180,35,50,.14);}
+.rd-btn-archive:focus-visible{outline:3px solid rgba(217,107,120,.3);outline-offset:2px;}
 .rd-btn-reject{background:#dc2626;color:#fff;box-shadow:0 4px 14px rgba(220,38,38,.25);}
 .rd-btn-reject:hover{background:#b91c1c;transform:translateY(-1px);}
 .rd-modal-overlay{position:fixed;inset:0;background:rgba(26,6,56,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
@@ -282,6 +285,7 @@
 @media(max-width:768px){.rd-shell{width:100%;}.rd-meta-grid{grid-template-columns:repeat(2,1fr);}.rd-meta-item:nth-child(4n){border-right:1px solid #f0eaf9;}.rd-meta-item:nth-child(2n){border-right:none;}.rd-header,.rd-section,.rd-actions{padding-left:20px;padding-right:20px;}.rd-file-info{flex-wrap:wrap;}.rd-file-actions{width:100%;}}
 @media(max-width:480px){.rd-meta-grid{grid-template-columns:1fr;}.rd-meta-item{border-right:none!important;}.rd-title{font-size:18px;}}
 </style>
+@endpush
 
 @push('scripts')
 <script src="{{ asset('js/document-protection.js') }}?v={{ filemtime(public_path('js/document-protection.js')) }}"></script>

@@ -111,6 +111,9 @@ class ImportedUserAccessTest extends TestCase
             $table->timestamps();
             $table->softDeletes();
         });
+        Schema::dropIfExists('member_identifiers');
+        Schema::dropIfExists('member_id_sequences');
+        (require database_path('migrations/2026_11_01_000001_create_member_id_sequences.php'))->up();
     }
 
     protected function tearDown(): void
@@ -124,7 +127,7 @@ class ImportedUserAccessTest extends TestCase
     {
         $admin = User::create([
             'name' => 'Admin User',
-            'email' => 'admin@example.com',
+            'email' => 'admin@gmail.com',
             'password' => 'password',
             'role' => 'admin',
             'is_department_dean' => false,
@@ -144,7 +147,7 @@ class ImportedUserAccessTest extends TestCase
 
         $dean = User::create([
             'name' => 'CCS Dean',
-            'email' => 'ccs-dean@example.com',
+            'email' => 'ccs-dean@gmail.com',
             'password' => 'password',
             'role' => 'admin',
             'department' => 'College of Computer Studies',
@@ -157,8 +160,8 @@ class ImportedUserAccessTest extends TestCase
 
         $csv = implode("\n", [
             'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password,course',
-            'Ana,Santos,Dela Cruz,College of Education,student,12345678,,2,,,Information Technology',
-            'Ben,Reyes,Faculty,College of Education,faculty,,FAC-001,,,,Computer Science',
+            'Ana,Santos,Dela Cruz,College of Education,student,12345678,,2,ana.student@gmail.com,,Information Technology',
+            'Ben,Reyes,Faculty,College of Education,faculty,,FAC-001,,ben.faculty@gmail.com,,Computer Science',
         ]);
 
         $response = $this->actingAs($dean)->post(route('admin.import-users'), [
@@ -208,7 +211,7 @@ class ImportedUserAccessTest extends TestCase
     {
         $dean = User::create([
             'name' => 'CCS Dean',
-            'email' => 'ccs-dean-no-sem@example.com',
+            'email' => 'ccs-dean-no-sem@gmail.com',
             'password' => 'password',
             'role' => 'admin',
             'department' => 'College of Computer Studies',
@@ -221,8 +224,8 @@ class ImportedUserAccessTest extends TestCase
 
         $csv = implode("\n", [
             'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password,program',
-            'Ana,Santos,Dela Cruz,College of Computer Studies,student,12345678,,2,,,Information Technology',
-            'Ben,Reyes,Faculty,College of Computer Studies,faculty,,FAC-001,,,,Computer Science',
+            'Ana,Santos,Dela Cruz,College of Computer Studies,student,12345678,,2,ana.student@gmail.com,,Information Technology',
+            'Ben,Reyes,Faculty,College of Computer Studies,faculty,,FAC-001,,ben.faculty@gmail.com,,Computer Science',
         ]);
 
         $response = $this->actingAs($dean)->from(route('admin.users'))->post(route('admin.import-users'), [
@@ -265,27 +268,27 @@ class ImportedUserAccessTest extends TestCase
     public function test_dean_can_manually_add_student_and_faculty_without_an_active_semester(): void
     {
         $dean = User::create([
-            'name' => 'CCS Dean', 'email' => 'no-semester-add@example.com', 'password' => 'password',
+            'name' => 'CCS Dean', 'email' => 'no-semester-add@gmail.com', 'password' => 'password',
             'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
             'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
             'policy_version' => config('repository_policy.version', '2026-04-29'),
         ]);
         $this->actingAs($dean)->get(route('admin.create-user'))->assertOk()
             ->assertSee('<button type="submit">Add User</button>', false);
-        foreach (['student', 'faculty'] as $type) {
+        foreach (['student' => '00000001', 'faculty' => 'FAC-000001'] as $type => $identifier) {
             $this->post(route('admin.store-user'), [
                 'firstname' => 'New', 'lastname' => 'Member', 'member_type' => $type,
-                'student_id' => $type . '-001', 'email' => $type . '@example.com', 'year_level' => 2,
+                'student_id' => str_replace('FAC-', '', $identifier), 'email' => $type . '@gmail.com', 'year_level' => 2,
                 'program' => 'Information Technology',
             ])->assertRedirect(route('admin.users'))->assertSessionHasNoErrors();
-            $member = User::where('student_id', $type . '-001')->firstOrFail();
+            $member = User::where('student_id', $identifier)->firstOrFail();
             $this->assertSame($dean->department, $member->department);
             $this->assertSame('Information Technology', $member->program);
             $this->assertSame($dean->id, $member->created_by);
             $this->assertNull($member->current_semester_id);
             $this->assertFalse($member->is_active);
             $this->assertTrue($member->is_approved);
-            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($type . '-001_New', $member->password));
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($identifier . '_New', $member->password));
         }
         $this->assertDatabaseCount('semester_enrollments', 0);
         $this->assertDatabaseCount('semesters', 0);
@@ -294,14 +297,14 @@ class ImportedUserAccessTest extends TestCase
     public function test_import_without_active_semester_preserves_previous_enrollment_and_account_status(): void
     {
         $dean = User::create([
-            'name' => 'CCS Dean', 'email' => 'history-import@example.com', 'password' => 'password',
+            'name' => 'CCS Dean', 'email' => 'history-import@gmail.com', 'password' => 'password',
             'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
             'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
             'policy_version' => config('repository_policy.version', '2026-04-29'),
         ]);
         $previous = Semester::create(['school_year' => '2025-2026', 'semester' => '1st', 'is_active' => false]);
         $members = collect([true, false])->map(fn ($active, $index) => User::create([
-            'name' => 'Existing Student', 'email' => 'existing-' . $index . '@example.com', 'password' => 'password',
+            'name' => 'Existing Student', 'email' => 'existing-' . $index . '@gmail.com', 'password' => 'password',
             'role' => 'user', 'department' => $dean->department, 'student_id' => '1234567' . $index,
             'current_semester_id' => $previous->id, 'is_active' => $active, 'is_approved' => true,
             'program' => 'Information Technology',
@@ -314,9 +317,9 @@ class ImportedUserAccessTest extends TestCase
         }
         $history = \Illuminate\Support\Facades\DB::table('semester_enrollments')->get()->toJson();
         $passwords = $members->pluck('password', 'id');
-        $csv = "firstname,middlename,lastname,student_id,year_level,program\n"
-            . "Existing,Middle,Student,12345670,3,Computer Science\n"
-            . "Existing,Middle,Student,12345671,3,Computer Science";
+        $csv = "firstname,middlename,lastname,student_id,year_level,program,email\n"
+            . "Existing,Middle,Student,12345670,3,Computer Science,existing-0@gmail.com\n"
+            . "Existing,Middle,Student,12345671,3,Computer Science,existing-1@gmail.com";
         $this->actingAs($dean)->post(route('admin.import-users'), [
             'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
@@ -344,7 +347,7 @@ class ImportedUserAccessTest extends TestCase
 
         $dean = User::create([
             'name' => 'CCS Dean',
-            'email' => 'ccs-dean-duplicates@example.com',
+            'email' => 'ccs-dean-duplicates@gmail.com',
             'password' => 'password',
             'role' => 'admin',
             'department' => 'College of Computer Studies',
@@ -357,7 +360,7 @@ class ImportedUserAccessTest extends TestCase
 
         $existing = User::create([
             'name' => 'Approved Existing User',
-            'email' => 'existing@example.com',
+            'email' => 'existing@gmail.com',
             'password' => 'password',
             'role' => 'user',
             'department' => 'College of Computer Studies',
@@ -370,15 +373,15 @@ class ImportedUserAccessTest extends TestCase
 
         $originalPassword = $existing->password;
         $existing->update(['is_active' => false, 'year_level' => 1]);
-        $omitted = User::create(['name' => 'Omitted Student', 'email' => 'omitted@example.com', 'password' => 'password', 'role' => 'user', 'department' => $dean->department, 'student_id' => '11223344', 'is_active' => true]);
-        $otherDepartment = User::create(['name' => 'Other Student', 'email' => 'other@example.com', 'password' => 'password', 'role' => 'user', 'department' => 'College of Education', 'student_id' => '11223345', 'is_active' => true]);
-        $faculty = User::create(['name' => 'Faculty Member', 'email' => 'faculty@example.com', 'password' => 'password', 'role' => 'researcher', 'department' => $dean->department, 'student_id' => 'EMP-1', 'is_active' => true]);
+        $omitted = User::create(['name' => 'Omitted Student', 'email' => 'omitted@gmail.com', 'password' => 'password', 'role' => 'user', 'department' => $dean->department, 'student_id' => '11223344', 'is_active' => true]);
+        $otherDepartment = User::create(['name' => 'Other Student', 'email' => 'other@gmail.com', 'password' => 'password', 'role' => 'user', 'department' => 'College of Education', 'student_id' => '11223345', 'is_active' => true]);
+        $faculty = User::create(['name' => 'Faculty Member', 'email' => 'faculty@gmail.com', 'password' => 'password', 'role' => 'researcher', 'department' => $dean->department, 'student_id' => 'EMP-1', 'is_active' => true]);
         $csv = implode("\n", [
             'firstname,middlename,lastname,department,member_type,student_id,employee_id,year_level,email,password,program',
-            'Approved,Existing,User,College of Computer Studies,student,12345678,,2,existing@example.com,changedpassword,Information Technology',
-            'Ana,Santos,Dela Cruz,College of Computer Studies,student,87654321,,1,ana@example.com,,Information Technology',
-            'Ben,Reyes,Lopez,College of Education,student,87654322,,2,ben@example.com,,Computer Science',
-            'Cara,Mendoza,Santos,College of Maritime Studies,student,87654323,,3,cara@example.com,,Computer Science',
+            'Approved,Existing,User,College of Computer Studies,student,12345678,,2,existing@gmail.com,changedpassword,Information Technology',
+            'Ana,Santos,Dela Cruz,College of Computer Studies,student,87654321,,1,ana@gmail.com,,Information Technology',
+            'Ben,Reyes,Lopez,College of Education,student,87654322,,2,ben@gmail.com,,Computer Science',
+            'Cara,Mendoza,Santos,College of Maritime Studies,student,87654323,,3,cara@gmail.com,,Computer Science',
         ]);
 
         $response = $this->actingAs($dean)->post(route('admin.import-users'), [
@@ -411,7 +414,7 @@ class ImportedUserAccessTest extends TestCase
 
         $conflictCsv = implode("\n", [
             'firstname,middlename,lastname,student_id,year_level,email,password,program',
-            'Another,Middle,Student,99887766,3,existing@example.com,password,Information Technology',
+            'Another,Middle,Student,99887766,3,existing@gmail.com,password,Information Technology',
         ]);
         $this->actingAs($dean)->post(route('admin.import-users'), [
             'semester' => Semester::FIRST_SEMESTER, 'school_year' => $schoolYear,
@@ -544,7 +547,7 @@ class ImportedUserAccessTest extends TestCase
     {
         $admin = User::create([
             'name' => 'Global Admin',
-            'email' => 'global-admin-create@example.com',
+            'email' => 'global-admin-create@gmail.com',
             'password' => 'password',
             'role' => 'admin',
             'is_active' => true,
@@ -555,7 +558,7 @@ class ImportedUserAccessTest extends TestCase
 
         $dean = User::create([
             'name' => 'CCS Dean',
-            'email' => 'ccs-dean-create@example.com',
+            'email' => 'ccs-dean-create@gmail.com',
             'password' => 'password',
             'role' => 'admin',
             'department' => 'College of Computer Studies',
@@ -570,21 +573,21 @@ class ImportedUserAccessTest extends TestCase
         $this->post(route('admin.store-user'), [])->assertForbidden();
         $this->actingAs($dean)->get(route('admin.create-user'))->assertOk();
         $semester = Semester::create(['school_year' => '2026-2027', 'semester' => Semester::FIRST_SEMESTER, 'is_active' => true, 'end_date' => now()->addMonths(2)]);
-        foreach (['student', 'faculty'] as $type) {
+        foreach (['student' => '00000001', 'faculty' => 'FAC-000001'] as $type => $identifier) {
             $this->post(route('admin.store-user'), [
                 'firstname' => 'New', 'lastname' => 'Member', 'member_type' => $type,
-                'student_id' => $type . '-001', 'email' => $type . '@example.com',
+                'student_id' => str_replace('FAC-', '', $identifier), 'email' => $type . '@gmail.com',
                 'year_level' => 2,
                 'department' => 'Wrong department', 'role' => 'admin',
                 'program' => 'Information Technology',
             ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
-            $member = User::where('email', $type . '@example.com')->firstOrFail();
+            $member = User::where('email', $type . '@gmail.com')->firstOrFail();
             $this->assertSame($dean->department, $member->department);
             $this->assertSame('Information Technology', $member->program);
             $this->assertSame($type === 'student' ? 'user' : 'researcher', $member->role);
             $this->assertTrue($member->hasActiveSemesterEnrollment());
             $this->assertSame($semester->id, $member->current_semester_id);
-            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($type . '-001_New', $member->password));
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($identifier . '_New', $member->password));
         }
         $this->get(route('admin.users'))->assertOk()
             ->assertDontSee('name="semester_id"', false)
@@ -602,26 +605,27 @@ class ImportedUserAccessTest extends TestCase
             'member_type' => 'student', 'student_id' => 'ID@001', 'email' => 'invalid-email',
             'year_level' => 5,
         ])->assertSessionHasErrors([
-            'firstname', 'middlename', 'lastname', 'student_id', 'email', 'year_level',
+            'firstname', 'middlename', 'lastname', 'email', 'year_level',
         ], null, 'addUser');
         $this->assertDatabaseMissing('users', ['student_id' => 'ID@001']);
         $this->post(route('admin.store-user'), [
             'firstname' => 'New', 'lastname' => 'Member', 'member_type' => 'faculty',
-            'student_id' => 'student-001', 'email' => 'student@example.com',
+            'student_id' => '00000001', 'email' => 'student@gmail.com',
             'password' => 'Password123!', 'password_confirmation' => 'Password123!',
-        ])->assertSessionHasErrors(['student_id', 'email'], null, 'addUser');
+        ])->assertSessionHasErrors(['email'], null, 'addUser');
         $this->post(route('admin.store-user'), [
             'firstname' => 'SERGIO', 'lastname' => 'Member', 'member_type' => 'student',
-            'student_id' => '00037838', 'email' => 'sergio@example.com', 'year_level' => 4,
+            'student_id' => '00037838', 'email' => 'sergio@gmail.com', 'year_level' => 4,
             'program' => 'Information Technology',
             'password' => 'TamperedPassword',
         ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
-        $member = User::where('student_id', '00037838')->firstOrFail();
+        $member = User::where('email', 'sergio@gmail.com')->firstOrFail();
         $this->assertSame(4, (int) $member->year_level);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('00037838_Ser', $member->password));
+        $this->assertSame('00037838', $member->student_id);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check($member->student_id . '_Ser', $member->password));
         $this->assertFalse(\Illuminate\Support\Facades\Hash::check('TamperedPassword', $member->password));
         $this->post(route('logout'));
-        $this->post(route('login'), ['login' => '00037838', 'password' => '00037838_Ser'])
+        $this->post(route('login'), ['login' => $member->student_id, 'password' => $member->student_id . '_Ser'])
             ->assertSessionHasNoErrors();
         $this->assertAuthenticatedAs($member);
     }
@@ -1107,7 +1111,7 @@ class ImportedUserAccessTest extends TestCase
     public function test_separate_csv_templates_import_the_selected_member_type_without_a_member_type_column(): void
     {
         $dean = User::create([
-            'name' => 'CSV Dean', 'email' => 'csv-dean@example.com', 'password' => 'password',
+            'name' => 'CSV Dean', 'email' => 'csv-dean@gmail.com', 'password' => 'password',
             'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
             'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
             'policy_version' => config('repository_policy.version', '2026-04-29'),
@@ -1120,13 +1124,13 @@ class ImportedUserAccessTest extends TestCase
             $this->assertStringNotContainsString('password', $header);
             $this->assertStringContainsString($type === 'student' ? 'student_id' : 'employee_id', $header);
             $row = $type === 'student'
-                ? 'Ana,Santos,Student,00078799,2,Information Technology,student-csv@example.com'
-                : 'Ben,Reyes,Faculty,FAC-001,Computer Science,faculty-csv@example.com';
+                ? 'Ana,Santos,Student,00078799,2,Information Technology,student-csv@gmail.com'
+                : 'Ben,Reyes,Faculty,FAC-001,Computer Science,faculty-csv@gmail.com';
             $this->post(route('admin.import-users'), [
                 'import_member_type' => $type,
                 'file' => UploadedFile::fake()->createWithContent($template . '.csv', $header . "\n" . $row),
             ])->assertRedirect(route('admin.users', ['imported' => 1]))->assertSessionHasNoErrors()->assertSessionHas('success');
-            $member = User::where('email', $type . '-csv@example.com')->firstOrFail();
+            $member = User::where('email', $type . '-csv@gmail.com')->firstOrFail();
             $this->assertSame($type === 'student' ? 'user' : 'researcher', $member->role);
             $this->assertSame($type === 'student' ? '00078799' : 'FAC-001', $member->student_id);
             $this->assertTrue(\Illuminate\Support\Facades\Hash::check($type === 'student' ? '00078799_Ana' : 'FAC-001_Ben', $member->password));
@@ -1143,7 +1147,7 @@ class ImportedUserAccessTest extends TestCase
         ]);
         $this->post(route('admin.import-users'), [
             'import_member_type' => 'faculty',
-            'file' => UploadedFile::fake()->createWithContent('faculty.csv', "firstname,middlename,lastname,employee_id,program\nCara,Middle,Faculty,FAC-002,Computer Science"),
+            'file' => UploadedFile::fake()->createWithContent('faculty.csv', "firstname,middlename,lastname,employee_id,program,email\nCara,Middle,Faculty,FAC-002,Computer Science,cara.faculty@gmail.com"),
         ])->assertSessionHasNoErrors()->assertSessionHas('success');
         $faculty = User::where('student_id', 'FAC-002')->firstOrFail();
         $this->assertSame('researcher', $faculty->role);
@@ -1228,18 +1232,18 @@ class ImportedUserAccessTest extends TestCase
     public function test_manual_student_and_faculty_creation_require_a_valid_program(): void
     {
         $dean = User::create([
-            'name' => 'Required Program Dean', 'email' => 'manual-required-program@example.com', 'password' => 'password',
+            'name' => 'Required Program Dean', 'email' => 'manual-required-program@gmail.com', 'password' => 'password',
             'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
             'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
             'policy_version' => config('repository_policy.version', '2026-04-29'),
         ]);
         $this->actingAs($dean)->get(route('admin.create-user'))->assertOk()
             ->assertSee('name="program" required', false);
-        foreach (['student', 'faculty'] as $type) {
+        foreach (['student' => '00000001', 'faculty' => 'FAC-001'] as $type => $identifier) {
             foreach ([null, '', 'Civil Engineering'] as $program) {
                 $data = [
                     'firstname' => 'New', 'lastname' => 'Member', 'member_type' => $type,
-                    'student_id' => $type . '-001', 'email' => $type . '@example.com', 'year_level' => 2,
+                    'student_id' => str_replace('FAC-', '', $identifier), 'email' => $type . '@gmail.com', 'year_level' => 2,
                 ];
                 if ($program !== null) {
                     $data['program'] = $program;
@@ -1250,10 +1254,195 @@ class ImportedUserAccessTest extends TestCase
         }
     }
 
+    private function memberIdDean(): User
+    {
+        return User::create([
+            'name' => 'Member ID Dean', 'email' => 'member-ids@gmail.com', 'password' => 'password', 'role' => 'admin',
+            'department' => 'College of Computer Studies', 'is_department_dean' => true,
+            'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
+            'policy_version' => config('repository_policy.version', '2026-04-29'),
+        ]);
+    }
+
+    public function test_entered_member_numbers_are_formatted_without_replacing_them(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        foreach ([['student', '37893', '00037893'], ['faculty', '087987', 'FAC-087987'],
+            ['student', '00000123', '00000123'], ['faculty', '000001', 'FAC-000001']] as $index => [$type, $input, $expected]) {
+            $this->post(route('admin.store-user'), [
+                'firstname' => 'Ana', 'lastname' => 'Member', 'member_type' => $type, 'student_id' => $input,
+                'email' => "manual{$index}@gmail.com", 'year_level' => 1, 'program' => 'Information Technology',
+            ])->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
+            $member = User::where('email', "manual{$index}@gmail.com")->firstOrFail();
+            $this->assertSame($expected, $member->student_id);
+            $this->assertTrue(\Illuminate\Support\Facades\Hash::check($expected . '_Ana', $member->password));
+        }
+        $html = $this->get(route('admin.create-user'))->assertOk()->getContent();
+        $document = new \DOMDocument();
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(1, $xpath->query('//input[@name="student_id" and not(@readonly)]')->length);
+        $this->assertStringNotContainsString('member_id_token', $html);
+    }
+
+    public function test_manual_member_ids_reject_non_numeric_input_and_overlong_student_numbers(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        $data = ['firstname' => 'Ana', 'lastname' => 'Member', 'email' => 'invalid-number@gmail.com',
+            'year_level' => 1, 'program' => 'Information Technology'];
+        foreach (['student', 'faculty'] as $type) {
+            foreach (['', 'abc123', '123-45', '123 45', '+37893', '12.34', 'FAC-87987'] as $invalid) {
+                $this->post(route('admin.store-user'), $data + ['member_type' => $type, 'student_id' => $invalid])
+                    ->assertSessionHasErrors(['student_id'], null, 'addUser');
+            }
+        }
+        $this->post(route('admin.store-user'), $data + ['member_type' => 'student', 'student_id' => '123456789'])
+            ->assertSessionHasErrors(['student_id'], null, 'addUser');
+        foreach (['87987', '1234567'] as $invalidLength) {
+            $this->post(route('admin.store-user'), $data + ['member_type' => 'faculty', 'student_id' => $invalidLength])
+                ->assertSessionHasErrors(['student_id'], null, 'addUser');
+        }
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_formatted_duplicates_and_previously_assigned_ids_cannot_be_reused(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        foreach (['student' => ['37893', '00037893'], 'faculty' => ['087987', 'FAC-087987']] as $type => [$input, $formatted]) {
+            $data = ['firstname' => 'Ana', 'lastname' => 'Member', 'member_type' => $type, 'student_id' => $input,
+                'email' => $type . '@gmail.com', 'year_level' => 1, 'program' => 'Information Technology'];
+            $this->post(route('admin.store-user'), $data)->assertSessionHasNoErrors();
+            $member = User::where('email', $data['email'])->firstOrFail();
+            $duplicate = array_replace($data, ['email' => 'duplicate-' . $type . '@gmail.com',
+                'student_id' => $type === 'student' ? '00037893' : $input]);
+            $this->post(route('admin.store-user'), $duplicate)->assertSessionHasErrors(['student_id'], null, 'addUser');
+            $member->delete();
+            $this->post(route('admin.store-user'), $duplicate)->assertSessionHasErrors(['student_id'], null, 'addUser');
+            $this->assertDatabaseHas('member_identifiers', ['identifier' => $formatted, 'assigned_user_id' => $member->id]);
+            $this->assertDatabaseMissing('users', ['student_id' => $formatted]);
+        }
+    }
+
+    public function test_create_user_requires_a_valid_gmail_address_and_renders_inline_errors(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        $data = ['firstname' => 'Roseann', 'lastname' => 'Member', 'member_type' => 'student',
+            'student_id' => '37893', 'year_level' => 1, 'program' => 'Information Technology'];
+        foreach ([
+            ['', 'Email address is required.'], ['   ', 'Email address is required.'],
+            ['roseannbautista@gmail', 'Please enter a valid Gmail address.'],
+            ['roseann@', 'Please enter a valid Gmail address.'],
+            ['rose..ann@gmail.com', 'Please enter a valid Gmail address.'],
+            ['roseann@gmail.', 'Please enter a valid Gmail address.'],
+            ['roseann@yahoo.com', 'Only Gmail addresses (@gmail.com) are allowed.'],
+            ['roseann@gmail.com.evil', 'Only Gmail addresses (@gmail.com) are allowed.'],
+        ] as [$email, $message]) {
+            $this->from(route('admin.users'))->post(route('admin.store-user'), $data + ['email' => $email])
+                ->assertRedirect(route('admin.users'))->assertSessionHasErrors(['email' => $message], null, 'addUser');
+        }
+        $html = $this->get(route('admin.users'))->assertOk()->getContent();
+        $document = new \DOMDocument();
+        @$document->loadHTML($html);
+        $xpath = new \DOMXPath($document);
+        $message = $xpath->query('//input[@name="email"]/following-sibling::span[@id="member-error-email"]')->item(0);
+        $this->assertNotNull($message);
+        $this->assertSame('Only Gmail addresses (@gmail.com) are allowed.', trim($message->textContent));
+        $this->assertDatabaseCount('users', 1);
+    }
+
+    public function test_create_user_normalizes_gmail_and_rejects_case_insensitive_duplicates_globally(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        User::create(['name' => 'Existing User', 'email' => '  ALREADY.REGISTERED@GMAIL.COM  ', 'password' => 'password',
+            'department' => 'Another Department']);
+        $data = ['firstname' => 'Roseann', 'lastname' => 'Member', 'member_type' => 'student',
+            'student_id' => '37893', 'year_level' => 1, 'program' => 'Information Technology'];
+        $this->post(route('admin.store-user'), $data + ['email' => 'already.registered@gmail.com'])
+            ->assertSessionHasErrors(['email' => 'This email address is already registered.'], null, 'addUser');
+        $this->post(route('admin.store-user'), $data + ['email' => '  RoseAnnBautista@GMAIL.COM  '])
+            ->assertSessionHasNoErrors()->assertRedirect(route('admin.users'));
+        $member = User::where('student_id', '00037893')->firstOrFail();
+        $this->assertSame('roseannbautista@gmail.com', $member->email);
+        $this->post(route('admin.store-user'), array_replace($data, ['student_id' => '37894', 'email' => ' ROSEANNBAUTISTA@GMAIL.COM ']))
+            ->assertSessionHasErrors(['email' => 'This email address is already registered.'], null, 'addUser');
+        $this->assertDatabaseMissing('users', ['student_id' => '00037894']);
+    }
+
+    public function test_student_and_faculty_imports_require_gmail_for_every_row_before_saving_any_accounts(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        foreach (['student', 'faculty'] as $type) {
+            $column = $type === 'student' ? 'student_id' : 'employee_id';
+            $firstId = $type === 'student' ? '00037893' : 'FAC-087987';
+            $secondId = $type === 'student' ? '00037894' : 'FAC-087988';
+            foreach ([
+                ['', 'Email address is required.'], ['   ', 'Email address is required.'],
+                ['roseannbautista@gmail', 'Please enter a valid Gmail address.'],
+                ['roseann@gmail.', 'Please enter a valid Gmail address.'],
+                ['rose..ann@gmail.com', 'Please enter a valid Gmail address.'],
+                ['roseann@yahoo.com', 'Only Gmail addresses (@gmail.com) are allowed.'],
+                ['roseann@ube.local', 'Only Gmail addresses (@gmail.com) are allowed.'],
+            ] as [$email, $expected]) {
+                $csv = "firstname,middlename,lastname,{$column},program,email\n"
+                    . "Valid,Middle,Member,{$firstId},Information Technology,valid.{$type}@gmail.com\n"
+                    . "Roseann,Middle,Member,{$secondId},Information Technology,{$email}";
+                $this->post(route('admin.import-users'), [
+                    'import_member_type' => $type, 'file' => UploadedFile::fake()->createWithContent('users.csv', $csv),
+                ])->assertSessionHas('error')->assertSessionHas('import_errors', fn ($errors) => count($errors) === 1
+                    && $errors[0]['row'] === 3 && $errors[0]['error'] === $expected);
+                $this->assertDatabaseCount('users', 1);
+                $this->assertDatabaseCount('semester_enrollments', 0);
+            }
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type,
+                'file' => UploadedFile::fake()->createWithContent('missing-email.csv',
+                    "firstname,middlename,lastname,{$column},program\nRoseann,Middle,Member,{$firstId},Information Technology"),
+            ])->assertSessionHas('import_errors', fn ($errors) => $errors[0]['row'] === 2 && $errors[0]['error'] === 'Email address is required.');
+        }
+        $this->get(route('admin.users'))->assertOk()->assertSee('A valid Gmail address (@gmail.com) is required')
+            ->assertDontSee('Email can be blank for a generated address.');
+    }
+
+    public function test_import_normalizes_gmail_and_rejects_duplicate_addresses_in_the_database_and_file(): void
+    {
+        $this->actingAs($this->memberIdDean());
+        User::create(['name' => 'Existing Owner', 'email' => '  EXISTING@GMAIL.COM  ', 'password' => 'password',
+            'student_id' => '11223344', 'department' => 'Another Department']);
+        $header = "firstname,middlename,lastname,student_id,program,email\n";
+        $this->post(route('admin.import-users'), [
+            'import_member_type' => 'student',
+            'file' => UploadedFile::fake()->createWithContent('database-duplicate.csv',
+                $header . 'Roseann,Middle,Member,00037893,Information Technology,existing@gmail.com'),
+        ])->assertSessionHas('error')->assertSessionHas('import_errors', fn ($errors) => $errors[0]['row'] === 2
+            && str_contains($errors[0]['error'], 'Email belongs to a different'));
+        $this->assertDatabaseCount('users', 2);
+        $this->post(route('admin.import-users'), [
+            'import_member_type' => 'student',
+            'file' => UploadedFile::fake()->createWithContent('file-duplicate.csv', $header
+                . "Roseann,Middle,Member,00037893,Information Technology,  SAME@GMAIL.COM  \n"
+                . 'Other,Middle,Member,00037894,Information Technology,same@gmail.com'),
+        ])->assertSessionHas('error')->assertSessionHas('import_skipped', fn ($rows) => $rows[0]['row'] === 3
+            && str_contains($rows[0]['reason'], 'Duplicate email'));
+        $this->assertDatabaseCount('users', 2);
+        foreach (['student' => ['student_id', '00037893'], 'faculty' => ['employee_id', 'FAC-087987']] as $type => [$column, $identifier]) {
+            $csv = "firstname,middlename,lastname,{$column},program,email\n"
+                . "Roseann,Middle,Member,{$identifier},Information Technology,  ROSEANN.{$type}@GMAIL.COM  ";
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type, 'file' => UploadedFile::fake()->createWithContent('normalized.csv', $csv),
+            ])->assertSessionHas('success');
+            $this->assertSame('roseann.' . $type . '@gmail.com', User::where('student_id', $identifier)->value('email'));
+            // Re-importing the same account updates it without creating another account.
+            $this->post(route('admin.import-users'), [
+                'import_member_type' => $type, 'file' => UploadedFile::fake()->createWithContent('normalized.csv', $csv),
+            ])->assertSessionHas('success');
+        }
+        $this->assertDatabaseCount('users', 4);
+    }
+
     public function test_import_always_generates_the_password_from_id_and_first_name_even_with_a_password_column(): void
     {
         $dean = User::create([
-            'name' => 'Login Details Dean', 'email' => 'generated-login@example.com', 'password' => 'password',
+            'name' => 'Login Details Dean', 'email' => 'generated-login@gmail.com', 'password' => 'password',
             'role' => 'admin', 'department' => 'College of Computer Studies', 'is_department_dean' => true,
             'is_active' => true, 'is_approved' => true, 'policy_accepted_at' => now(),
             'policy_version' => config('repository_policy.version', '2026-04-29'),
@@ -1261,8 +1450,8 @@ class ImportedUserAccessTest extends TestCase
         $this->actingAs($dean);
         foreach (['student' => '00037838', 'faculty' => 'FAC-003'] as $type => $identifier) {
             $idColumn = $type === 'student' ? 'student_id' : 'employee_id';
-            $csv = "firstname,middlename,lastname,{$idColumn},program,password\n"
-                . "SE RGIO,Middle,Member,{$identifier},Information Technology,ProvidedPassword123!";
+            $csv = "firstname,middlename,lastname,{$idColumn},program,password,email\n"
+                . "SE RGIO,Middle,Member,{$identifier},Information Technology,ProvidedPassword123!,{$type}.password@gmail.com";
             $this->post(route('admin.import-users'), [
                 'import_member_type' => $type,
                 'file' => UploadedFile::fake()->createWithContent($type . '.csv', $csv),

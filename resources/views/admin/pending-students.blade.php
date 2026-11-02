@@ -115,6 +115,7 @@
     @endif
 </div>
 
+@push('styles')
 <style>
 .ps-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
 .ps-search{flex:1;min-width:240px}
@@ -162,4 +163,5 @@
     .ps-actions form,.ps-actions .ps-btn,.ps-btn{width:100%}
 }
 </style>
+@endpush
 @endsection

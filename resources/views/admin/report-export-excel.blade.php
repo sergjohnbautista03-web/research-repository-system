@@ -130,6 +130,12 @@
             </Row>
             <Row ss:Height="8"/>
 
+            @if(!empty($filters['search']))
+            <Row ss:Height="22">
+                <Cell ss:StyleID="MetaLabel"><Data ss:Type="String">Search</Data></Cell>
+                <Cell ss:MergeAcross="{{ $columnCount - 2 }}" ss:StyleID="MetaValue"><Data ss:Type="String">{{ $cleanXml($filters['search']) }}</Data></Cell>
+            </Row>
+            @endif
             <Row ss:Height="24">
                 <Cell ss:StyleID="Header"><Data ss:Type="String">No.</Data></Cell>
                 @if($showResearchIds)<Cell ss:StyleID="Header"><Data ss:Type="String">Research ID</Data></Cell>@endif

@@ -7,14 +7,30 @@
     $profileRoleLabel = $profileUser->isDepartmentDean()
         ? 'Dean'
         : ($profileUser->isResearchCoordinator() ? 'Research Coordinator' : ucfirst($profileUser->role));
-    $profileIdLabel = $profileUser->isDepartmentDean()
-        ? 'Dean ID'
-        : ($profileUser->isResearchCoordinator() ? 'Coordinator ID' : ($profileUser->isAdmin() ? 'Admin ID' : 'Student ID'));
+    $profileNameParts = preg_split('/\s+/', trim($profileUser->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $profileMiddleParts = preg_split('/\s+/', trim((string) $profileUser->middle_name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    if ($profileMiddleParts) {
+        for ($i = 1, $lastStart = count($profileNameParts) - count($profileMiddleParts); $i <= $lastStart; $i++) {
+            $matchesMiddleName = true;
+            foreach ($profileMiddleParts as $offset => $middlePart) {
+                if (mb_strtolower($profileNameParts[$i + $offset]) !== mb_strtolower($middlePart)) {
+                    $matchesMiddleName = false;
+                    break;
+                }
+            }
+            if ($matchesMiddleName) {
+                array_splice($profileNameParts, $i, count($profileMiddleParts));
+                break;
+            }
+        }
+    }
+    $profileFirstName = $profileNameParts[0] ?? '';
+    $profileLastName = implode(' ', array_slice($profileNameParts, 1));
+    $pendingProfileAccountChange = session('profile_account_change_verification');
     if (! $profileUser->isAdmin()) {
         $profileRoleLabel = $profileUser->role === 'researcher'
             ? (is_null($profileUser->graduation_year) ? 'Faculty' : 'Student')
             : 'Student';
-        $profileIdLabel = $profileRoleLabel === 'Faculty' ? 'Faculty ID' : 'Student ID';
     }
 @endphp
 
@@ -35,7 +51,7 @@
     {{-- ══ BODY ══ --}}
     <div class="prof-body">
 
-        @if($errors->any())
+        @if($errors->any() && ! $errors->has('account_verification_code'))
             <div class="alert alert-error" style="margin-bottom:20px; border-radius:12px;">
                 @foreach($errors->all() as $error)
                     <p>{{ $error }}</p>
@@ -98,30 +114,31 @@
 
                 <div class="prof-form-grid">
                     <div class="prof-field">
-                        <label class="prof-field-label">Full Name</label>
-                        <input type="text" name="name" value="{{ old('name', auth()->user()->name) }}" required class="prof-input" @readonly(! $profileUser->isAdmin())>
+                        <label class="prof-field-label" for="profile-first-name">First Name</label>
+                        <input id="profile-first-name" type="text" value="{{ $profileFirstName }}" readonly aria-readonly="true" class="prof-input prof-input--disabled">
                     </div>
                     <div class="prof-field">
-                        <label class="prof-field-label">Email Address</label>
-                        <input type="email" value="{{ auth()->user()->email }}" disabled class="prof-input prof-input--disabled">
-                        <small class="prof-hint">Email cannot be changed.</small>
-                        </div>
-                    @if(auth()->user()->student_id)
-                    <div class="prof-field">
-                        <label class="prof-field-label">{{ $profileIdLabel }}</label>
-                        <input type="text" value="{{ auth()->user()->student_id }}" disabled class="prof-input prof-input--disabled">
+                        <label class="prof-field-label" for="profile-last-name">Last Name</label>
+                        <input id="profile-last-name" type="text" value="{{ $profileLastName }}" readonly aria-readonly="true" class="prof-input prof-input--disabled">
                     </div>
-                    @endif
+                    <div class="prof-field">
+                        <label class="prof-field-label" for="profile-username">Username (Login ID)</label>
+                        <input id="profile-username" type="text" name="username" value="{{ old('username', $pendingProfileAccountChange['changes']['username'] ?? ($profileUser->username ?: $profileUser->student_id ?: $profileUser->email)) }}" required maxlength="100" autocomplete="username" class="prof-input">
+                        <small class="prof-hint">You can use this username or your email address to log in.</small>
+                    </div>
+                    <div class="prof-field">
+                        <label class="prof-field-label" for="profile-email">Email Address</label>
+                        <input id="profile-email" type="email" name="email" value="{{ old('email', $pendingProfileAccountChange['changes']['email'] ?? $profileUser->email) }}" required autocomplete="email" class="prof-input">
+                        <small class="prof-hint">You can update your email address here.</small>
+                    </div>
                 </div>
 
-                @if($profileUser->isAdmin())
                 <div class="prof-form-actions">
                     <button type="submit" class="prof-btn prof-btn--primary">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
                         Save Changes
                     </button>
                 </div>
-                @endif
             </form>
         </div>
         </div>
@@ -250,9 +267,49 @@
             @endif
         </div>
 
+    @if($profileUser->isAdmin() && ($pendingProfileAccountChange || session('profile_account_change_modal_notice')))
+        <div class="prof-account-verify-overlay" role="presentation">
+            <section class="prof-account-verify-modal" role="dialog" aria-modal="true" aria-labelledby="prof-account-verify-title">
+                <div class="prof-account-verify-icon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+                </div>
+                <h2 id="prof-account-verify-title">Verify Profile Changes</h2>
+                <p class="prof-account-verify-copy">
+                    @if($pendingProfileAccountChange)
+                        Enter the 6-digit code sent to your currently registered email address <strong>{{ $pendingProfileAccountChange['current_email'] }}</strong>. The code expires in 5 minutes. Your changes are saved only after verification.
+                    @else
+                        This verification request is no longer active. Return to your profile, review your changes, and save again to receive a new code.
+                    @endif
+                </p>
+
+                @if($errors->has('account_verification_code'))
+                    <div class="prof-account-verify-error" role="alert">{{ $errors->first('account_verification_code') }}</div>
+                @endif
+
+                @if($pendingProfileAccountChange)
+                    <form method="POST" action="{{ route('profile.account.verify') }}">
+                        @csrf
+                        <label for="profile-account-verification-code" class="prof-field-label">6-Digit Verification Code</label>
+                        <input id="profile-account-verification-code" type="text" name="account_verification_code" value="{{ old('account_verification_code') }}" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required autofocus class="prof-input prof-account-verify-code">
+                        <div class="prof-account-verify-actions">
+                            <button type="submit" class="prof-btn prof-btn--primary">Verify &amp; Save Changes</button>
+                            <button type="submit" form="cancel-profile-account-change" class="prof-btn prof-btn--ghost">Cancel</button>
+                        </div>
+                    </form>
+                    <form id="cancel-profile-account-change" method="POST" action="{{ route('profile.account.cancel') }}">@csrf</form>
+                @else
+                    <div class="prof-account-verify-actions">
+                        <a href="{{ route('profile.edit') }}" class="prof-btn prof-btn--primary">Return to Profile</a>
+                    </div>
+                @endif
+            </section>
+        </div>
+    @endif
+
     </div>
 </div>
 
+@push('styles')
 <style>
 .prof-root { font-family: var(--font-body); background: #eeeaf6; min-height: 100vh; }
 
@@ -509,6 +566,16 @@
     .prof-top-grid { grid-template-columns: 1fr; }
 }
 .prof-verification-notice { display: flex; align-items: center; gap: 22px; margin-bottom: 24px; padding: 22px 24px; border: 1px solid #e5d5fc; border-radius: 16px; background: #faf6ff; }
+.prof-account-verify-overlay { position: fixed; inset: 0; z-index: 11000; display: grid; place-items: center; padding: 20px; background: rgba(32, 13, 53, .52); backdrop-filter: blur(4px); }
+.prof-account-verify-modal { width: min(100%, 460px); padding: 30px; border: 1px solid #e8dff5; border-radius: 20px; background: #fff; box-shadow: 0 24px 70px rgba(35, 13, 61, .28); }
+.prof-account-verify-icon { display: grid; width: 48px; height: 48px; place-items: center; margin-bottom: 16px; border: 1px solid #e3d2fa; border-radius: 15px; background: #f5edff; color: #6b2fa0; }
+.prof-account-verify-modal h2 { margin: 0 0 10px; color: #3b0f7a; font-family: var(--font-heading, Georgia, serif); font-size: 23px; }
+.prof-account-verify-copy { margin: 0 0 20px; color: #756485; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.prof-account-verify-copy strong { color: #4c2773; }
+.prof-account-verify-code { margin-top: 8px; font-family: monospace; font-size: 24px; letter-spacing: 8px; text-align: center; }
+.prof-account-verify-error { margin: 0 0 16px; padding: 11px 13px; border: 1px solid #fecaca; border-radius: 10px; background: #fef2f2; color: #b91c1c; font-size: 13px; font-weight: 600; line-height: 1.5; }
+.prof-account-verify-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.prof-account-verify-actions .prof-btn { justify-content: center; }
 .prof-verification-icon { display: grid; place-items: center; flex: 0 0 60px; height: 60px; border-radius: 20px; background: #eee2ff; color: #7c3aed; }
 .prof-verification-notice > div { min-width: 0; }
 .prof-verification-notice > div > strong { font-size: 17px; color: #54208b; }
@@ -522,6 +589,7 @@
 .prof-password-requirements { grid-column: 2 / -1; margin: 0; line-height: 1.6; }
 @media(max-width:900px) { .prof-password-grid { grid-template-columns: 1fr; gap: 18px; } .prof-password-requirements { grid-column: 1; } .prof-verification-notice { align-items: flex-start; gap: 14px; padding: 18px; } .prof-verification-icon { flex-basis: 44px; height: 44px; border-radius: 14px; } }
 </style>
+@endpush
 
 @push('scripts')
 <script>

@@ -67,7 +67,7 @@ body:has(.rc-dashboard) .admin-sidebar{background-color:#21063e;background-image
     </div>
     <section class="rc-stats" aria-label="Research overview">
         @foreach($cards as [$label, $key, $description, $icon, $url])
-            <a href="{{ $url }}" class="rc-stat">
+            <a href="{{ $url }}" class="rc-stat" data-open-journal-batch data-batch-mode="list" data-batch-title="{{ $label }}" aria-haspopup="dialog" aria-controls="journalBatchModal">
                 <span class="rc-icon"><svg viewBox="0 0 24 24" aria-hidden="true">{!! $icons[$icon] !!}</svg></span>
                 <div class="rc-stat-text"><h2>{{ $label }}</h2><strong>{{ number_format($stats[$key]) }}</strong><p>{{ $description }}</p></div>
                 <span class="rc-chevron" aria-hidden="true">›</span>
@@ -121,4 +121,5 @@ body:has(.rc-dashboard) .admin-sidebar{background-color:#21063e;background-image
         </div>
     </div>
 </div>
+@include('admin.partials.journal-batch-modal')
 @endsection

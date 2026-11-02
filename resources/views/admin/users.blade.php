@@ -4,6 +4,7 @@
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/dean-import-users.css') }}?v={{ filemtime(public_path('css/dean-import-users.css')) }}">
 <link rel="stylesheet" href="{{ asset('css/dean-add-user.css') }}?v={{ filemtime(public_path('css/dean-add-user.css')) }}">
+<link rel="stylesheet" href="{{ asset('css/department-account-form.css') }}?v={{ filemtime(public_path('css/department-account-form.css')) }}">
 @if(auth()->user()->canImportUsers())
 <link rel="stylesheet" href="{{ asset('css/dean-semester-users.css') }}?v={{ filemtime(public_path('css/dean-semester-users.css')) }}">
 @endif
@@ -222,6 +223,7 @@
                     $isApprovedStudentAccount = $user->role === 'user' && !empty($user->student_id);
                     $isDean = $user->role === 'admin' && $user->is_department_dean;
                     $isCoordinator = $user->role === 'admin' && $user->is_research_coordinator;
+                    $programLabel = $user->isAdmin() ? 'N/A' : ($user->program ?: 'Unassigned');
                     $grad         = $user->graduation_year;
                     $years        = $grad ? ($grad - $currentYear) : null;
 
@@ -265,7 +267,7 @@
                             <span class="mu-role-badge mu-role-{{ $user->role }}">{{ ucfirst($user->role) }}</span>
                         @endif
                     </td>
-                    <td class="mu-dept" data-label="Program" title="{{ $user->program }}">{{ $user->program ? Str::limit($user->program, 40) : ($user->role === 'admin' ? '—' : 'Unassigned') }}</td>
+                    <td class="mu-dept" data-label="Program" title="{{ $programLabel }}">{{ Str::limit($programLabel, 40) }}</td>
                     <td class="mu-id" data-label="ID">{{ $user->student_id ?: '—' }}</td>
                     
                     <td data-label="Actions">
@@ -370,18 +372,23 @@
                 <div>
                     <div data-import-guide="student" @if($importMemberType !== 'student') hidden @endif>
                         <h4>Student CSV</h4>
-                        <p>Use <code>student_id</code> with exactly 8 digits. Member type is automatically set to Student.</p>
+                        <p>Enter 1–8 digits in <code>student_id</code>, numbers only. Short IDs are automatically padded with leading zeros: <code>37893</code> becomes <code>00037893</code>. Member type is automatically set to Student.</p>
                         <div class="iu-column-tags">@foreach(['firstname', 'middlename', 'lastname', 'student_id', 'year_level', 'program', 'email'] as $column)<span>{{ $column }}</span>@endforeach</div>
+                        <p>For <code>year_level</code>, use <strong>1</strong> = 1st Year, <strong>2</strong> = 2nd Year, <strong>3</strong> = 3rd Year, or <strong>4</strong> = 4th Year.</p>
+                        <p>Example login for Roseann: username <code>00037893</code>, password <code>00037893_Ros</code>.</p>
                         <a class="iu-template-link" href="{{ asset('templates/students.csv') }}" download="students.csv">Download Student CSV Template</a>
                     </div>
                     <div data-import-guide="faculty" @if($importMemberType !== 'faculty') hidden @endif>
                         <h4>Faculty CSV</h4>
-                        <p>Use <code>employee_id</code> for the Faculty ID. Member type is automatically set to Faculty.</p>
+                        <p>Enter the complete Faculty ID in <code>employee_id</code>, including the <code>FAC-</code> prefix. Example: <code>FAC-087987</code>. Member type is automatically set to Faculty; year level is not needed.</p>
                         <div class="iu-column-tags">@foreach(['firstname', 'middlename', 'lastname', 'employee_id', 'program', 'email'] as $column)<span>{{ $column }}</span>@endforeach</div>
+                        <p>Example login for Roseann: username <code>FAC-087987</code>, password <code>FAC-087987_Ros</code>.</p>
                         <a class="iu-template-link" href="{{ asset('templates/faculty.csv') }}" download="faculty.csv">Download Faculty CSV Template</a>
                     </div>
-                    <p>Program is required for every Student and Faculty row; use the full program name, such as Information Technology or Computer Science. Email can be blank for a generated address.</p>
-                    <p>Username is the Student or Faculty ID. Password is automatically generated as <code>ID_First3Letters</code> of the first name, with the first letter capitalized. Example: <code>00037838_Ser</code> for Sergio.</p>
+                    <p>Program is required for every Student and Faculty row. Use the full program name, such as <strong>Information Technology</strong> or <strong>Computer Science</strong>. First, middle, and last names are required and must contain letters and spaces only.</p>
+                    <p>A valid Gmail address (@gmail.com) is required in the <code>email</code> column for every row, for example <code>name@gmail.com</code>. Emails are trimmed and converted to lowercase. Blank, incomplete, and non-Gmail addresses are rejected.</p>
+                    <p>If any row has an error or a duplicate within the file, nothing is saved. Correct the rows listed in the import results, then upload the file again.</p>
+                    <p>For new accounts, the username is the Student or Faculty ID. The generated password uses <code>ID_First3Letters</code> of the first name, with the first letter capitalized. Existing accounts keep their passwords.</p>
                 </div>
             </div>
             </div>
@@ -397,7 +404,6 @@
 @if(auth()->user() && auth()->user()->canManageDepartmentKeys())
 @php
     $deptAccountType = old('account_type', 'dean');
-    $deptAccountSuffix = $deptAccountType === 'coordinator' ? 'Coordinator' : 'Dean';
 @endphp
 <div id="deptAccountModal" class="mu-modal-overlay" style="display:none;" onclick="closeDeptAccountModal(event)">
     <div class="mu-modal-card mu-create-modal-card" onclick="event.stopPropagation()">
@@ -409,15 +415,8 @@
             <button type="button" class="mu-modal-close" onclick="closeDeptAccountModal()">&times;</button>
         </div>
 
-        <form method="POST" action="{{ route('admin.store-admin') }}" class="mu-create-form">
+        <form method="POST" action="{{ route('admin.store-admin') }}" class="mu-create-form" data-department-account-form>
             @csrf
-
-            @if($errors->any() && ! $errors->importUsers->any())
-                <div class="mu-alert mu-alert-error">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    {{ $errors->first() }}
-                </div>
-            @endif
 
             <div class="mu-create-block">
                 <div class="mu-create-preview-head">
@@ -431,6 +430,7 @@
                             <option value="dean" {{ $deptAccountType === 'dean' ? 'selected' : '' }}>Department Dean</option>
                             <option value="coordinator" {{ $deptAccountType === 'coordinator' ? 'selected' : '' }}>Research Coordinator</option>
                         </select>
+                        <small id="dept-error-account_type" class="department-field-error" data-department-error="account_type" aria-live="polite">{{ $errors->first('account_type') }}</small>
                     </div>
                     <div class="mu-create-field">
                         <label for="dept_account_department">Assigned Department</label>
@@ -440,6 +440,7 @@
                                 <option value="{{ $department }}" {{ old('department') === $department ? 'selected' : '' }}>{{ $department }}</option>
                             @endforeach
                         </select>
+                        <small id="dept-error-department" class="department-field-error" data-department-error="department" aria-live="polite">{{ $errors->first('department') }}</small>
                     </div>
                 </div>
             </div>
@@ -448,24 +449,28 @@
                 <div class="mu-create-grid">
                     <div class="mu-create-field">
                         <label for="dept_account_firstname">First Name</label>
-                        <input type="text" id="dept_account_firstname" name="firstname" value="{{ old('firstname') }}" required autocomplete="off" oninput="validateDeptAccountName(this)">
+                        <input type="text" id="dept_account_firstname" name="firstname" value="{{ old('firstname') }}" required maxlength="255" autocomplete="off">
+                        <small id="dept-error-firstname" class="department-field-error" data-department-error="firstname" aria-live="polite">{{ $errors->first('firstname') }}</small>
                     </div>
                     <div class="mu-create-field">
                         <label for="dept_account_lastname">Last Name</label>
-                        <input type="text" id="dept_account_lastname" name="lastname" value="{{ old('lastname') }}" required autocomplete="off" oninput="validateDeptAccountName(this)">
+                        <input type="text" id="dept_account_lastname" name="lastname" value="{{ old('lastname') }}" required maxlength="255" autocomplete="off">
+                        <small id="dept-error-lastname" class="department-field-error" data-department-error="lastname" aria-live="polite">{{ $errors->first('lastname') }}</small>
                     </div>
                     <div class="mu-create-field">
-                        <label for="dept_account_middlename">Middle Name</label>
-                        <input type="text" id="dept_account_middlename" name="middlename" value="{{ old('middlename') }}" autocomplete="off" oninput="validateDeptAccountName(this)">
+                        <label for="dept_account_middlename">Middle Name (optional)</label>
+                        <input type="text" id="dept_account_middlename" name="middlename" value="{{ old('middlename') }}" maxlength="255" autocomplete="off">
+                        <small id="dept-error-middlename" class="department-field-error" data-department-error="middlename" aria-live="polite">{{ $errors->first('middlename') }}</small>
                     </div>
                     <div class="mu-create-field">
                         <label for="dept_account_id" id="deptAccountIdLabel">Dean ID</label>
-                        <input type="text" id="dept_account_id" name="dean_id" value="{{ old('dean_id') }}" required autocomplete="off" placeholder="{{ $deptAccountType === 'coordinator' ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001' }}" oninput="validateDeptAccountId(this)">
-                        <small class="mu-field-error" id="deptAccountIdError"></small>
+                        <input type="text" id="dept_account_id" name="dean_id" value="{{ old('dean_id') }}" required inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" placeholder="e.g. 000000">
+                        <small id="dept-error-dean_id" class="department-field-error" data-department-error="dean_id" aria-live="polite">{{ $errors->first('dean_id') }}</small>
                     </div>
                     <div class="mu-create-field">
                         <label for="dept_account_email">Email Address</label>
-                        <input type="email" id="dept_account_email" name="email" value="{{ old('email') }}" required maxlength="255" autocomplete="email" placeholder="name@gmail.com">
+                        <input type="email" id="dept_account_email" name="email" value="{{ old('email') }}" required maxlength="255" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@gmail.com">
+                        <small id="dept-error-email" class="department-field-error" data-department-error="email" aria-live="polite">{{ $errors->first('email') }}</small>
                         <small>Account details will be sent to this email address.</small>
                     </div>
                 </div>
@@ -475,11 +480,11 @@
                 <div class="mu-create-grid">
                     <div class="mu-create-field">
                         <label for="dept_account_login">Login ID</label>
-                        <input type="text" id="dept_account_login" value="{{ old('dean_id') }}" readonly>
+                        <input type="text" id="dept_account_login" value="" data-department-login readonly>
                     </div>
                     <div class="mu-create-field">
                         <label for="dept_account_password">Default Password</label>
-                        <input type="text" id="dept_account_password" value="{{ old('dean_id') ? old('dean_id') . '_' . $deptAccountSuffix . '@1' : '' }}" readonly>
+                        <input type="text" id="dept_account_password" value="" data-department-password readonly>
                     </div>
                 </div>
             </div>
@@ -493,6 +498,7 @@
 </div>
 @endif
 
+@push('styles')
 <style>
 .mu-program-form{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:0 24px 20px;}
 .mu-program-form[hidden]{display:none;}
@@ -763,6 +769,7 @@
     .mu-create-actions{flex-direction:column;}
 }
 </style>
+@endpush
 
 @php
     $userModalData = $users->getCollection()->mapWithKeys(function ($user) use ($currentYear) {
@@ -1047,7 +1054,7 @@ function deptAccountMeta() {
         isCoordinator,
         label: isCoordinator ? 'Research Coordinator' : 'Department Dean',
         shortLabel: isCoordinator ? 'Coordinator' : 'Dean',
-        idPlaceholder: isCoordinator ? 'e.g. RC-2026-001' : 'e.g. DEAN-2026-001',
+        idPlaceholder: 'e.g. 000000',
         preview: isCoordinator
             ? 'Coordinator accounts receive journal tasks, compile the approved papers already available, and submit completed journals to the Dean for review.'
             : 'Dean accounts assign journal tasks by Academic Year, review completed journals, and forward approved journals to Admin for publishing.',
@@ -1067,44 +1074,6 @@ function syncDeptAccountTypeText() {
     if (idLabel) idLabel.textContent = meta.shortLabel + ' ID';
     if (idInput) idInput.placeholder = meta.idPlaceholder;
     if (submitLabel) submitLabel.textContent = 'Create ' + meta.shortLabel + ' Account';
-
-    updateDeptAccountGeneratedAccess(idInput ? idInput.value : '');
-}
-
-function updateDeptAccountGeneratedAccess(accountId) {
-    const login = document.getElementById('dept_account_login');
-    const password = document.getElementById('dept_account_password');
-    const cleanAccountId = (accountId || '').trim();
-    const meta = deptAccountMeta();
-
-    if (!login || !password) return;
-
-    login.value = cleanAccountId;
-    password.value = cleanAccountId ? cleanAccountId + '_' + meta.shortLabel + '@1' : '';
-}
-
-function validateDeptAccountName(input) {
-    if (!input.value.length) {
-        input.classList.remove('is-invalid');
-        return;
-    }
-
-    input.classList.toggle('is-invalid', /[0-9]/.test(input.value) || /[^a-zA-Z\s\-\.]/.test(input.value));
-}
-
-function validateDeptAccountId(input) {
-    const error = document.getElementById('deptAccountIdError');
-    updateDeptAccountGeneratedAccess(input.value);
-
-    if (!input.value.length) {
-        input.classList.remove('is-invalid');
-        if (error) error.textContent = '';
-        return;
-    }
-
-    const isValid = /^[A-Za-z0-9\-]+$/.test(input.value);
-    input.classList.toggle('is-invalid', !isValid);
-    if (error) error.textContent = isValid ? '' : 'Account ID may only contain letters, numbers, and hyphens.';
 }
 
 const deptAccountType = document.getElementById('dept_account_type');
@@ -1128,5 +1097,6 @@ openImportUserModal();
 openDeptAccountModal();
 @endif
 </script>
+<script src="{{ asset('js/department-account-form.js') }}?v={{ filemtime(public_path('js/department-account-form.js')) }}"></script>
 @endsection
 

@@ -94,6 +94,7 @@
                     </div>
                     <div class="cu-field" id="yearLevelWrap" style="{{ old('member_type') === 'student' ? '' : 'display:none;' }}">
                         <label for="year_level">Year Level</label>
+<p class="text-sm text-gray-500">Enter the student's year level: <strong>1</strong> = 1st Year, <strong>2</strong> = 2nd Year, <strong>3</strong> = 3rd Year, <strong>4</strong> = 4th Year.</p>
                         <select id="year_level" name="year_level">
                             <option value="">Select year level</option>
                             @foreach([1, 2, 3, 4] as $level)
@@ -147,6 +148,7 @@
     </div>
 </div>
 
+@push('styles')
 <style>
 .cu-wrap{display:grid;grid-template-columns:340px minmax(0,1fr);gap:24px;max-width:1100px}
 .cu-info-panel{background:linear-gradient(170deg,#36125f 0%,#4f1b7f 100%);color:#fff;border-radius:22px;padding:28px;box-shadow:0 20px 40px rgba(59,15,122,.18)}
@@ -180,6 +182,7 @@
 @media (max-width: 980px){.cu-wrap{grid-template-columns:1fr}}
 @media (max-width: 640px){.cu-grid{grid-template-columns:1fr}.cu-form,.cu-panel-head,.cu-info-panel{padding:18px}.cu-actions{flex-direction:column}.cu-btn{width:100%}}
 </style>
+@endpush
 
 <script>
 function toggleUserRoleFields() {

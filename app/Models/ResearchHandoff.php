@@ -27,6 +27,7 @@ class ResearchHandoff extends Model
         'file_path',
         'file_name',
         'notes',
+        'deadline',
         'status',
         'received_at',
         'added_at',
@@ -35,6 +36,7 @@ class ResearchHandoff extends Model
     ];
 
     protected $casts = [
+        'deadline' => 'date',
         'received_at' => 'datetime',
         'added_at' => 'datetime',
         'is_batch' => 'boolean',
@@ -81,6 +83,13 @@ class ResearchHandoff extends Model
     public function journals()
     {
         return $this->hasMany(Research::class, 'research_handoff_id');
+    }
+
+    public function batchHeading(): string
+    {
+        $category = Research::adminSubmissionCategories()[$this->submission_category] ?? 'Research Journal';
+
+        return $category.' Batches - AY '.$this->school_year;
     }
 
     public function batchLabel(): string

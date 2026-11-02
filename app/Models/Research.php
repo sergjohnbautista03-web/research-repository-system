@@ -181,6 +181,27 @@ class Research extends Model
         return $this->school_year ?: ($this->semester?->school_year ?? 'Not set');
     }
 
+    public static function academicYearExpression(): string
+    {
+        return "COALESCE(NULLIF(TRIM(researches.school_year), ''), "
+            ."(SELECT NULLIF(TRIM(semesters.school_year), '') FROM semesters WHERE semesters.id = researches.semester_id))";
+    }
+
+    public static function academicYearsForQuery($query)
+    {
+        $years = (clone $query)->reorder()
+            ->selectRaw(static::academicYearExpression().' AS academic_year')
+            ->distinct()->get()->pluck('academic_year');
+
+        return static::academicYearOptions($years);
+    }
+
+    public static function academicYearOptions($recordedYears = [])
+    {
+        return collect(['2022-2023', '2023-2024', '2024-2025', '2025-2026'])
+            ->merge($recordedYears)->filter()->unique()->sortDesc()->values();
+    }
+
     public function handoff()
     {
         return $this->belongsTo(ResearchHandoff::class, 'research_handoff_id');

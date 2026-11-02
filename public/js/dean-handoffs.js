@@ -2,7 +2,7 @@
     const form = document.getElementById('dh-filters');
     if (!form) return;
     const feedback = document.getElementById('dh-feedback');
-    let controller, revision = 0;
+    let timer, controller, revision = 0;
 
     function filterUrl() {
         const target = new URL(form.action);
@@ -10,17 +10,22 @@
         return target;
     }
 
-    async function refresh(target = filterUrl()) {
+    function cancel() {
+        clearTimeout(timer);
         controller?.abort();
+        return ++revision;
+    }
+
+    async function refresh(target = filterUrl(), current = cancel()) {
         controller = new AbortController();
-        const current = ++revision;
         document.getElementById('dh-results').setAttribute('aria-busy', 'true');
         feedback.textContent = 'Updating handoff records…';
         try {
             const response = await fetch(target, { signal: controller.signal, credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'text/html' } });
             if (!response.ok || response.redirected) throw new Error('Unavailable');
             const next = new DOMParser().parseFromString(await response.text(), 'text/html').getElementById('dh-results');
-            if (!next || current !== revision) return;
+            if (current !== revision) return;
+            if (!next) throw new Error('Missing results');
             document.getElementById('dh-results').replaceWith(next);
             history.replaceState(null, '', target);
             feedback.textContent = 'Handoff records updated.';
@@ -31,11 +36,21 @@
         }
     }
 
-    form.addEventListener('change', () => refresh());
+    function scheduleSearch(event) {
+        if (event.target.name !== 'search') return;
+        const current = cancel();
+        if (event.isComposing) return;
+        timer = setTimeout(() => refresh(filterUrl(), current), 350);
+    }
+
+    form.addEventListener('input', scheduleSearch);
+    form.addEventListener('compositionend', scheduleSearch);
+    form.addEventListener('change', event => { if (event.target?.name !== 'search') refresh(); });
     form.addEventListener('submit', event => { event.preventDefault(); refresh(); });
     document.getElementById('dh-clear').addEventListener('click', event => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        form.querySelectorAll('select').forEach(select => { select.value = ''; });
+        form.querySelectorAll('input[name="search"], select').forEach(field => { field.value = ''; });
         refresh();
     });
     document.addEventListener('click', event => {
